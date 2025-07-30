@@ -34,6 +34,8 @@ dev:
 # Format code
 fmt:
 	go fmt ./...
+	find . -name "*.go" -exec sed -i 's/[[:space:]]*$$//' {} \;
+	find . -name "*.go" -exec sh -c 'if [ $$(tail -c1 "$$1" | wc -l) -eq 0 ]; then echo >> "$$1"; fi' _ {} \;
 
 # Vet code
 vet:
