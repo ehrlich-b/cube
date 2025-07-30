@@ -3,8 +3,8 @@ package cli
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/ehrlich-b/cube/internal/web"
+	"github.com/spf13/cobra"
 )
 
 var serveCmd = &cobra.Command{
@@ -15,9 +15,9 @@ for the cube solver.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		port, _ := cmd.Flags().GetString("port")
 		host, _ := cmd.Flags().GetString("host")
-		
+
 		fmt.Printf("Starting web server at http://%s:%s\n", host, port)
-		
+
 		server := web.NewServer()
 		if err := server.Start(host + ":" + port); err != nil {
 			fmt.Printf("Error starting server: %v\n", err)

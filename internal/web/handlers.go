@@ -66,23 +66,23 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
         </form>
         <div id="result" class="result" style="display: none;"></div>
     </div>
-    
+
     <script>
         document.getElementById('solveForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const scramble = document.getElementById('scramble').value;
             const algorithm = document.getElementById('algorithm').value;
             const dimension = parseInt(document.getElementById('dimension').value);
-            
+
             try {
                 const response = await fetch('/api/solve', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ scramble, algorithm, dimension })
                 });
-                
+
                 const result = await response.json();
-                document.getElementById('result').innerHTML = 
+                document.getElementById('result').innerHTML =
                     '<h3>Solution:</h3><p>' + result.solution + '</p>' +
                     '<p><strong>Steps:</strong> ' + result.steps + '</p>' +
                     '<p><strong>Time:</strong> ' + result.time + '</p>';
@@ -95,7 +95,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
     </script>
 </body>
 </html>`
-	
+
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprint(w, html)
 }
@@ -106,7 +106,7 @@ func (s *Server) handleSolve(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Import cube package at top of file
 	c := cube.NewCube(req.Dimension)
 	moves, err := cube.ParseScramble(req.Scramble)
@@ -114,33 +114,33 @@ func (s *Server) handleSolve(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Error parsing scramble: %v", err), http.StatusBadRequest)
 		return
 	}
-	
+
 	c.ApplyMoves(moves)
-	
+
 	solver, err := cube.GetSolver(req.Algorithm)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error getting solver: %v", err), http.StatusBadRequest)
 		return
 	}
-	
+
 	result, err := solver.Solve(c)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error solving cube: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Format solution
 	var solutionParts []string
 	for _, move := range result.Solution {
 		solutionParts = append(solutionParts, move.String())
 	}
-	
+
 	response := SolveResponse{
 		Solution: strings.Join(solutionParts, " "),
 		Steps:    result.Steps,
 		Time:     result.Duration.String(),
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }

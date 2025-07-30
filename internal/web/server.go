@@ -24,10 +24,10 @@ func (s *Server) setupRoutes() {
 	api := s.router.PathPrefix("/api").Subrouter()
 	api.HandleFunc("/solve", s.handleSolve).Methods("POST")
 	api.HandleFunc("/health", s.handleHealth).Methods("GET")
-	
+
 	// Static files
 	s.router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./internal/web/static/"))))
-	
+
 	// Serve main page
 	s.router.HandleFunc("/", s.handleIndex).Methods("GET")
 }
