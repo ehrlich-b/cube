@@ -1,6 +1,7 @@
 package cube
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -21,9 +22,13 @@ func TestMoveSystemLimitations(t *testing.T) {
 		}
 	})
 
-	t.Run("4x4x4 moves expose implementation problems", func(t *testing.T) {
+	t.Run("4x4x4 moves work correctly with multiple layers", func(t *testing.T) {
 		cube := NewCube(4)
 		originalState := cube.String()
+
+		// Store original colors at key positions
+		origFrontRight := [2]Color{cube.Faces[Front][0][2], cube.Faces[Front][0][3]}
+		origFrontLeft := [2]Color{cube.Faces[Front][0][0], cube.Faces[Front][0][1]}
 
 		// Apply R move to 4x4 cube
 		rMove := Move{Face: Right, Clockwise: true}
@@ -31,29 +36,127 @@ func TestMoveSystemLimitations(t *testing.T) {
 
 		newState := cube.String()
 
-		// The move should change the state (this will pass)
+		// The move should change the state
 		if originalState == newState {
 			t.Error("4x4 cube state should change after R move")
 		}
 
-		// But the inner layers are NOT handled correctly by our current implementation
-		// Our rotateAdjacentEdges function assumes only edge rows/columns exist
-		// For 4x4, there should be inner edge pieces that move differently
+		// For 4x4 cubes, R move should affect the two rightmost layers
+		// Check that the Front face's right two columns changed (don't care what color)
+		if cube.Faces[Front][0][2] == origFrontRight[0] || cube.Faces[Front][0][3] == origFrontRight[1] {
+			t.Error("4x4 R move should change front face right columns")
+		}
 
-		// This test documents the limitation - we can't easily test the correctness
-		// without implementing the proper 4x4 move system first
-		t.Log("WARNING: 4x4x4 move implementation is incomplete - inner layers not handled properly")
+		// Verify the move affects exactly 2 layers (half of 4)
+		// The leftmost 2 columns should remain unchanged
+		if cube.Faces[Front][0][0] != origFrontLeft[0] || cube.Faces[Front][0][1] != origFrontLeft[1] {
+			t.Error("4x4 R move should NOT change front face left columns")
+		}
 	})
 
 	t.Run("2x2x2 moves work (simpler case)", func(t *testing.T) {
 		cube := NewCube(2)
+		originalState := cube.String()
 
-		// 2x2 should work because it's simpler than 3x3 (no edges, only corners)
+		// Store original color at key position
+		origFrontRight := cube.Faces[Front][0][1]
+
+		// Apply R move
 		rMove := Move{Face: Right, Clockwise: true}
 		cube.ApplyMove(rMove)
 
+		// Should not be solved after move
 		if cube.IsSolved() {
 			t.Error("2x2 cube should not be solved after R move")
+		}
+
+		// Should be different from original
+		if originalState == cube.String() {
+			t.Error("2x2 cube state should change after R move")
+		}
+
+		// For 2x2, R move affects 1 layer (half of 2)
+		// Check Front face right column changed (don't care what color)
+		if cube.Faces[Front][0][1] == origFrontRight {
+			t.Error("2x2 R move should change front face right column")
+		}
+	})
+
+	t.Run("5x5x5 moves preserve center layer", func(t *testing.T) {
+		cube := NewCube(5)
+
+		// Store original colors at key positions
+		origFrontRight := [2]Color{cube.Faces[Front][0][3], cube.Faces[Front][0][4]}
+		origFrontCenter := cube.Faces[Front][0][2]
+		origFrontLeft := [2]Color{cube.Faces[Front][0][0], cube.Faces[Front][0][1]}
+
+		// Apply R move to 5x5 cube
+		rMove := Move{Face: Right, Clockwise: true}
+		cube.ApplyMove(rMove)
+
+		// For 5x5, R move should affect outer 2 layers, preserve center
+		// Check that rightmost 2 columns changed (don't care what color)
+		if cube.Faces[Front][0][3] == origFrontRight[0] || cube.Faces[Front][0][4] == origFrontRight[1] {
+			t.Error("5x5 R move should change front face rightmost 2 columns")
+		}
+
+		// Check that center column (index 2) is unchanged
+		if cube.Faces[Front][0][2] != origFrontCenter {
+			t.Error("5x5 R move should NOT change front face center column")
+		}
+
+		// Check that leftmost 2 columns are unchanged
+		if cube.Faces[Front][0][0] != origFrontLeft[0] || cube.Faces[Front][0][1] != origFrontLeft[1] {
+			t.Error("5x5 R move should NOT change front face leftmost 2 columns")
+		}
+	})
+
+	t.Run("comprehensive multi-size move testing", func(t *testing.T) {
+		testSizes := []int{2, 3, 4, 5, 6}
+
+		for _, size := range testSizes {
+			t.Run(fmt.Sprintf("%dx%dx%d", size, size, size), func(t *testing.T) {
+				cube := NewCube(size)
+				originalState := cube.String()
+
+				// Store original colors at all positions in the front face top row
+				origFrontColors := make([]Color, size)
+				for col := 0; col < size; col++ {
+					origFrontColors[col] = cube.Faces[Front][0][col]
+				}
+
+				// Apply R move
+				rMove := Move{Face: Right, Clockwise: true}
+				cube.ApplyMove(rMove)
+
+				// Basic checks
+				if cube.IsSolved() {
+					t.Errorf("%dx%d cube should not be solved after R move", size, size)
+				}
+
+				if originalState == cube.String() {
+					t.Errorf("%dx%d cube state should change after R move", size, size)
+				}
+
+				// Check that proper number of layers moved
+				expectedLayers := size / 2
+
+				// For the Front face, check that the rightmost 'expectedLayers' columns changed
+				for layer := 0; layer < expectedLayers; layer++ {
+					col := size - 1 - layer
+					if cube.Faces[Front][0][col] == origFrontColors[col] {
+						t.Errorf("%dx%d cube: column %d should have changed after R move", size, size, col)
+					}
+				}
+
+				// Check that the remaining columns did NOT change (if any)
+				unchangedLayers := size - expectedLayers
+				for layer := 0; layer < unchangedLayers; layer++ {
+					if cube.Faces[Front][0][layer] != origFrontColors[layer] {
+						t.Errorf("%dx%d cube: column %d should NOT have changed after R move", size, size, layer)
+					}
+				}
+			})
 		}
 	})
 }

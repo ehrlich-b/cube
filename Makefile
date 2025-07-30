@@ -1,4 +1,4 @@
-.PHONY: build clean test run serve install dev fmt vet lint
+.PHONY: build clean test run serve install dev fmt vet lint e2e-test test-all
 
 # Build the binary
 build:
@@ -34,8 +34,13 @@ dev:
 # Format code
 fmt:
 	go fmt ./...
-	find . -name "*.go" -exec sed -i 's/[[:space:]]*$$//' {} \;
-	find . -name "*.go" -exec sh -c 'if [ $$(tail -c1 "$$1" | wc -l) -eq 0 ]; then echo >> "$$1"; fi' _ {} \;
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		find . -name "*.go" -exec sed -i '' 's/[[:space:]]*$$//' {} \; ; \
+		find . -name "*.go" -exec sh -c 'if [ $$(tail -c1 "$$1" | wc -l) -eq 0 ]; then echo >> "$$1"; fi' _ {} \; ; \
+	else \
+		find . -name "*.go" -exec sed -i 's/[[:space:]]*$$//' {} \; ; \
+		find . -name "*.go" -exec sh -c 'if [ $$(tail -c1 "$$1" | wc -l) -eq 0 ]; then echo >> "$$1"; fi' _ {} \; ; \
+	fi
 
 # Vet code
 vet:
@@ -55,3 +60,12 @@ build-all:
 	GOOS=linux GOARCH=amd64 go build -o dist/cube-linux-amd64 ./cmd/cube
 	GOOS=darwin GOARCH=amd64 go build -o dist/cube-darwin-amd64 ./cmd/cube
 	GOOS=windows GOARCH=amd64 go build -o dist/cube-windows-amd64.exe ./cmd/cube
+
+# Run end-to-end tests
+e2e-test: build
+	@echo "Running end-to-end tests..."
+	@bash test/e2e_test.sh
+
+# Run all tests (unit + e2e)
+test-all: test e2e-test
+	@echo "All tests completed!"

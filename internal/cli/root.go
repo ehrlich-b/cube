@@ -18,5 +18,11 @@ func Execute() error {
 
 func init() {
 	rootCmd.AddCommand(solveCmd)
+	rootCmd.AddCommand(twistCmd)
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(verifyCmd)
+	rootCmd.AddCommand(showCmd)
+	rootCmd.AddCommand(lookupCmd)
+	rootCmd.AddCommand(optimizeCmd)
+	rootCmd.AddCommand(findCmd)
 }
