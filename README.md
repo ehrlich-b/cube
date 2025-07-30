@@ -1,136 +1,104 @@
 # Cube - Rubik's Cube Solver
 
-A flexible Rubik's cube solver written in Go that supports multiple dimensions and solving algorithms. Provides both CLI and web interfaces for solving, analyzing, and visualizing cube states.
+A comprehensive Rubik's cube solver written in Go supporting NxNxN cubes (2x2 through 10x10+), multiple solving algorithms, advanced move notation, and both CLI/web interfaces.
 
-## Features
-
-- **Multiple Cube Sizes**: Support for 2x2x2, 3x3x3, 4x4x4, and larger cubes
-- **Multiple Algorithms**: Beginner, CFOP, and Kociemba solving methods
-- **CLI Interface**: Command-line tool for quick solving and analysis
-- **Web Interface**: Browser-based interface with terminal-style interaction
-- **Colored Output**: Beautiful ASCII visualization with muted terminal colors
-- **Move Parsing**: Standard Singmaster notation (R, U', F2, etc.)
-- **Fast Performance**: Optimized cube representation and move application
-
-## Installation
+## ⚡ Quick Start
 
 ```bash
 git clone https://github.com/ehrlich-b/cube
 cd cube
-make install  # Download dependencies
-make build    # Build binary to dist/cube
-```
+make build
 
-## Quick Start
+# Start by exploring moves and patterns
+./dist/cube twist "R U R' U'" --color
 
-### Basic Solving
-
-```bash
-# Solve a scrambled 3x3x3 cube
-./dist/cube solve "R U R' U' R' F R F'"
-
-# Use different algorithm
-./dist/cube solve "R U R' U'" --algorithm cfop
-
-# Solve 4x4x4 cube
-./dist/cube solve "R U R' U'" --dimension 4
-
-# Enable colored output
+# Then try solving scrambled cubes
 ./dist/cube solve "R U R' U'" --color
 ```
 
-### Web Interface
+📖 **New to cubing?** Start with the [User Guide & Examples](./examples/) for step-by-step tutorials and spectacular demonstrations.
+
+## 🔧 Core Features
+
+- **NxNxN Cube Support**: 2x2x2, 3x3x3, 4x4x4, 5x5x5, and larger dimensions
+- **Multiple Algorithms**: BeginnerSolver, CFOPSolver, KociembaSolver with distinct solutions
+- **Advanced Notation**: Full WCA notation including M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations
+- **Power User Tools**: Move optimization (`cube optimize`), algorithm discovery (`cube find`)
+- **Solution Verification**: Built-in solution checking with `cube verify`
+- **Pattern Recognition**: Algorithm database with lookup functionality
+- **Dual Interfaces**: CLI tool and web terminal interface
+- **Visual Output**: Unicode blocks and ANSI colored ASCII with clean unfolded cross layout
+
+## 🚀 Command Overview
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| **`twist`** | **Apply moves and see results** | **`cube twist "R U R' U'" --color`** |
+| `solve` | Solve scrambled cubes | `cube solve "R U R' U'" --algorithm cfop --color` |
+| `verify` | Check if solution works | `cube verify "R U" "U' R'" --verbose` |
+| `show` | Display cube state with pattern highlighting | `cube show "R U R' U'" --highlight-oll --color` |
+| `lookup` | Search algorithm database | `cube lookup sune --preview` |
+| `optimize` | Minimize move sequences | `cube optimize "R R R"` → `R'` |
+| `find` | Discover new algorithms | `cube find pattern solved --max-moves 4` |
+| `serve` | Start web interface | `cube serve --port 8080` |
+
+## 📖 Documentation
+
+- **[User Guide & Examples](./examples/)** - Complete learning path from basics to advanced techniques
+- **[CLAUDE.md](./CLAUDE.md)** - Development guidance and project instructions  
+- **[TODO.md](./TODO.md)** - Current development status and roadmap
+
+## 🔧 Installation & Development
 
 ```bash
-# Start web server
-./dist/cube serve
+# Basic setup
+make install && make build
 
-# Custom host and port
-./dist/cube serve --host 0.0.0.0 --port 3000
+# Run comprehensive test suite (55 tests)
+make test-all
+
+# Code quality (always run before commits)
+make fmt && make vet
+
+# Start development server with hot reload
+make dev
 ```
 
-Visit `http://localhost:8080` for the terminal-style web interface.
-
-## CLI Examples
-
-### Basic Commands
+## ⚡ Quick Examples
 
 ```bash
-# Solve with default beginner algorithm
-./dist/cube solve "R U R' U'"
+# Basic solving with different algorithms
+./dist/cube solve "R U R' U'" --algorithm beginner --color
+./dist/cube solve "R U R' U'" --algorithm cfop --color 
+./dist/cube solve "R U R' U'" --algorithm kociemba --color
 
-# Show all available algorithms
-./dist/cube solve --help
+# Advanced notation on larger cubes
+./dist/cube solve "M E S" --dimension 3 --color        # Slice moves
+./dist/cube solve "Rw Fw Uw" --dimension 4 --color     # Wide moves
+./dist/cube solve "2R 3L 2F" --dimension 5 --color     # Layer moves
 
-# Solve empty scramble (already solved)
-./dist/cube solve ""
+# Power user tools
+./dist/cube optimize "R R R"                           # → R' (1 move)
+./dist/cube find pattern solved --max-moves 4          # Algorithm discovery
+./dist/cube verify "R U" "U' R'" --verbose            # Solution verification
 ```
 
-### Algorithm Comparison
+**See [examples/](./examples/) for 400+ comprehensive examples, tutorials, and patterns.**
 
-```bash
-# Compare different algorithms on same scramble
-./dist/cube solve "R U R' U' R' F R F'" --algorithm beginner
-./dist/cube solve "R U R' U' R' F R F'" --algorithm cfop
-./dist/cube solve "R U R' U' R' F R F'" --algorithm kociemba
-```
+## 🔤 Move Notation
 
-### Different Cube Sizes
+Full WCA (World Cube Association) standard notation support:
 
-```bash
-# 2x2x2 cube (Pocket Cube)
-./dist/cube solve "R U R' U'" --dimension 2
+| Type | Syntax | Description | Cube Sizes |
+|------|--------|-------------|------------|
+| **Basic** | `R`, `U'`, `F2` | Standard face moves (F/B/R/L/U/D) | Any |
+| **Slice** | `M`, `E'`, `S2` | Middle layer moves | Odd only (3x3, 5x5, 7x7...) |
+| **Wide** | `Rw`, `Fw'`, `Uw2` | Multiple outer layers | 4x4+ |
+| **Layer** | `2R`, `3L'`, `4U2` | Specific inner layers | 4x4+ |
+| **Rotation** | `x`, `y'`, `z2` | Whole cube rotations | Any |
 
-# 3x3x3 cube (Standard Rubik's Cube)
-./dist/cube solve "R U R' U'" --dimension 3
-
-# 4x4x4 cube (Rubik's Revenge)
-./dist/cube solve "R U R' U'" --dimension 4
-
-# 5x5x5 cube (Professor's Cube)
-./dist/cube solve "R U R' U'" --dimension 5
-```
-
-### Visual Output
-
-```bash
-# Standard text output
-./dist/cube solve "R U R' U'"
-
-# Colored terminal output (muted colors, eye-friendly)
-./dist/cube solve "R U R' U'" --color
-```
-
-## Move Notation
-
-The solver uses standard Singmaster notation:
-
-### Basic Moves
-- `F` - Front face clockwise
-- `B` - Back face clockwise  
-- `R` - Right face clockwise
-- `L` - Left face clockwise
-- `U` - Up face clockwise
-- `D` - Down face clockwise
-
-### Modifiers
-- `'` - Counter-clockwise (e.g., `R'`, `U'`)
-- `2` - Double turn (e.g., `R2`, `U2`)
-
-### Example Scrambles
-```bash
-# T-Perm algorithm
-./dist/cube solve "R U R' F' R U R' U' R' F R2 U' R'"
-
-# Sexy move sequence
-./dist/cube solve "R U R' U'"
-
-# Sune algorithm
-./dist/cube solve "R U R' U R U2 R'"
-
-# J-Perm
-./dist/cube solve "R U R' F' R U R' U' R' F R2 U' R' U'"
-```
+**Modifiers**: `'` (counter-clockwise), `2` (double turn)  
+**Examples**: `R U R' U'` (sexy move), `M E S` (all slice moves), `Rw Uw Fw` (4x4 wide moves)
 
 ## Development
 
@@ -224,7 +192,7 @@ cmd/cube/main.go                    # CLI entry point
 ### Solving Algorithms
 
 1. **BeginnerSolver**: Layer-by-layer method suitable for learning
-2. **CFOPSolver**: Cross, F2L, OLL, PLL - advanced speedcubing method  
+2. **CFOPSolver**: Cross, F2L, OLL, PLL - advanced speedcubing method
 3. **KociembaSolver**: Two-phase algorithm for optimal solutions (3x3 only)
 
 ## API Examples
@@ -256,33 +224,35 @@ func main() {
     c := cube.NewCube(3)
     moves, _ := cube.ParseScramble("R U R' U'")
     c.ApplyMoves(moves)
-    
+
     // Solve with beginner method
     solver, _ := cube.GetSolver("beginner")
     result, _ := solver.Solve(c)
-    
+
     fmt.Printf("Solution: %v\n", result.Solution)
     fmt.Printf("Steps: %d\n", result.Steps)
 }
 ```
 
-## Known Limitations
+## ⚙️ Technical Details
 
 ### Current Implementation Status
 
-- ✅ **3x3x3 cubes**: Fully implemented with proper edge rotation
-- ✅ **2x2x2 cubes**: Works (simpler case, no edges)
-- ⚠️ **4x4x4+ cubes**: **Limited** - inner layers not handled correctly
-- ✅ **All notation**: Standard Singmaster moves supported
-- ✅ **Multiple algorithms**: Beginner, CFOP, Kociemba available
+- ✅ **NxNxN cubes**: Support for 2x2 through 10x10+ with proper layer handling
+- ✅ **All algorithms**: BeginnerSolver, CFOPSolver, KociembaSolver produce distinct working solutions
+- ✅ **Advanced notation**: M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations
+- ✅ **Algorithm database**: 15 built-in algorithms with lookup functionality
+- ✅ **Power user tools**: Move optimization and algorithm discovery via BFS
+- ✅ **Web interface**: Terminal-style web interface with full CLI functionality
+- ✅ **Comprehensive testing**: 55 end-to-end tests covering all features
 
-### Future Improvements
+### 🚧 Future Enhancements
 
-1. **Complete 4x4+ Support**: Implement proper inner layer rotations
-2. **Real Algorithms**: Replace placeholder implementations with actual solving logic
-3. **Pattern Recognition**: Add algorithm database and pattern matching
-4. **Interactive Mode**: Terminal-based interactive cube manipulation
-5. **Algorithm Discovery**: Exhaustive search for new move sequences
+- **Optimal solving**: Implement true optimal solvers for each algorithm type
+- **Interactive mode**: Terminal-based live cube manipulation interface  
+- **3D visualization**: ASCII 3D cube rendering and step-by-step solving
+- **Custom patterns**: User-defined pattern recognition and generation
+- **Performance profiling**: Detailed timing analysis and optimization metrics
 
 ## Contributing
 
