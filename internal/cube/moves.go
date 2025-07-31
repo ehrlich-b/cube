@@ -292,19 +292,11 @@ func (c *Cube) rotateFaceMatrix(face int, clockwise bool) {
 }
 
 // rotateAdjacentEdges rotates the edges adjacent to a face
-// For NxN cubes, this rotates all the layers that should move with the face
+// For standard face moves, only rotate the outermost layer (layer 0)
 func (c *Cube) rotateAdjacentEdges(face Face, clockwise bool) {
-	size := c.Size
-
-	// Determine how many layers to rotate
-	// For odd cubes (3x3, 5x5): rotate (size-1)/2 layers
-	// For even cubes (2x2, 4x4, 6x6): rotate size/2 layers
-	layersToRotate := size / 2
-
-	// Rotate each layer that should move with this face
-	for layer := 0; layer < layersToRotate; layer++ {
-		c.rotateAdjacentEdgesLayer(face, clockwise, layer)
-	}
+	// Standard face moves (R, U, F, etc.) should only affect the outermost layer
+	// Wide moves and layer moves are handled separately
+	c.rotateAdjacentEdgesLayer(face, clockwise, 0)
 }
 
 // rotateAdjacentEdgesLayer rotates the edges for a specific layer
@@ -332,15 +324,15 @@ func (c *Cube) rotateAdjacentEdgesLayer(face Face, clockwise bool, layer int) {
 			}
 			// Left column ← Down row (downRow, reversed)
 			for i := 0; i < size; i++ {
-				c.Faces[Left][size-1-i][leftCol] = c.Faces[Down][downRow][size-1-i]
+				c.Faces[Left][size-1-i][leftCol] = c.Faces[Down][downRow][i]
 			}
-			// Down row ← Right column (rightCol)
+			// Down row ← Right column (rightCol, reversed)
 			for i := 0; i < size; i++ {
-				c.Faces[Down][downRow][i] = c.Faces[Right][i][rightCol]
+				c.Faces[Down][downRow][i] = c.Faces[Right][size-1-i][rightCol]
 			}
-			// Right column ← Up row (saved)
+			// Right column ← Up row (saved, reversed for correct visual orientation)
 			for i := 0; i < size; i++ {
-				c.Faces[Right][i][rightCol] = temp[i]
+				c.Faces[Right][i][rightCol] = temp[size-1-i]
 			}
 		} else {
 			// Save Up row
@@ -351,22 +343,22 @@ func (c *Cube) rotateAdjacentEdgesLayer(face Face, clockwise bool, layer int) {
 			for i := 0; i < size; i++ {
 				c.Faces[Up][upRow][i] = c.Faces[Right][i][rightCol]
 			}
-			// Right column ← Down row (reversed)
+			// Right column ← Down row (reversed for correct visual orientation)
 			for i := 0; i < size; i++ {
 				c.Faces[Right][i][rightCol] = c.Faces[Down][downRow][size-1-i]
 			}
 			// Down row ← Left column (reversed)
 			for i := 0; i < size; i++ {
-				c.Faces[Down][downRow][size-1-i] = c.Faces[Left][size-1-i][leftCol]
+				c.Faces[Down][downRow][i] = c.Faces[Left][size-1-i][leftCol]
 			}
-			// Left column ← Up row (saved, reversed)
+			// Left column ← Up row (saved, reversed for correct visual orientation)
 			for i := 0; i < size; i++ {
 				c.Faces[Left][i][leftCol] = temp[size-1-i]
 			}
 		}
 
 	case Back:
-		// Back face: rotate edges between Up, Left, Down, Right
+		// Back face: rotate edges between Up, Right, Down, Left (clockwise when viewed from back)
 		upRow := layer
 		downRow := size - 1 - layer
 		leftCol := layer
@@ -385,13 +377,13 @@ func (c *Cube) rotateAdjacentEdgesLayer(face Face, clockwise bool, layer int) {
 			for i := 0; i < size; i++ {
 				c.Faces[Right][size-1-i][rightCol] = c.Faces[Down][downRow][size-1-i]
 			}
-			// Down row ← Left column
+			// Down row ← Left column (reversed)
 			for i := 0; i < size; i++ {
-				c.Faces[Down][downRow][i] = c.Faces[Left][i][leftCol]
+				c.Faces[Down][downRow][i] = c.Faces[Left][size-1-i][leftCol]
 			}
-			// Left column ← Up row (saved, reversed)
+			// Left column ← Up row (saved)
 			for i := 0; i < size; i++ {
-				c.Faces[Left][i][leftCol] = temp[size-1-i]
+				c.Faces[Left][i][leftCol] = temp[i]
 			}
 		} else {
 			// Save Up row
@@ -410,7 +402,7 @@ func (c *Cube) rotateAdjacentEdgesLayer(face Face, clockwise bool, layer int) {
 			for i := 0; i < size; i++ {
 				c.Faces[Down][downRow][size-1-i] = c.Faces[Right][size-1-i][rightCol]
 			}
-			// Right column ← Up row (saved)
+			// Right column ← Up row (saved, NOT reversed)
 			for i := 0; i < size; i++ {
 				c.Faces[Right][i][rightCol] = temp[i]
 			}
@@ -434,15 +426,15 @@ func (c *Cube) rotateAdjacentEdgesLayer(face Face, clockwise bool, layer int) {
 			}
 			// Back column ← Down column (reversed)
 			for i := 0; i < size; i++ {
-				c.Faces[Back][size-1-i][backCol] = c.Faces[Down][size-1-i][downCol]
+				c.Faces[Back][size-1-i][backCol] = c.Faces[Down][i][downCol]
 			}
 			// Down column ← Front column
 			for i := 0; i < size; i++ {
 				c.Faces[Down][i][downCol] = c.Faces[Front][i][frontCol]
 			}
-			// Front column ← Up column (saved)
+			// Front column ← Up column (saved, reversed for correct visual orientation)
 			for i := 0; i < size; i++ {
-				c.Faces[Front][i][frontCol] = temp[i]
+				c.Faces[Front][i][frontCol] = temp[size-1-i]
 			}
 		} else {
 			// Save Up column
@@ -468,7 +460,7 @@ func (c *Cube) rotateAdjacentEdgesLayer(face Face, clockwise bool, layer int) {
 		}
 
 	case Right:
-		// Right face: rotate edges between Up, Back, Down, Front
+		// Right face: rotate edges between Up, Back, Down, Front (clockwise from right side view)
 		upCol := size - 1 - layer
 		downCol := size - 1 - layer
 		frontCol := size - 1 - layer
@@ -506,7 +498,7 @@ func (c *Cube) rotateAdjacentEdgesLayer(face Face, clockwise bool, layer int) {
 			}
 			// Back column ← Down column (reversed)
 			for i := 0; i < size; i++ {
-				c.Faces[Back][size-1-i][backCol] = c.Faces[Down][size-1-i][downCol]
+				c.Faces[Back][size-1-i][backCol] = c.Faces[Down][i][downCol]
 			}
 			// Down column ← Front column
 			for i := 0; i < size; i++ {

@@ -167,7 +167,7 @@ func TestCountSolvedPieces(t *testing.T) {
 
 	// Solved cube should have all pieces in correct position
 	solvedCube := NewCube(3)
-	solvedCount := solver.countSolvedPieces(solvedCube)
+	solvedCount := solver.countSolvedStickers(solvedCube)
 	expectedSolved := 6 * 3 * 3 // 6 faces, 3x3 each
 
 	if solvedCount != expectedSolved {
@@ -182,7 +182,7 @@ func TestCountSolvedPieces(t *testing.T) {
 	}
 	scrambledCube.ApplyMoves(moves)
 
-	scrambledCount := solver.countSolvedPieces(scrambledCube)
+	scrambledCount := solver.countSolvedStickers(scrambledCube)
 	if scrambledCount >= solvedCount {
 		t.Errorf("Scrambled cube should have fewer solved pieces than solved cube (%d >= %d)", scrambledCount, solvedCount)
 	}
