@@ -41,116 +41,125 @@
 
 ---
 
-## 🏗️ **THE REBUILD: Phase ∞ - Make Solvers Actually Work**
+## 🎯 **CRITICAL DISCOVERY: We Need CFEN First (January 2025)**
+
+**BREAKTHROUGH**: We discovered CFEN 1.0 (Cube Forsyth-Edwards Notation) - a standardized format for representing cube states with wildcard support. This is the missing foundation piece we need before building any solvers.
+
+**Why CFEN Changes Everything:**
+- ✅ **FEN-equivalent for cubes**: Single-line, diff-friendly, unambiguous format
+- ✅ **Orientation-aware**: Explicit Up/Front specification (`WG|...`)
+- ✅ **Wildcard support**: `?` for "don't care" positions (perfect for layer-by-layer verification)
+- ✅ **NxN scalable**: Works for 2x2 through 17x17+ cubes automatically
+- ✅ **Partial states**: Can express "white cross solved, rest unknown"
+- ✅ **Human-readable**: `WG|?W?WWW?W?/?9/?9/?9/?9/?9` (white cross only)
+- ✅ **Compact**: Run-length encoding (`W9` = 9 white stickers)
+
+**Examples:**
+```
+WG|WWWWWWWWW/RRRRRRRRR/GGGGGGGGG/YYYYYYYYY/OOOOOOOOO/BBBBBBBBB  # Solved 3x3
+WG|?W?WWW?W?/?9/?9/?9/?9/?9                                      # White cross only
+WG|W16/R16/G16/Y16/O16/B16                                       # Solved 4x4  
+WG|Y25/?25/?25/?25/?25/?25                                       # 5x5 OLL drill
+```
+
+**CFEN Implementation Plan:**
+
+### 🎯 **PHASE 1: CFEN Foundation (CRITICAL - Do This First)**
+
+**1. CFEN Data Structures**
+- [ ] Create `CFENState` struct with orientation + 6 faces
+- [ ] Create `CFENOrientation` struct (Up color, Front color)
+- [ ] Create `CFENFace` struct with sticker array and wildcard support
+
+**2. CFEN Parser (Core)**
+- [ ] Implement orientation field parser: `WG` → Up=White, Front=Green
+- [ ] Implement run-length decoder: `W9` → `WWWWWWWWW`, `?5` → `?????`
+- [ ] Add face parsing with validation (6 faces, equal counts, perfect square)
+- [ ] Add cube dimension detection: sticker count → N×N verification
+
+**3. CFEN ↔ Cube Conversion**
+- [ ] Implement CFEN → internal `Cube` conversion (map positions to `Faces[6][][]Color`)
+- [ ] Implement `Cube` → CFEN generation (convert back to CFEN string)
+- [ ] Handle wildcard (`?`) to `Grey` color mapping
+
+**4. CFEN Wildcard Matching System**
+- [ ] Implement partial cube state verification (ignore `?` positions during comparison)
+- [ ] Add `cube verify-cfen` command: verify solution reaches target CFEN state
+- [ ] Support layer-by-layer verification: white cross, white face, middle layer, etc.
+
+**5. CFEN CLI Integration**
+- [ ] Add `cube parse-cfen <cfen-string>` command (parse and display cube state)
+- [ ] Add `cube generate-cfen <scramble>` command (apply moves and output CFEN)
+- [ ] Add `cube verify-cfen <scramble> <solution> --target <cfen>` command
+- [ ] Add `cube match-cfen <current-cfen> <target-cfen>` command (show differences)
+- [ ] Add `--cfen` output flag to ALL commands (twist, solve, show, etc.) for CFEN output instead of visual
+- [ ] Add `--start <cfen-string>` input flag to ALL commands to specify starting cube state
+- [ ] Add CFEN dimension validation: if `--dimension` provided, verify CFEN matches that size
+- [ ] Add CFEN auto-dimension detection: if no `--dimension` provided, infer from CFEN string
+- [ ] Update existing commands to support CFEN input: `cube solve --start "WG|?W?WWW?W?/?9/?9/?9/?9/?9" "R U R'"`
+- [ ] Update existing commands to support CFEN output: `cube twist "R U R' U'" --cfen` → CFEN string
+
+**6. CFEN Test Suite**
+- [ ] Test 3x3, 4x4, 5x5+ cube parsing and generation
+- [ ] Test wildcard matching and partial state verification
+- [ ] Test run-length encoding/decoding edge cases
+- [ ] Test invalid CFEN strings (wrong face counts, non-square, bad tokens)
+- [ ] Test orientation field validation and conversion
+- [ ] Test `--cfen` output flag on all commands (twist, solve, show, verify, lookup)
+- [ ] Test `--start <cfen>` input flag on all commands with various cube states
+- [ ] Test CFEN dimension validation and auto-detection
+- [ ] Test CFEN input/output integration with existing move parsing and application
+- [ ] Test complex workflows: `cube solve --start <partial-cfen> --cfen` (CFEN in, CFEN out)
+
+---
+
+## 🏗️ **PHASE 2: Real Solvers Using CFEN**
 
 **Goal**: Build the world's best command-line cube solver with REAL algorithms that actually solve cubes.
 
-### 🎯 **PRIORITY 1: Fix BeginnerSolver (Layer-by-Layer Method)**
+### 🎯 **PRIORITY 1: Fix BeginnerSolver Using CFEN (Layer-by-Layer Method)**
 
-**Real Beginner Method Steps:**
+**Real Beginner Method Steps (Now With CFEN Verification):**
 1. **White Cross** - Get white edges in correct positions
-2. **White Corners** - Complete white face with corners
+   - Target CFEN: `WG|?W?WWW?W?/?9/?9/?9/?9/?9` (only cross positions matter)
+2. **White Corners** - Complete white face with corners  
+   - Target CFEN: `WG|W9/?9/?9/?9/?9/?9` (entire white face solved)
 3. **Middle Layer** - Insert edge pieces into middle layer
+   - Target CFEN: `WG|W9/?W?W?W?W?/?9/?9/?9/?9` (white + middle edges)
 4. **Yellow Cross** - Create cross on top (various cases)
+   - Target CFEN: `WG|W9/?W?W?W?W?/?Y?YYY?Y?/?9/?9` (+ yellow cross)
 5. **Yellow Corners** - Orient all yellow corners
+   - Target CFEN: `WG|W9/?W?W?W?W?/Y9/?9/?9` (entire yellow face)
 6. **Corner Permutation** - Position yellow corners correctly
 7. **Edge Permutation** - Position final edges correctly
+   - Target CFEN: `WG|W9/R9/G9/Y9/O9/B9` (completely solved)
 
-**🔧 CRITICAL INFRASTRUCTURE REQUIREMENT: Grey Square System**
+**🎯 CFEN MAKES THIS TRIVIAL:**
 
-Layer-by-layer solving requires the ability to **ignore already-solved cubies** during pattern matching and verification. We need:
+Instead of complex "grey square system" with cubie addressing, we use CFEN:
 
-**Cubie Addressing System:**
-```
-Reading cube faces like a book (left-to-right, top-to-bottom):
-Face positions: 1,2,3 / 4,5,6 / 7,8,9
-  1 2 3
-  4 5 6  <- 5 is center (doesn't move)
-  7 8 9
-
-3D cube numbering:
-- Up face: 1-9
-- Left face: 10-18  
-- Front face: 19-27 (where 23 = front center)
-- Right face: 28-36
-- Back face: 37-45  
-- Down face: 46-54
-```
-
-**Grey Square CLI Interface:**
 ```bash
-# Verify white cross (only care about white edges + centers)
-cube verify-layer "scramble" "solution" --care "2,4,6,8,23,14,32,41,50"
-
-# Verify white corners (white face complete, ignore rest)  
-cube verify-layer "scramble" "solution" --care "1-9" --dontcare "10-54"
-
-# Check middle layer edges (ignore top/bottom layers)
-cube verify-layer "scramble" "solution" --care "12,16,21,25,30,34,39,43" --dontcare "TL,BL"
-
-# Using layer aliases for convenience
-cube verify-layer "scramble" "solution" --care "WC" --dontcare "YL,ML"  # White cross, ignore yellow+middle
-cube verify-layer "scramble" "solution" --dontcare "TE,BE"  # Don't care about top/bottom edges
+# Verify each step using CFEN targets
+cube verify-cfen "R U R' U'" "solution" --target "WG|?W?WWW?W?/?9/?9/?9/?9/?9"  # White cross
+cube verify-cfen "R U R' U'" "solution" --target "WG|W9/?9/?9/?9/?9/?9"        # White face  
+cube verify-cfen "R U R' U'" "solution" --target "WG|W9/?W?W?W?W?/?9/?9/?9/?9" # Middle layer
 ```
 
-**Layer and Piece Aliases:**
-```bash
-# Layer aliases
-TL = "1-9"     # Top Layer (all 9 positions)
-ML = "12,16,21,25,30,34,39,43"  # Middle Layer (edge positions)
-BL = "46-54"   # Bottom Layer (all 9 positions)
+**No more complex cubie addressing needed!** CFEN wildcards (`?`) handle "don't care" positions automatically.
 
-# Piece type aliases  
-TC = "1,3,7,9"     # Top Corners
-TE = "2,4,6,8"     # Top Edges
-MC = "11,13,17,19,29,31,35,37"  # Middle Corners (middle layer corners)
-ME = "12,16,21,25,30,34,39,43"  # Middle Edges
-BC = "46,48,52,54" # Bottom Corners
-BE = "47,49,51,53" # Bottom Edges
-
-# Face aliases
-UF = "1-9"    # Up Face
-LF = "10-18"  # Left Face  
-FF = "19-27"  # Front Face
-RF = "28-36"  # Right Face
-BF = "37-45"  # Back Face
-DF = "46-54"  # Down Face
-
-# Common combinations
-WC = "2,4,6,8,50"     # White Cross (white edges + white center)
-WF = "1-9"            # White Face (complete white layer)
-YC = "47,49,51,53,5"  # Yellow Cross (yellow edges + yellow center)
-YF = "46-54"          # Yellow Face (complete yellow layer)
-```
-
-**Pattern Matching with Grey:**
-- [ ] **Grey-aware pattern recognition** - Match patterns ignoring specified cubies
-- [ ] **Partial cube state verification** - Check only relevant cubies for each layer
-- [ ] **CLI cubie specification** - `--care` (whitelist) and `--dontcare` (blacklist) flags
-- [ ] **Layer aliases** - TL, ML, BL, TC, TE, etc. for user convenience
-- [ ] **3D cubie addressing** - Systematic numbering for all cube positions
-
-**Implementation Requirements:**
-- [ ] **Cubie numbering system** - Map 3D positions to linear addresses (1-54 for 3x3)
-- [ ] **CLI cubie specification** - `--care "1,2,3"` and `--dontcare "4,5,6"` parsing
-- [ ] **Alias expansion system** - Convert "TL,ML,BC" to actual cubie numbers
-- [ ] **Range parsing** - Handle "1-9" and "46-54" syntax
-- [ ] **Pattern matching engine** - Ignore grey squares during comparisons (internal grey logic)
-- [ ] **Layer verification** - Check partial cube states during solving
-- [ ] **White Cross Algorithm** - Systematic edge positioning with grey matching
-- [ ] **White Corner Insertion** - Right-hand and left-hand algorithms with partial verification  
-- [ ] **Middle Layer Edges** - F2L-style insertion with `--dontcare "TL,BL"`
-- [ ] **Top Cross Formation** - F R U R' U' F' variations with `--dontcare "ML,BL"`
-- [ ] **Corner Orientation** - Sune/Anti-Sune with `--dontcare "TE,ME,BE"`
-- [ ] **Corner Permutation** - A-perms with `--dontcare "TE,ME,BE"`  
-- [ ] **Edge Permutation** - U-perms with `--dontcare "TC,MC,BC"`
+**BeginnerSolver Implementation (CFEN-Based):**
+- [ ] **White Cross Algorithm** - Find and position white edges, verify with `WG|?W?WWW?W?/?9/?9/?9/?9/?9`
+- [ ] **White Corner Insertion** - Use right-hand/left-hand algorithms, verify with `WG|W9/?9/?9/?9/?9/?9`
+- [ ] **Middle Layer Edges** - F2L-style edge insertion, verify with `WG|W9/?W?W?W?W?/?9/?9/?9/?9`
+- [ ] **Yellow Cross Formation** - F R U R' U' F' and variations, verify with target CFEN
+- [ ] **Corner Orientation** - Sune/Anti-Sune algorithms, verify with `WG|W9/?W?W?W?W?/Y9/?9/?9`
+- [ ] **Corner Permutation** - A-perms and T-perms for corner positioning
+- [ ] **Edge Permutation** - U-perms for final edge positioning, verify solved with `WG|W9/R9/G9/Y9/O9/B9`
 
 **Success Criteria:**
-- [ ] **3D thinking in code** - Proper cubie addressing and grey square logic
-- [ ] **Layer-by-layer verification** - Each step verifies only relevant cubies
 - [ ] Solves ANY valid 3x3 scramble in under 80 moves
-- [ ] Passes 100% of fuzzing tests (25+ random scrambles)
-- [ ] Each step reduces cube to known state with proper grey square masking
+- [ ] Passes 100% of fuzzing tests (25+ random scrambles)  
+- [ ] Each step verifies correct using CFEN pattern matching
 - [ ] No random algorithm application - every move has purpose
 
 ### 🎯 **PRIORITY 2: Fix CFOPSolver (Advanced Method)**
@@ -192,36 +201,28 @@ YF = "46-54"          # Yellow Face (complete yellow layer)
 - [ ] 4x4: Solves ANY scramble in under 120 moves  
 - [ ] Passes multi-dimensional fuzzing tests
 
-### 🎯 **PRIORITY 4: Fix Verification System**
+### 🎯 **PRIORITY 4: Enhanced Verification Using CFEN**
 
-Currently verify() might accept incorrect solutions by accident, and it lacks grey square support for layer-by-layer verification.
+Replace the current broken verification system with CFEN-powered verification.
 
-**Core Verification Fixes:**
-- [ ] **Strict Validation** - Actually apply scramble + solution and check solved state
-- [ ] **Edge Case Testing** - Verify incorrect solutions properly fail
-- [ ] **Performance** - Fast verification for fuzzing tests
-- [ ] **Multi-dimensional** - Proper verification for all cube sizes
-
-**Grey Square Verification System:**
-- [ ] **verify-layer command** - New CLI command for partial cube verification
-- [ ] **Cubie selection parsing** - Parse `--care "WC"` and `--dontcare "TL,ML"` syntax  
-- [ ] **Alias expansion** - Convert layer aliases to cubie numbers
-- [ ] **Partial state comparison** - Compare only specified cubies, ignore grey ones
-- [ ] **Layer-by-layer testing** - Verify each step of beginner method independently
-- [ ] **3D position mapping** - Convert cubie numbers to actual cube positions
-- [ ] **Pattern matching integration** - Use grey squares in algorithm recognition
+**CFEN Verification System:**
+- [ ] **CFEN-based validation** - Apply scramble + solution, generate CFEN, compare with target
+- [ ] **Wildcard matching** - Ignore `?` positions during CFEN comparison
+- [ ] **Edge case testing** - Verify incorrect solutions properly fail CFEN matching
+- [ ] **Performance** - Fast CFEN parsing and comparison for fuzzing tests
+- [ ] **Multi-dimensional** - CFEN works for all cube sizes automatically
 
 ---
 
 ## 🧪 **THE NEW TESTING PHILOSOPHY**
 
-### **Fuzzing-First Development**
-- [ ] **Build solver incrementally** - Each step must pass fuzz tests
+### **CFEN-Powered Fuzzing Development**
+- [ ] **Build solver incrementally** - Each step must pass CFEN verification
 - [ ] **Test on real scrambles** - No more "simple case only" testing
-- [ ] **Self-verification** - Every solution must verify correctly
-- [ ] **Debug on failure** - When fuzzing finds a bug, fix it immediately
-- [ ] **Layer-by-layer fuzzing** - Test each solving step with grey square verification
-- [ ] **Grey square validation** - Fuzz test partial cube state matching
+- [ ] **CFEN self-verification** - Every solution must match target CFEN state
+- [ ] **Debug on failure** - When fuzzing finds CFEN mismatch, fix immediately
+- [ ] **Layer-by-layer fuzzing** - Test each solving step with CFEN wildcard verification
+- [ ] **CFEN validation** - Fuzz test CFEN parsing, generation, and wildcard matching
 
 ### **Comprehensive Coverage**
 - [ ] **All algorithms fuzzed** - BeginnerSolver, CFOPSolver, KociembaSolver
@@ -260,31 +261,29 @@ Currently verify() might accept incorrect solutions by accident, and it lacks gr
 
 ## 🚀 **IMPLEMENTATION STRATEGY**
 
-### **Phase 1: Fix BeginnerSolver**
-1. **Study real layer-by-layer method** - Research proper algorithms
-2. **Implement white cross solving** - First step of beginner method
-3. **Add fuzzing for each step** - Verify each layer works before moving on
-4. **Build complete beginner method** - All 7 steps implemented
-5. **Achieve 100% fuzz test success** - No failures on random scrambles
+### **Phase 1: CFEN Foundation (DO THIS FIRST)**
+1. **Implement CFEN parser and generator** - Core data structures and validation
+2. **Add CFEN CLI commands** - parse-cfen, generate-cfen, verify-cfen 
+3. **Test CFEN extensively** - All cube sizes, wildcards, edge cases
+4. **Integrate CFEN with existing cube system** - Bidirectional conversion
 
-### **Phase 2: Fix CFOPSolver** 
-1. **Implement cross solving** - Efficient bottom cross construction
-2. **Integrate F2L algorithms** - Use our existing 10 F2L cases
-3. **Implement OLL recognition** - Pattern match our 22 OLL algorithms  
-4. **Implement PLL recognition** - Pattern match our 21 PLL algorithms
-5. **Optimize and fuzz test** - Achieve 100% success rate
+### **Phase 2: CFEN-Powered BeginnerSolver**
+1. **Rewrite BeginnerSolver using CFEN verification** - Each step has target CFEN
+2. **Implement layer-by-layer with CFEN** - White cross, corners, middle, yellow
+3. **Add CFEN fuzzing for each step** - Verify wildcard matching works
+4. **Achieve 100% success rate** - Real algorithms, CFEN-verified
 
-### **Phase 3: Fix Multi-dimensional**
-1. **Implement 2x2 solver** - Simplified method for corner-only cube
-2. **Implement 4x4+ reduction** - Centers, edge pairing, 3x3 solve
-3. **Add parity handling** - 4x4 specific algorithms
-4. **Comprehensive fuzz testing** - All dimensions must pass
+### **Phase 3: CFEN-Powered CFOPSolver**  
+1. **Implement CFOP with CFEN targets** - Cross, F2L, OLL, PLL verification
+2. **Integrate existing algorithm database** - Use our 61 algorithms with CFEN
+3. **Add pattern recognition using CFEN** - Match current state to known patterns
+4. **Optimize and fuzz test with CFEN** - 100% success rate
 
-### **Phase 4: Polish and Optimize**
-1. **Move count optimization** - Reduce average solution length
-2. **Performance optimization** - Faster solving algorithms  
-3. **Advanced features** - Competition mode, scramble generation
-4. **Documentation perfection** - Every example verified to work
+### **Phase 4: Multi-dimensional CFEN Support**
+1. **Extend CFEN to 2x2, 4x4+ cubes** - Already scales, just add solvers
+2. **Implement size-specific methods** - 2x2 corner-only, 4x4+ reduction
+3. **CFEN parity handling** - 4x4 specific algorithms with CFEN targets
+4. **Comprehensive multi-dimensional fuzzing** - All sizes pass
 
 ---
 
@@ -304,9 +303,9 @@ Currently verify() might accept incorrect solutions by accident, and it lacks gr
 - **Multi-dimensional**: All broken
 
 ### 🎯 **The Path to Greatness**
-We have built world-class infrastructure and testing. Now we implement world-class algorithms. The fuzzing system will guide us - when it passes 100% of tests on all solvers, we'll have the best cube tool in the world.
+We have built world-class infrastructure and testing. Now we implement CFEN (the missing foundation) then world-class algorithms. CFEN will enable proper layer-by-layer verification, and the fuzzing system will guide us.
 
-**Next Action**: Start implementing real BeginnerSolver with proper layer-by-layer method.
+**Next Action**: Implement CFEN 1.0 parser and generator system (Phase 1).
 
 ---
 
