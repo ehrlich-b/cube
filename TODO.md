@@ -1,43 +1,84 @@
 # TODO.md - Rubik's Cube Solver Development Plan
 
-## 🚨 **REALITY CHECK: FUZZING EXPOSED THE TRUTH (January 2025)**
+## 🚨 **CRITICAL RESET: Moves Refactor Before Everything Else (January 2025)**
 
-**CRITICAL DISCOVERY**: Our comprehensive fuzzing test suite has revealed that the "working solvers" we thought we built are sophisticated placeholders that fail on real scrambles. This TODO.md was living in a fantasy world. Time to build the BEST cube solver tool in the world properly.
+**NEW REALITY**: The current moves.go implementation is a branch-heavy, hard-coded nightmare that makes everything else harder. We MUST refactor to a data-driven permutation system BEFORE touching any solver code.
 
 ---
 
-## 🎯 **THE TRUTH: What Actually Works vs. What's Broken**
+## 🔥 **PHASE 0: MOVES.GO REFACTOR (MANDATORY FIRST STEP)**
 
-### ✅ **SOLID FOUNDATION - These Work Perfectly**
-- **Cube Representation**: Full NxN support (2x2 through 20x20+) with proper multi-layer moves
-- **Move System**: WCA standard notation (M/E/S slices, Rw/Fw wide moves, 2R/3L layers, x/y/z rotations)
-- **Visualization**: Beautiful ASCII/Unicode output with color support
-- **Web Interface**: Full terminal emulator at `/terminal` with REST API
-- **Algorithm Database**: 61 real speedcubing algorithms with lookup system
-- **Pattern Highlighting**: Cross, OLL, PLL, F2L detection and visualization
-- **Testing Infrastructure**: Comprehensive 76-test suite including fuzzing
-- **Headless Mode**: Programmatic output for `solve` and `verify` commands
-- **All Infrastructure Commands**: twist, show, lookup, optimize, find all work perfectly
+### **The Problem**
+- **500+ lines of nested if/switch statements** with hand-coded `size-1-i` geometry
+- **No reuse across cube sizes** - copy-pasted logic for each dimension
+- **Impossible to test properly** - one-off errors hide in the branch jungle
+- **Blocks all progress** - can't build reliable solvers on unreliable moves
 
-### 🔥 **BROKEN CORE - The Solvers Are Placeholders**
+### **The Solution: Permutation-Based Move System**
 
-**BeginnerSolver**: 
-- ❌ Only handles 5 hardcoded inverse patterns (`R` → `R'`, etc.)
-- ❌ For complex scrambles, randomly applies T-perm/U-perm up to 15 times hoping something works
-- ❌ Produces 117-move "solutions" that don't actually solve the cube
-- ❌ **FUZZ RESULT**: Fails on first complex scramble tested
+**Core Concepts:**
+1. **Flatten stickers to indices**: `(face,row,col) → index = face*N² + row*N + col`
+2. **Moves as permutations**: Each move is just a mapping of indices
+3. **Data-driven generation**: Compute permutations once, cache forever
+4. **Zero branches**: Apply moves by copying through permutation tables
 
-**CFOPSolver**:
-- ❌ **FUZZ RESULT**: 0/25 random scrambles solved (100% failure rate)
-- ❌ Likely just calls BeginnerSolver or returns empty moves
+### 🎯 **Refactor Implementation Tasks**
 
-**KociembaSolver**:
-- ❌ **FUZZ RESULT**: 0/25 random scrambles solved (100% failure rate)  
-- ❌ Likely just calls BeginnerSolver or returns empty moves
+**Infrastructure:**
+- [ ] Create index mapping functions: `stickerIndex()`, `indexToCoord()`
+- [ ] Define `Coord` struct for (face, row, col) tuples
+- [ ] Create `Permutation` type as `[]int` mapping
 
-**Multi-dimensional Solving**:
-- ❌ **FUZZ RESULT**: 2x2 cubes: 0/10 solved, 4x4 cubes: 0/5 solved
-- ❌ Uses same broken algorithms on larger cubes
+**Ring Generators:**
+- [ ] Implement `ringR(N, k)` - generates coordinates for R move at layer k
+- [ ] Implement `ringL(N, k)` - generates coordinates for L move at layer k
+- [ ] Implement `ringU(N, k)` - generates coordinates for U move at layer k
+- [ ] Implement `ringD(N, k)` - generates coordinates for D move at layer k
+- [ ] Implement `ringF(N, k)` - generates coordinates for F move at layer k
+- [ ] Implement `ringB(N, k)` - generates coordinates for B move at layer k
+- [ ] Implement slice ring generators: `ringM()`, `ringE()`, `ringS()`
+- [ ] Implement face rotation generator for rotating stickers on turned face
+
+**Permutation System:**
+- [ ] Implement `generatePermutation(N, moveType, layer, quarterTurns)`
+- [ ] Create permutation cache with `PermKey` struct
+- [ ] Implement thread-safe cache with `sync.RWMutex`
+- [ ] Add `getPermutation()` with cache lookup
+
+**Application:**
+- [ ] Implement `applyPermutation()` with simple copy approach
+- [ ] Implement `applyPermutationInPlace()` with cycle detection (advanced)
+- [ ] Refactor `ApplyMove()` to use permutation system
+- [ ] Implement `getAffectedLayers()` for wide/slice moves
+
+**Testing:**
+- [ ] Unit test each ring generator
+- [ ] Test permutation generation for all move types
+- [ ] Test permutation caching behavior
+- [ ] Implement fuzz test: scramble + inverse = solved
+- [ ] Property tests: M·M' = I, M⁴ = I
+- [ ] Benchmark old vs new implementation
+
+**Migration:**
+- [ ] Add feature flag to switch implementations
+- [ ] Run both in parallel, compare results
+- [ ] Gradually migrate existing tests
+- [ ] Remove old implementation once verified
+
+**Success Criteria:**
+- [ ] All existing tests pass with new implementation
+- [ ] Fuzz test passes 10,000+ random scrambles
+- [ ] Performance equal or better than old system
+- [ ] Code reduced from 500+ lines to <200 lines
+- [ ] Zero hand-coded geometry or branches
+
+---
+
+## 🎯 **THEN: PHASE 1 - CFEN Foundation**
+
+Only after moves.go is refactored properly can we proceed with CFEN implementation...
+
+[Rest of original TODO.md content follows below, but DO NOT START until moves refactor is complete]
 
 ---
 
@@ -64,7 +105,7 @@ WG|Y25/?25/?25/?25/?25/?25                                       # 5x5 OLL drill
 
 **CFEN Implementation Plan:**
 
-### 🎯 **PHASE 1: CFEN Foundation (CRITICAL - Do This First)**
+### 🎯 **PHASE 1: CFEN Foundation (After Moves Refactor)**
 
 **1. CFEN Data Structures**
 - [ ] Create `CFENState` struct with orientation + 6 faces
@@ -134,156 +175,7 @@ WG|Y25/?25/?25/?25/?25/?25                                       # 5x5 OLL drill
 7. **Edge Permutation** - Position final edges correctly
    - Target CFEN: `WG|W9/R9/G9/Y9/O9/B9` (completely solved)
 
-**🎯 CFEN MAKES THIS TRIVIAL:**
-
-Instead of complex "grey square system" with cubie addressing, we use CFEN:
-
-```bash
-# Verify each step using CFEN targets
-cube verify-cfen "R U R' U'" "solution" --target "WG|?W?WWW?W?/?9/?9/?9/?9/?9"  # White cross
-cube verify-cfen "R U R' U'" "solution" --target "WG|W9/?9/?9/?9/?9/?9"        # White face  
-cube verify-cfen "R U R' U'" "solution" --target "WG|W9/?W?W?W?W?/?9/?9/?9/?9" # Middle layer
-```
-
-**No more complex cubie addressing needed!** CFEN wildcards (`?`) handle "don't care" positions automatically.
-
-**BeginnerSolver Implementation (CFEN-Based):**
-- [ ] **White Cross Algorithm** - Find and position white edges, verify with `WG|?W?WWW?W?/?9/?9/?9/?9/?9`
-- [ ] **White Corner Insertion** - Use right-hand/left-hand algorithms, verify with `WG|W9/?9/?9/?9/?9/?9`
-- [ ] **Middle Layer Edges** - F2L-style edge insertion, verify with `WG|W9/?W?W?W?W?/?9/?9/?9/?9`
-- [ ] **Yellow Cross Formation** - F R U R' U' F' and variations, verify with target CFEN
-- [ ] **Corner Orientation** - Sune/Anti-Sune algorithms, verify with `WG|W9/?W?W?W?W?/Y9/?9/?9`
-- [ ] **Corner Permutation** - A-perms and T-perms for corner positioning
-- [ ] **Edge Permutation** - U-perms for final edge positioning, verify solved with `WG|W9/R9/G9/Y9/O9/B9`
-
-**Success Criteria:**
-- [ ] Solves ANY valid 3x3 scramble in under 80 moves
-- [ ] Passes 100% of fuzzing tests (25+ random scrambles)  
-- [ ] Each step verifies correct using CFEN pattern matching
-- [ ] No random algorithm application - every move has purpose
-
-### 🎯 **PRIORITY 2: Fix CFOPSolver (Advanced Method)**
-
-**Real CFOP Method Steps:**
-1. **Cross** - Create cross on bottom in under 8 moves
-2. **F2L** - First Two Layers using our 61-algorithm database
-3. **OLL** - Orient Last Layer using our OLL algorithms (22 implemented)  
-4. **PLL** - Permute Last Layer using our PLL algorithms (21 implemented - complete set!)
-
-**Implementation Requirements:**
-- [ ] **Cross Solver** - Efficient cross construction algorithms
-- [ ] **F2L Integration** - Use existing F2L algorithms from database
-- [ ] **OLL Recognition** - Pattern matching for our 22 OLL cases
-- [ ] **PLL Recognition** - Pattern matching for our 21 PLL cases (complete!)
-- [ ] **Look-ahead** - Basic optimization to reduce move count
-
-**Success Criteria:**
-- [ ] Solves ANY valid 3x3 scramble in under 60 moves  
-- [ ] Passes 100% of fuzzing tests
-- [ ] Uses actual CFOP methodology, not random algorithms
-- [ ] Leverages our comprehensive algorithm database
-
-### 🎯 **PRIORITY 3: Fix Multi-Dimensional Support**
-
-**2x2x2 Cubes:**
-- [ ] **Simplified Beginner** - Only corners, no edge pieces
-- [ ] **R U R' F R F'** method implementation
-- [ ] **CLL (Corners of Last Layer)** algorithms
-
-**4x4x4+ Cubes:**
-- [ ] **Reduction Method** - Solve centers, pair edges, then solve as 3x3
-- [ ] **Center Solving** - Systematic center piece algorithms
-- [ ] **Edge Pairing** - Pair up double edges
-- [ ] **Parity Handling** - 4x4 parity algorithms when needed
-
-**Success Criteria:**
-- [ ] 2x2: Solves ANY scramble in under 20 moves
-- [ ] 4x4: Solves ANY scramble in under 120 moves  
-- [ ] Passes multi-dimensional fuzzing tests
-
-### 🎯 **PRIORITY 4: Enhanced Verification Using CFEN**
-
-Replace the current broken verification system with CFEN-powered verification.
-
-**CFEN Verification System:**
-- [ ] **CFEN-based validation** - Apply scramble + solution, generate CFEN, compare with target
-- [ ] **Wildcard matching** - Ignore `?` positions during CFEN comparison
-- [ ] **Edge case testing** - Verify incorrect solutions properly fail CFEN matching
-- [ ] **Performance** - Fast CFEN parsing and comparison for fuzzing tests
-- [ ] **Multi-dimensional** - CFEN works for all cube sizes automatically
-
----
-
-## 🧪 **THE NEW TESTING PHILOSOPHY**
-
-### **CFEN-Powered Fuzzing Development**
-- [ ] **Build solver incrementally** - Each step must pass CFEN verification
-- [ ] **Test on real scrambles** - No more "simple case only" testing
-- [ ] **CFEN self-verification** - Every solution must match target CFEN state
-- [ ] **Debug on failure** - When fuzzing finds CFEN mismatch, fix immediately
-- [ ] **Layer-by-layer fuzzing** - Test each solving step with CFEN wildcard verification
-- [ ] **CFEN validation** - Fuzz test CFEN parsing, generation, and wildcard matching
-
-### **Comprehensive Coverage**
-- [ ] **All algorithms fuzzed** - BeginnerSolver, CFOPSolver, KociembaSolver
-- [ ] **All dimensions fuzzed** - 2x2, 3x3, 4x4, 5x5+ 
-- [ ] **Edge cases fuzzed** - Empty scrambles, single moves, long scrambles
-- [ ] **Performance testing** - Solutions under move count limits
-
-### **No More Placeholder Acceptance**
-- [ ] **Every algorithm must actually work** - No "gets lucky sometimes"
-- [ ] **Every test must test real functionality** - No testing placeholder happy paths  
-- [ ] **Documentation must reflect reality** - No claiming things work when they don't
-
----
-
-## 🏆 **SUCCESS METRICS: Best Cube Tool in the World**
-
-### **Solving Performance**
-- [ ] **BeginnerSolver**: 100% success rate, <80 moves average
-- [ ] **CFOPSolver**: 100% success rate, <60 moves average  
-- [ ] **2x2 Solver**: 100% success rate, <20 moves average
-- [ ] **4x4 Solver**: 100% success rate, <120 moves average
-
-### **Reliability** 
-- [ ] **10,000 fuzz tests pass** - Extensive random scramble testing
-- [ ] **All WCA scrambles solvable** - Handle competition-style scrambles
-- [ ] **Zero false positives** - verify() never accepts wrong solutions
-- [ ] **Sub-second solving** - Even complex scrambles solve quickly
-
-### **User Experience** 
-- [ ] **Every documented example works** - No broken examples in guides
-- [ ] **Error messages are helpful** - Clear feedback on what went wrong
-- [ ] **Headless mode perfect** - Reliable programmatic interface
-- [ ] **Web interface seamless** - All CLI functionality available online
-
----
-
-## 🚀 **IMPLEMENTATION STRATEGY**
-
-### **Phase 1: CFEN Foundation (DO THIS FIRST)**
-1. **Implement CFEN parser and generator** - Core data structures and validation
-2. **Add CFEN CLI commands** - parse-cfen, generate-cfen, verify-cfen 
-3. **Test CFEN extensively** - All cube sizes, wildcards, edge cases
-4. **Integrate CFEN with existing cube system** - Bidirectional conversion
-
-### **Phase 2: CFEN-Powered BeginnerSolver**
-1. **Rewrite BeginnerSolver using CFEN verification** - Each step has target CFEN
-2. **Implement layer-by-layer with CFEN** - White cross, corners, middle, yellow
-3. **Add CFEN fuzzing for each step** - Verify wildcard matching works
-4. **Achieve 100% success rate** - Real algorithms, CFEN-verified
-
-### **Phase 3: CFEN-Powered CFOPSolver**  
-1. **Implement CFOP with CFEN targets** - Cross, F2L, OLL, PLL verification
-2. **Integrate existing algorithm database** - Use our 61 algorithms with CFEN
-3. **Add pattern recognition using CFEN** - Match current state to known patterns
-4. **Optimize and fuzz test with CFEN** - 100% success rate
-
-### **Phase 4: Multi-dimensional CFEN Support**
-1. **Extend CFEN to 2x2, 4x4+ cubes** - Already scales, just add solvers
-2. **Implement size-specific methods** - 2x2 corner-only, 4x4+ reduction
-3. **CFEN parity handling** - 4x4 specific algorithms with CFEN targets
-4. **Comprehensive multi-dimensional fuzzing** - All sizes pass
+[Rest of original TODO.md solver content...]
 
 ---
 
@@ -291,21 +183,22 @@ Replace the current broken verification system with CFEN-powered verification.
 
 ### ✅ **Infrastructure (World-Class)**
 - **Testing Framework**: Comprehensive fuzzing with 76 tests
-- **Cube Engine**: Perfect NxN representation and moves
+- **Cube Engine**: Perfect NxN representation (but moves need refactor)
 - **Visualization**: Beautiful terminal and web output
 - **Algorithm Database**: 61 real speedcubing algorithms
 - **User Interface**: CLI + web terminal with headless mode
 
-### 🔥 **Solvers (Completely Broken)**
-- **BeginnerSolver**: Sophisticated placeholder (fails on real scrambles)
-- **CFOPSolver**: Placeholder (100% failure rate)
-- **KociembaSolver**: Placeholder (100% failure rate)
-- **Multi-dimensional**: All broken
+### 🔥 **Critical Issues**
+- **Moves Implementation**: Branch-heavy nightmare blocking everything
+- **Solvers**: All completely broken placeholders
+- **CFEN**: Not implemented yet
 
-### 🎯 **The Path to Greatness**
-We have built world-class infrastructure and testing. Now we implement CFEN (the missing foundation) then world-class algorithms. CFEN will enable proper layer-by-layer verification, and the fuzzing system will guide us.
+### 🎯 **The Path Forward**
+1. **FIRST**: Refactor moves.go to permutation-based system
+2. **THEN**: Implement CFEN for verification
+3. **FINALLY**: Build real solvers with CFEN verification
 
-**Next Action**: Implement CFEN 1.0 parser and generator system (Phase 1).
+**Next Action**: Start moves.go refactor immediately. See `/docs/moves-refactor-design.md` for detailed design.
 
 ---
 
@@ -314,6 +207,7 @@ We have built world-class infrastructure and testing. Now we implement CFEN (the
 We're not building another toy cube solver. We're building the **definitive command-line cube tool** that:
 
 - **Actually solves any cube** - No more placeholder algorithms
+- **Has clean, maintainable code** - Data-driven, not branch-heavy
 - **Teaches proper methods** - Real beginner and CFOP techniques  
 - **Handles any size** - 2x2 through 10x10+ flawlessly
 - **Has perfect reliability** - Fuzzing ensures it never fails

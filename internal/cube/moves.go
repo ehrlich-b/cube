@@ -2,9 +2,14 @@ package cube
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
+
+// Feature flag for legacy move system
+var useLegacyMoves = os.Getenv("LEGACY_TWISTER") == "true"
 
 // SliceType represents middle slice moves
 type SliceType int
@@ -95,6 +100,768 @@ func (m Move) String() string {
 	}
 
 	return notation
+}
+
+// Coord represents a sticker coordinate (face, row, col)
+type Coord struct {
+	Face Face
+	Row  int
+	Col  int
+}
+
+// stickerIndex converts (face, row, col) to flat index
+func stickerIndex(face Face, row, col, N int) int {
+	return int(face)*N*N + row*N + col
+}
+
+// indexToCoord converts flat index back to (face, row, col)
+func indexToCoord(idx, N int) (Face, int, int) {
+	face := Face(idx / (N * N))
+	remainder := idx % (N * N)
+	row := remainder / N
+	col := remainder % N
+	return face, row, col
+}
+
+// Permutation represents a mapping of sticker indices
+type Permutation []int
+
+// MoveType represents the base move type
+type MoveType int
+
+const (
+	MoveR MoveType = iota
+	MoveL
+	MoveU
+	MoveD
+	MoveF
+	MoveB
+	MoveM
+	MoveE
+	MoveS
+	MoveX
+	MoveY
+	MoveZ
+)
+
+// PermKey represents a cache key for permutations
+type PermKey struct {
+	N            int
+	MoveType     MoveType
+	Layer        int
+	QuarterTurns int
+}
+
+// Permutation cache with thread-safe access
+var permCache = make(map[PermKey]Permutation)
+var permCacheMu sync.RWMutex
+
+// getPermutation retrieves or generates a permutation from cache
+func getPermutation(N int, moveType MoveType, layer int, quarterTurns int) Permutation {
+	key := PermKey{N, moveType, layer, quarterTurns}
+
+	permCacheMu.RLock()
+	if perm, ok := permCache[key]; ok {
+		permCacheMu.RUnlock()
+		return perm
+	}
+	permCacheMu.RUnlock()
+
+	// Generate and cache
+	perm := generatePermutation(N, moveType, layer, quarterTurns)
+
+	permCacheMu.Lock()
+	permCache[key] = perm
+	permCacheMu.Unlock()
+
+	return perm
+}
+
+// Ring generators define which stickers move for each type of move
+
+// ringR generates ring coordinates for R move at layer k
+func ringR(N, k int) []Coord {
+	var ring []Coord
+	// Up face: column N-1-k, rows 0 to N-1
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Up, r, N - 1 - k})
+	}
+	// Back face: column k, rows N-1 to 0 (opposite direction due to 3D orientation)
+	for r := N - 1; r >= 0; r-- {
+		ring = append(ring, Coord{Back, r, k})
+	}
+	// Down face: column N-1-k, rows 0 to N-1 (same as Up, they're parallel)
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Down, r, N - 1 - k})
+	}
+	// Front face: column N-1-k, rows 0 to N-1
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Front, r, N - 1 - k})
+	}
+	return ring
+}
+
+// ringL generates ring coordinates for L move at layer k
+func ringL(N, k int) []Coord {
+	var ring []Coord
+	// Up face: column k, rows 0 to N-1
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Up, r, k})
+	}
+	// Front face: column k, rows 0 to N-1
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Front, r, k})
+	}
+	// Down face: column k, rows N-1 to 0 (reversed)
+	for r := N - 1; r >= 0; r-- {
+		ring = append(ring, Coord{Down, r, k})
+	}
+	// Back face: column N-1-k, rows N-1 to 0 (reversed)
+	for r := N - 1; r >= 0; r-- {
+		ring = append(ring, Coord{Back, r, N - 1 - k})
+	}
+	return ring
+}
+
+// ringU generates ring coordinates for U move at layer k
+func ringU(N, k int) []Coord {
+	var ring []Coord
+	// Back face: row k, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Back, k, c})
+	}
+	// Right face: row k, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Right, k, c})
+	}
+	// Front face: row k, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Front, k, c})
+	}
+	// Left face: row k, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Left, k, c})
+	}
+	return ring
+}
+
+// ringD generates ring coordinates for D move at layer k
+func ringD(N, k int) []Coord {
+	var ring []Coord
+	// Front face: row N-1-k, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Front, N - 1 - k, c})
+	}
+	// Right face: row N-1-k, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Right, N - 1 - k, c})
+	}
+	// Back face: row N-1-k, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Back, N - 1 - k, c})
+	}
+	// Left face: row N-1-k, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Left, N - 1 - k, c})
+	}
+	return ring
+}
+
+// ringF generates ring coordinates for F move at layer k
+func ringF(N, k int) []Coord {
+	var ring []Coord
+	// Up face: row N-1-k, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Up, N - 1 - k, c})
+	}
+	// Right face: column k, rows 0 to N-1
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Right, r, k})
+	}
+	// Down face: row k, columns N-1 to 0 (reversed)
+	for c := N - 1; c >= 0; c-- {
+		ring = append(ring, Coord{Down, k, c})
+	}
+	// Left face: column N-1-k, rows N-1 to 0 (reversed)
+	for r := N - 1; r >= 0; r-- {
+		ring = append(ring, Coord{Left, r, N - 1 - k})
+	}
+	return ring
+}
+
+// ringB generates ring coordinates for B move at layer k
+func ringB(N, k int) []Coord {
+	var ring []Coord
+	// Up face: row k, columns N-1 to 0 (reversed)
+	for c := N - 1; c >= 0; c-- {
+		ring = append(ring, Coord{Up, k, c})
+	}
+	// Left face: column k, rows N-1 to 0 (reversed)
+	for r := N - 1; r >= 0; r-- {
+		ring = append(ring, Coord{Left, r, k})
+	}
+	// Down face: row N-1-k, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Down, N - 1 - k, c})
+	}
+	// Right face: column N-1-k, rows 0 to N-1
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Right, r, N - 1 - k})
+	}
+	return ring
+}
+
+// Slice move ring generators
+
+// ringM generates ring coordinates for M slice move (between L and R)
+func ringM(N, k int) []Coord {
+	if N%2 == 0 {
+		return nil // M slice undefined for even cubes for now
+	}
+	centerCol := N / 2
+	var ring []Coord
+	// Up face: column centerCol, rows 0 to N-1
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Up, r, centerCol})
+	}
+	// Front face: column centerCol, rows 0 to N-1
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Front, r, centerCol})
+	}
+	// Down face: column centerCol, rows 0 to N-1
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Down, r, centerCol})
+	}
+	// Back face: column centerCol, rows N-1 to 0 (reversed)
+	for r := N - 1; r >= 0; r-- {
+		ring = append(ring, Coord{Back, r, centerCol})
+	}
+	return ring
+}
+
+// ringE generates ring coordinates for E slice move (between U and D)
+func ringE(N, k int) []Coord {
+	if N%2 == 0 {
+		return nil // E slice undefined for even cubes for now
+	}
+	centerRow := N / 2
+	var ring []Coord
+	// Front face: row centerRow, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Front, centerRow, c})
+	}
+	// Left face: row centerRow, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Left, centerRow, c})
+	}
+	// Back face: row centerRow, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Back, centerRow, c})
+	}
+	// Right face: row centerRow, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Right, centerRow, c})
+	}
+	return ring
+}
+
+// ringS generates ring coordinates for S slice move (between F and B)
+func ringS(N, k int) []Coord {
+	if N%2 == 0 {
+		return nil // S slice undefined for even cubes for now
+	}
+	centerLayer := N / 2
+	var ring []Coord
+	// Up face: row N-1-centerLayer, columns 0 to N-1
+	for c := 0; c < N; c++ {
+		ring = append(ring, Coord{Up, N - 1 - centerLayer, c})
+	}
+	// Left face: column centerLayer, rows N-1 to 0 (reversed)
+	for r := N - 1; r >= 0; r-- {
+		ring = append(ring, Coord{Left, r, centerLayer})
+	}
+	// Down face: row centerLayer, columns N-1 to 0 (reversed)
+	for c := N - 1; c >= 0; c-- {
+		ring = append(ring, Coord{Down, centerLayer, c})
+	}
+	// Right face: column N-1-centerLayer, rows 0 to N-1
+	for r := 0; r < N; r++ {
+		ring = append(ring, Coord{Right, r, N - 1 - centerLayer})
+	}
+	return ring
+}
+
+// generateCubeRotationPermutation creates permutation for cube rotations (x, y, z)
+func generateCubeRotationPermutation(N int, rotationType MoveType, quarterTurns int) Permutation {
+	perm := make(Permutation, 6*N*N)
+	// Initialize identity permutation
+	for i := range perm {
+		perm[i] = i
+	}
+
+	// Define face mappings for each rotation type
+	var faceMappings [][]Face
+
+	switch rotationType {
+	case MoveX:
+		// X rotation: around R face axis
+		// Clockwise: F→D, D→B, B→U, U→F, L rotates CCW, R rotates CW
+		if quarterTurns == 1 {
+			faceMappings = [][]Face{
+				{Front, Down},
+				{Down, Back},
+				{Back, Up},
+				{Up, Front},
+			}
+		} else if quarterTurns == 2 {
+			faceMappings = [][]Face{
+				{Front, Back},
+				{Back, Front},
+				{Up, Down},
+				{Down, Up},
+			}
+		} else { // quarterTurns == 3 (CCW)
+			faceMappings = [][]Face{
+				{Front, Up},
+				{Up, Back},
+				{Back, Down},
+				{Down, Front},
+			}
+		}
+
+	case MoveY:
+		// Y rotation: around U face axis
+		// Clockwise: F→L, L→B, B→R, R→F, U rotates CW, D rotates CCW
+		if quarterTurns == 1 {
+			faceMappings = [][]Face{
+				{Front, Left},
+				{Left, Back},
+				{Back, Right},
+				{Right, Front},
+			}
+		} else if quarterTurns == 2 {
+			faceMappings = [][]Face{
+				{Front, Back},
+				{Back, Front},
+				{Left, Right},
+				{Right, Left},
+			}
+		} else { // quarterTurns == 3 (CCW)
+			faceMappings = [][]Face{
+				{Front, Right},
+				{Right, Back},
+				{Back, Left},
+				{Left, Front},
+			}
+		}
+
+	case MoveZ:
+		// Z rotation: around F face axis
+		// Clockwise: U→L, L→D, D→R, R→U, F rotates CW, B rotates CCW
+		if quarterTurns == 1 {
+			faceMappings = [][]Face{
+				{Up, Left},
+				{Left, Down},
+				{Down, Right},
+				{Right, Up},
+			}
+		} else if quarterTurns == 2 {
+			faceMappings = [][]Face{
+				{Up, Down},
+				{Down, Up},
+				{Left, Right},
+				{Right, Left},
+			}
+		} else { // quarterTurns == 3 (CCW)
+			faceMappings = [][]Face{
+				{Up, Right},
+				{Right, Down},
+				{Down, Left},
+				{Left, Up},
+			}
+		}
+
+	default:
+		return perm // Return identity for unknown rotations
+	}
+
+	// Apply face swaps
+	for _, mapping := range faceMappings {
+		srcFace := mapping[0]
+		dstFace := mapping[1]
+
+		// Copy entire face
+		for row := 0; row < N; row++ {
+			for col := 0; col < N; col++ {
+				srcIdx := stickerIndex(srcFace, row, col, N)
+				dstIdx := stickerIndex(dstFace, row, col, N)
+				perm[srcIdx] = dstIdx
+			}
+		}
+	}
+
+	// Handle face rotations for the axis faces
+	switch rotationType {
+	case MoveX:
+		// Left face rotates CCW, Right face rotates CW
+		leftRotPerm := generateFaceRotationPermutation(N, MoveL, 4-quarterTurns) // CCW
+		rightRotPerm := generateFaceRotationPermutation(N, MoveR, quarterTurns)  // CW
+
+		// Compose permutations
+		for i, dst := range leftRotPerm {
+			if dst != i {
+				perm[i] = dst
+			}
+		}
+		for i, dst := range rightRotPerm {
+			if dst != i {
+				perm[i] = dst
+			}
+		}
+
+	case MoveY:
+		// Up face rotates CW, Down face rotates CCW
+		upRotPerm := generateFaceRotationPermutation(N, MoveU, quarterTurns)     // CW
+		downRotPerm := generateFaceRotationPermutation(N, MoveD, 4-quarterTurns) // CCW
+
+		// Compose permutations
+		for i, dst := range upRotPerm {
+			if dst != i {
+				perm[i] = dst
+			}
+		}
+		for i, dst := range downRotPerm {
+			if dst != i {
+				perm[i] = dst
+			}
+		}
+
+	case MoveZ:
+		// Front face rotates CW, Back face rotates CCW
+		frontRotPerm := generateFaceRotationPermutation(N, MoveF, quarterTurns)  // CW
+		backRotPerm := generateFaceRotationPermutation(N, MoveB, 4-quarterTurns) // CCW
+
+		// Compose permutations
+		for i, dst := range frontRotPerm {
+			if dst != i {
+				perm[i] = dst
+			}
+		}
+		for i, dst := range backRotPerm {
+			if dst != i {
+				perm[i] = dst
+			}
+		}
+	}
+
+	return perm
+}
+
+// rotateSlice rotates a slice of indices by quarterTurns
+func rotateSlice(slice []int, quarterTurns int) []int {
+	n := len(slice)
+	if n == 0 {
+		return slice
+	}
+	shift := (quarterTurns * n / 4) % n
+	result := make([]int, n)
+	for i := range slice {
+		result[i] = slice[(i+shift)%n]
+	}
+	return result
+}
+
+// generatePermutation creates a permutation for a given move
+func generatePermutation(N int, moveType MoveType, layer int, quarterTurns int) Permutation {
+	perm := make(Permutation, 6*N*N)
+	// Initialize identity permutation
+	for i := range perm {
+		perm[i] = i
+	}
+
+	// Get ring coordinates based on move type
+	var ring []Coord
+	switch moveType {
+	case MoveR:
+		ring = ringR(N, layer)
+	case MoveL:
+		ring = ringL(N, layer)
+	case MoveU:
+		ring = ringU(N, layer)
+	case MoveD:
+		ring = ringD(N, layer)
+	case MoveF:
+		ring = ringF(N, layer)
+	case MoveB:
+		ring = ringB(N, layer)
+	case MoveM:
+		ring = ringM(N, layer)
+	case MoveE:
+		ring = ringE(N, layer)
+	case MoveS:
+		ring = ringS(N, layer)
+	case MoveX:
+		// For cube rotations, invert the direction to match old system
+		return generateCubeRotationPermutation(N, MoveX, (4-quarterTurns)%4)
+	case MoveY:
+		return generateCubeRotationPermutation(N, MoveY, (4-quarterTurns)%4)
+	case MoveZ:
+		return generateCubeRotationPermutation(N, MoveZ, (4-quarterTurns)%4)
+	default:
+		return perm // Return identity for unsupported moves for now
+	}
+
+	if ring == nil {
+		return perm // Return identity if ring generation failed
+	}
+
+	// Convert to indices
+	indices := make([]int, len(ring))
+	for i, coord := range ring {
+		indices[i] = stickerIndex(coord.Face, coord.Row, coord.Col, N)
+	}
+
+	// Apply rotation
+	rotated := rotateSlice(indices, quarterTurns)
+	for i, srcIdx := range indices {
+		perm[srcIdx] = rotated[i]
+	}
+
+	// Handle face rotation if outer layer
+	if layer == 0 {
+		faceRotationPerm := generateFaceRotationPermutation(N, moveType, quarterTurns)
+		// Compose with edge permutation
+		for i, dst := range faceRotationPerm {
+			if dst != i {
+				perm[i] = dst
+			}
+		}
+	}
+
+	return perm
+}
+
+// generateFaceRotationPermutation creates permutation for rotating face stickers
+func generateFaceRotationPermutation(N int, moveType MoveType, quarterTurns int) Permutation {
+	perm := make(Permutation, 6*N*N)
+	// Initialize identity permutation
+	for i := range perm {
+		perm[i] = i
+	}
+
+	var face Face
+	switch moveType {
+	case MoveR:
+		face = Right
+	case MoveL:
+		face = Left
+	case MoveU:
+		face = Up
+	case MoveD:
+		face = Down
+	case MoveF:
+		face = Front
+	case MoveB:
+		face = Back
+	default:
+		return perm // No face rotation for slice moves
+	}
+
+	// Generate face rotation rings (concentric squares)
+	for layer := 0; layer < N/2; layer++ {
+		ring := generateFaceRing(face, N, layer)
+
+		// Convert to indices
+		indices := make([]int, len(ring))
+		for i, coord := range ring {
+			indices[i] = stickerIndex(coord.Face, coord.Row, coord.Col, N)
+		}
+
+		// Apply rotation
+		rotated := rotateSlice(indices, quarterTurns)
+		for i, srcIdx := range indices {
+			perm[srcIdx] = rotated[i]
+		}
+	}
+
+	return perm
+}
+
+// generateFaceRing generates coordinates for a ring on a face
+func generateFaceRing(face Face, N, layer int) []Coord {
+	var ring []Coord
+
+	// Top edge (left to right)
+	for c := layer; c < N-layer; c++ {
+		ring = append(ring, Coord{face, layer, c})
+	}
+
+	// Right edge (top to bottom, excluding corner)
+	for r := layer + 1; r < N-layer; r++ {
+		ring = append(ring, Coord{face, r, N - 1 - layer})
+	}
+
+	// Bottom edge (right to left, excluding corner)
+	if N-1-layer > layer {
+		for c := N - 2 - layer; c >= layer; c-- {
+			ring = append(ring, Coord{face, N - 1 - layer, c})
+		}
+	}
+
+	// Left edge (bottom to top, excluding corners)
+	if N-1-layer > layer {
+		for r := N - 2 - layer; r > layer; r-- {
+			ring = append(ring, Coord{face, r, layer})
+		}
+	}
+
+	return ring
+}
+
+// applyPermutation applies a permutation to the cube
+func applyPermutation(cube *Cube, perm Permutation) {
+	N := cube.Size
+	colors := make([]Color, 6*N*N)
+
+	// Flatten cube to linear array
+	idx := 0
+	for face := 0; face < 6; face++ {
+		for row := 0; row < N; row++ {
+			for col := 0; col < N; col++ {
+				colors[idx] = cube.Faces[face][row][col]
+				idx++
+			}
+		}
+	}
+
+	// Apply permutation
+	newColors := make([]Color, 6*N*N)
+	for src, dst := range perm {
+		newColors[dst] = colors[src]
+	}
+
+	// Unflatten back to cube
+	idx = 0
+	for face := 0; face < 6; face++ {
+		for row := 0; row < N; row++ {
+			for col := 0; col < N; col++ {
+				cube.Faces[face][row][col] = newColors[idx]
+				idx++
+			}
+		}
+	}
+}
+
+// moveToMoveType converts a Move struct to MoveType and determines quarter turns
+func moveToMoveType(move Move) (MoveType, int) {
+	var moveType MoveType
+	var quarterTurns int
+
+	// Handle slice moves
+	if move.Slice != NoSlice {
+		switch move.Slice {
+		case M_Slice:
+			moveType = MoveM
+		case E_Slice:
+			moveType = MoveE
+		case S_Slice:
+			moveType = MoveS
+		default:
+			return MoveR, 0 // Default fallback
+		}
+	} else if move.Rotation != NoRotation {
+		// Handle cube rotations
+		switch move.Rotation {
+		case X_Rotation:
+			moveType = MoveX
+		case Y_Rotation:
+			moveType = MoveY
+		case Z_Rotation:
+			moveType = MoveZ
+		default:
+			return MoveR, 0 // Default fallback
+		}
+	} else {
+		// Handle face moves
+		switch move.Face {
+		case Right:
+			moveType = MoveR
+		case Left:
+			moveType = MoveL
+		case Up:
+			moveType = MoveU
+		case Down:
+			moveType = MoveD
+		case Front:
+			moveType = MoveF
+		case Back:
+			moveType = MoveB
+		default:
+			return MoveR, 0 // Default fallback
+		}
+	}
+
+	// Determine quarter turns
+	if move.Double {
+		quarterTurns = 2
+	} else if move.Clockwise {
+		quarterTurns = 1 // Clockwise = 1 quarter turn
+	} else {
+		quarterTurns = 3 // Counter-clockwise = 3 quarter turns clockwise
+	}
+
+	return moveType, quarterTurns
+}
+
+// getAffectedLayers determines which layers are affected by a move
+func getAffectedLayers(move Move, N int) []int {
+	// Handle slice moves
+	if move.Slice != NoSlice {
+		if N%2 == 0 {
+			return []int{} // Slice moves undefined for even cubes
+		}
+		return []int{N / 2} // Middle layer
+	}
+
+	// Handle cube rotations (affect all layers)
+	if move.Rotation != NoRotation {
+		layers := make([]int, N)
+		for i := 0; i < N; i++ {
+			layers[i] = i
+		}
+		return layers
+	}
+
+	// Handle face moves
+	if move.Wide {
+		// Wide moves affect outer two layers by default
+		depth := move.WideDepth
+		if depth <= 0 {
+			depth = 2
+		}
+		layers := make([]int, depth)
+		for i := 0; i < depth; i++ {
+			layers[i] = i
+		}
+		return layers
+	} else if move.Layer > 0 {
+		// Layer-specific move
+		return []int{move.Layer}
+	} else {
+		// Standard face move (outer layer only)
+		return []int{0}
+	}
+}
+
+// newApplyMove applies a move using the new permutation system
+func (c *Cube) newApplyMove(move Move) {
+	moveType, quarterTurns := moveToMoveType(move)
+	layers := getAffectedLayers(move, c.Size)
+
+	for _, layer := range layers {
+		perm := getPermutation(c.Size, moveType, layer, quarterTurns)
+		applyPermutation(c, perm)
+	}
 }
 
 // ParseMove parses a move from advanced notation
@@ -220,6 +987,18 @@ func ParseScramble(scramble string) ([]Move, error) {
 
 // ApplyMove applies a single move to the cube with advanced notation support
 func (c *Cube) ApplyMove(move Move) {
+	// Use legacy system only if explicitly enabled
+	if useLegacyMoves {
+		c.oldApplyMove(move)
+		return
+	}
+
+	// Default to new permutation system
+	c.newApplyMove(move)
+}
+
+// oldApplyMove is the original implementation
+func (c *Cube) oldApplyMove(move Move) {
 	// Handle slice moves
 	if move.Slice != NoSlice {
 		c.applySliceMove(move)
