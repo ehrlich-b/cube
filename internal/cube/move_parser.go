@@ -149,12 +149,12 @@ func (m Move) String() string {
 		}
 	} else {
 		// Handle face moves with layer/wide notation
-		
+
 		// Add layer number prefix for numbered layer moves (2R, 3L, etc.)
 		if m.Layer > 0 {
 			result += fmt.Sprintf("%d", m.Layer+1) // Convert back to 1-indexed
 		}
-		
+
 		// Add face letter
 		switch m.Face {
 		case Right:
@@ -170,7 +170,7 @@ func (m Move) String() string {
 		case Back:
 			result += "B"
 		}
-		
+
 		// Add wide suffix
 		if m.Wide {
 			result += "w"

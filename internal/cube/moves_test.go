@@ -102,8 +102,8 @@ func TestMoveSystemLimitations(t *testing.T) {
 		}
 
 		// Check that all other columns remain unchanged (including center)
-		if cube.Faces[Front][0][0] != origFrontInner[0] || cube.Faces[Front][0][1] != origFrontInner[1] || 
-		   cube.Faces[Front][0][2] != origFrontInner[2] || cube.Faces[Front][0][3] != origFrontInner[3] {
+		if cube.Faces[Front][0][0] != origFrontInner[0] || cube.Faces[Front][0][1] != origFrontInner[1] ||
+			cube.Faces[Front][0][2] != origFrontInner[2] || cube.Faces[Front][0][3] != origFrontInner[3] {
 			t.Error("5x5 R move should NOT change front face inner columns (only rightmost moves)")
 		}
 	})
@@ -137,7 +137,7 @@ func TestMoveSystemLimitations(t *testing.T) {
 
 				// R move should only affect the rightmost column (standard cubing convention)
 				rightmostCol := size - 1
-				
+
 				// Check that rightmost column changed
 				if cube.Faces[Front][0][rightmostCol] == origFrontColors[rightmostCol] {
 					t.Errorf("%dx%d cube: rightmost column should have changed after R move", size, size)
@@ -368,17 +368,19 @@ func TestCircuitFuzzing(t *testing.T) {
 
 	lines := strings.Split(string(content), "\n")
 	var sequences []string
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue // Skip empty lines and comments
 		}
-		
-		// Extract sequence (everything before the # comment)
+
+		// Extract sequence (everything before the # comment, if any)
 		if idx := strings.Index(line, "#"); idx != -1 {
-			sequences = append(sequences, strings.TrimSpace(line[:idx]))
-		} else {
+			line = strings.TrimSpace(line[:idx])
+		}
+
+		if line != "" {
 			sequences = append(sequences, line)
 		}
 	}
@@ -390,7 +392,7 @@ func TestCircuitFuzzing(t *testing.T) {
 	t.Logf("🧪 Testing %d curated circuit sequences...", testCount)
 
 	for i, scrambleStr := range sequences {
-		cube := NewCube(3)
+		cube := NewCube(3) // Always use 3x3 cubes
 		originalState := cube.String()
 
 		// Apply sequence repeatedly until it cycles back to solved (or we hit max)
@@ -419,7 +421,7 @@ func TestCircuitFuzzing(t *testing.T) {
 		}
 
 		// Progress reporting
-		if (i+1)%20 == 0 {
+		if (i+1)%50 == 0 {
 			t.Logf("Circuit progress: %d/%d sequences tested, %d failures", i+1, testCount, failureCount)
 		}
 	}
