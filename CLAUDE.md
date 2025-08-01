@@ -23,12 +23,8 @@ make build
 ./dist/cube solve "R U R' U'" --algorithm beginner
 ./dist/cube solve "Rw Uw Fw" --dimension 4 --color
 
-# Run comprehensive test suite (45 tests including web interface)
+# Run comprehensive test suite 
 make test-all
-
-# Start web terminal interface
-./dist/cube serve
-# Then open http://localhost:8080/terminal in browser
 ```
 
 ## Cube Orientation
@@ -62,7 +58,6 @@ Available rotations: `x`, `y`, `z` (with `'` for counter-clockwise, `2` for 180�
 - `make build` - Compile binary to `dist/cube`
 - `make clean` - Remove build artifacts
 - `make build-all` - Build for multiple platforms (linux, darwin, windows)
-- `make serve` - Start web server quickly
 - `make dev` - Hot reload development (requires Air: `make install-tools`)
 - `make run` - Run CLI directly with go run
 
@@ -80,14 +75,12 @@ Available rotations: `x`, `y`, `z` (with `'` for counter-clockwise, `2` for 180�
 
 ## Architecture Overview
 
-This is a Rubik's cube solver with dual interfaces (CLI + Web) built around a flexible core engine:
+This is a Rubik's cube solver CLI tool built around a flexible core engine:
 
 ```
 cmd/cube/main.go
     ↓
-internal/cli/ (Cobra commands)
-    ├── solve.go → internal/cube/ (Core logic)
-    └── serve.go → internal/web/ → internal/cube/
+internal/cli/ (Cobra commands) → internal/cube/ (Core logic)
 ```
 
 ### Core Components
@@ -104,43 +97,36 @@ internal/cli/ (Cobra commands)
 
 **CLI Commands (`internal/cli/`):**
 - `cube solve` - CLI solving with `--algorithm` and `--dimension` flags
-- `cube serve` - Web server with `--host` and `--port` options
+- `cube verify` - Algorithm verification with CFEN support
+- `cube show` - Cube display with pattern highlighting
+- `cube lookup` - Algorithm database lookup
 - Built with Cobra framework
-
-**Web Interface (`internal/web/`):**
-- Gorilla Mux router with `/api/solve` REST endpoint
-- Embedded HTML/CSS/JS (no separate static files currently)
-- JSON API accepts scramble, algorithm, and dimension parameters
 
 ### Key Data Flow
 
-**Solving Process (both CLI and Web):**
+**Solving Process:**
 1. Parse scramble string into `[]Move`
 2. Create `Cube` with specified dimension
 3. Apply scramble moves to cube
 4. Get solver by algorithm name from factory
 5. Execute `solver.Solve(cube)` → `SolverResult`
-6. Format output (text for CLI, JSON for web)
+6. Format output for CLI display
 
 ### Current Implementation Status
 
-**✅ Completed (Phase 3 - Terminal Web Interface):**
+**✅ Completed Features:**
 - Full NxN cube support (2x2 through 6x6+) with proper multi-layer moves
-- BeginnerSolver with real layer-by-layer algorithm
 - Beautiful ASCII color output with `--color` flag (ANSI colored letters)
 - Advanced move notation: M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations
-- **Solution verification system** - `cube verify` command with verbose output
+- **Enhanced verification system** - `cube verify` command with CFEN start/target support
 - **Pattern highlighting system** - `cube show` with cross/OLL/PLL/F2L highlighting
 - **Algorithm database** - 15 common algorithms with lookup by name/pattern/category
-- **Terminal web interface** - Full CLI functionality accessible via web browser at `/terminal`
-- **REST API** - `/api/exec` endpoint mirrors all CLI commands with proper argument parsing
-- **Comprehensive test suite** - 45 end-to-end tests covering all features including web interface
+- **Comprehensive test suite** - End-to-end tests covering all CLI features
 - Cross-platform build system (macOS/Linux compatible)
-- All three algorithms produce distinct solutions
 
 **⚠️ Current Issues:**
 - CFOP and Kociemba solvers have basic placeholder implementations (functional but not optimal)
-- Empty `pkg/algorithms/` and `internal/web/static/` directories
+- Empty `pkg/algorithms/` directory
 
 **📍 Key Files to Know:**
 - `TODO.md` - **ALWAYS READ FIRST** - Current development plan and progress
@@ -163,17 +149,12 @@ internal/cli/ (Cobra commands)
 
 **New Cube Dimension:**
 - Cube struct already supports arbitrary dimensions
-- Validate in CLI flag parsing and web API handlers
-
-**Web UI Enhancements:**
-- Static files go in `internal/web/static/` (currently empty)
-- Update handlers in `internal/web/handlers.go` to serve static content
+- Validate in CLI flag parsing
 
 ### Dependencies and Tools
 
 **Runtime Dependencies:**
 - `github.com/spf13/cobra` - CLI framework
-- `github.com/gorilla/mux` - HTTP router
 
 **Development Tools (optional):**
 - `cosmtrek/air` - Hot reload for development
@@ -263,12 +244,10 @@ done
 4. Always run `make fmt && make vet` before committing
 
 **Test Suite Coverage:**
-- **45 comprehensive end-to-end tests** covering every command and feature including web interface
+- **Comprehensive end-to-end tests** covering every CLI command and feature
 - **All cube dimensions** (2x2 through 20x20) with proper multi-layer moves
-- **All algorithms** (beginner, cfop, kociemba) produce distinct solutions
 - **Advanced notation** (M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations)
-- **All Phase 2 features** (verify, show with highlighting, lookup database)
-- **Phase 3 web interface** (terminal emulator, REST API, command parsing)
+- **Verification system** (verify command, show with highlighting, lookup database)
 - **Error handling and edge cases** with proper exit codes
 - **Integration tests** (solve + verify workflows)
 - **Performance tests** (large scrambles, complex cubes)
