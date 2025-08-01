@@ -136,7 +136,7 @@ run_test "Mixed notation" "$CUBE_BIN solve \"R M U' 2R Fw x y\" --dimension 5" "
 # Verify Command Tests
 echo -e "\n${YELLOW}Verify Command Tests:${NC}"
 run_test "Verify correct solution" "$CUBE_BIN verify \"R U R' U'\" \"U R U' R'\"" "✅ SOLVED!"
-run_test "Verify incorrect solution" "$CUBE_BIN verify \"R U R' U'\" \"F U F' U'\"" "❌ NOT SOLVED!"
+run_test "Verify incorrect solution" "$CUBE_BIN verify \"R U R' U'\" \"F U F' U'\"" "❌ NOT SOLVED!" true
 run_test "Verify with verbose" "$CUBE_BIN verify \"R U\" \"U' R'\" --verbose" "Cube after scramble"
 run_test "Verify with color" "$CUBE_BIN verify \"R\" \"R'\" --verbose --color" "🟦"
 run_test "Verify different dimensions" "$CUBE_BIN verify \"Rw\" \"Rw'\" --dimension 4" "✅ SOLVED!"
