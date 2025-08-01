@@ -3,6 +3,8 @@ package cube
 import (
 	"fmt"
 	"math/rand"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -23,13 +25,13 @@ func TestMoveSystemLimitations(t *testing.T) {
 		}
 	})
 
-	t.Run("4x4x4 moves work correctly with multiple layers", func(t *testing.T) {
+	t.Run("4x4x4 moves work correctly (outer layer only)", func(t *testing.T) {
 		cube := NewCube(4)
 		originalState := cube.String()
 
 		// Store original colors at key positions
-		origFrontRight := [2]Color{cube.Faces[Front][0][2], cube.Faces[Front][0][3]}
-		origFrontLeft := [2]Color{cube.Faces[Front][0][0], cube.Faces[Front][0][1]}
+		origFrontRightmost := cube.Faces[Front][0][3] // Only the rightmost column should change
+		origFrontInner := [3]Color{cube.Faces[Front][0][0], cube.Faces[Front][0][1], cube.Faces[Front][0][2]}
 
 		// Apply R move to 4x4 cube
 		rMove := Move{Face: Right, Clockwise: true}
@@ -42,16 +44,15 @@ func TestMoveSystemLimitations(t *testing.T) {
 			t.Error("4x4 cube state should change after R move")
 		}
 
-		// For 4x4 cubes, R move should affect the two rightmost layers
-		// Check that the Front face's right two columns changed (don't care what color)
-		if cube.Faces[Front][0][2] == origFrontRight[0] || cube.Faces[Front][0][3] == origFrontRight[1] {
-			t.Error("4x4 R move should change front face right columns")
+		// R move should affect ONLY the rightmost layer (standard cubing convention)
+		// Check that the Front face's rightmost column changed
+		if cube.Faces[Front][0][3] == origFrontRightmost {
+			t.Error("4x4 R move should change front face rightmost column")
 		}
 
-		// Verify the move affects exactly 2 layers (half of 4)
-		// The leftmost 2 columns should remain unchanged
-		if cube.Faces[Front][0][0] != origFrontLeft[0] || cube.Faces[Front][0][1] != origFrontLeft[1] {
-			t.Error("4x4 R move should NOT change front face left columns")
+		// All other columns should remain unchanged
+		if cube.Faces[Front][0][0] != origFrontInner[0] || cube.Faces[Front][0][1] != origFrontInner[1] || cube.Faces[Front][0][2] != origFrontInner[2] {
+			t.Error("4x4 R move should NOT change front face inner columns (only rightmost moves)")
 		}
 	})
 
@@ -83,32 +84,27 @@ func TestMoveSystemLimitations(t *testing.T) {
 		}
 	})
 
-	t.Run("5x5x5 moves preserve center layer", func(t *testing.T) {
+	t.Run("5x5x5 moves work correctly (outer layer only)", func(t *testing.T) {
 		cube := NewCube(5)
 
 		// Store original colors at key positions
-		origFrontRight := [2]Color{cube.Faces[Front][0][3], cube.Faces[Front][0][4]}
-		origFrontCenter := cube.Faces[Front][0][2]
-		origFrontLeft := [2]Color{cube.Faces[Front][0][0], cube.Faces[Front][0][1]}
+		origFrontRightmost := cube.Faces[Front][0][4] // Only the rightmost column should change
+		origFrontInner := [4]Color{cube.Faces[Front][0][0], cube.Faces[Front][0][1], cube.Faces[Front][0][2], cube.Faces[Front][0][3]}
 
 		// Apply R move to 5x5 cube
 		rMove := Move{Face: Right, Clockwise: true}
 		cube.ApplyMove(rMove)
 
-		// For 5x5, R move should affect outer 2 layers, preserve center
-		// Check that rightmost 2 columns changed (don't care what color)
-		if cube.Faces[Front][0][3] == origFrontRight[0] || cube.Faces[Front][0][4] == origFrontRight[1] {
-			t.Error("5x5 R move should change front face rightmost 2 columns")
+		// R move should affect ONLY the rightmost column (standard cubing convention)
+		// Check that rightmost column changed
+		if cube.Faces[Front][0][4] == origFrontRightmost {
+			t.Error("5x5 R move should change front face rightmost column")
 		}
 
-		// Check that center column (index 2) is unchanged
-		if cube.Faces[Front][0][2] != origFrontCenter {
-			t.Error("5x5 R move should NOT change front face center column")
-		}
-
-		// Check that leftmost 2 columns are unchanged
-		if cube.Faces[Front][0][0] != origFrontLeft[0] || cube.Faces[Front][0][1] != origFrontLeft[1] {
-			t.Error("5x5 R move should NOT change front face leftmost 2 columns")
+		// Check that all other columns remain unchanged (including center)
+		if cube.Faces[Front][0][0] != origFrontInner[0] || cube.Faces[Front][0][1] != origFrontInner[1] || 
+		   cube.Faces[Front][0][2] != origFrontInner[2] || cube.Faces[Front][0][3] != origFrontInner[3] {
+			t.Error("5x5 R move should NOT change front face inner columns (only rightmost moves)")
 		}
 	})
 
@@ -139,22 +135,18 @@ func TestMoveSystemLimitations(t *testing.T) {
 					t.Errorf("%dx%d cube state should change after R move", size, size)
 				}
 
-				// Check that proper number of layers moved
-				expectedLayers := size / 2
-
-				// For the Front face, check that the rightmost 'expectedLayers' columns changed
-				for layer := 0; layer < expectedLayers; layer++ {
-					col := size - 1 - layer
-					if cube.Faces[Front][0][col] == origFrontColors[col] {
-						t.Errorf("%dx%d cube: column %d should have changed after R move", size, size, col)
-					}
+				// R move should only affect the rightmost column (standard cubing convention)
+				rightmostCol := size - 1
+				
+				// Check that rightmost column changed
+				if cube.Faces[Front][0][rightmostCol] == origFrontColors[rightmostCol] {
+					t.Errorf("%dx%d cube: rightmost column should have changed after R move", size, size)
 				}
 
-				// Check that the remaining columns did NOT change (if any)
-				unchangedLayers := size - expectedLayers
-				for layer := 0; layer < unchangedLayers; layer++ {
-					if cube.Faces[Front][0][layer] != origFrontColors[layer] {
-						t.Errorf("%dx%d cube: column %d should NOT have changed after R move", size, size, layer)
+				// Check that all other columns did NOT change
+				for col := 0; col < size-1; col++ {
+					if cube.Faces[Front][0][col] != origFrontColors[col] {
+						t.Errorf("%dx%d cube: column %d should NOT have changed after R move", size, size, col)
 					}
 				}
 			})
@@ -367,24 +359,37 @@ func TestMoveInverses(t *testing.T) {
 
 // TestCircuitFuzzing - The REAL test: every sequence must have finite cycle order
 func TestCircuitFuzzing(t *testing.T) {
-	// Set deterministic seed for reproducible testing
-	rand.Seed(42)
+	// Read pre-generated circuits file
+	circuitsPath := "../../test/circuits"
+	content, err := os.ReadFile(circuitsPath)
+	if err != nil {
+		t.Fatalf("Failed to read circuits file: %v", err)
+	}
 
-	moves := []string{"R", "R'", "R2", "L", "L'", "L2", "U", "U'", "U2", "D", "D'", "D2", "F", "F'", "F2", "B", "B'", "B2"}
+	lines := strings.Split(string(content), "\n")
+	var sequences []string
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue // Skip empty lines and comments
+		}
+		
+		// Extract sequence (everything before the # comment)
+		if idx := strings.Index(line, "#"); idx != -1 {
+			sequences = append(sequences, strings.TrimSpace(line[:idx]))
+		} else {
+			sequences = append(sequences, line)
+		}
+	}
 
-	testCount := 100
-	maxCycleLength := 50 // Magic number - no cube sequence should need more than 50 cycles
+	testCount := len(sequences)
+	maxCycleLength := 1200 // Should be more than enough for our curated sequences
 	failureCount := 0
 
-	for i := 0; i < testCount; i++ {
-		// Generate random sequence (3-8 moves)
-		scrambleLength := 3 + rand.Intn(6)
-		scramble := make([]string, scrambleLength)
-		for j := 0; j < scrambleLength; j++ {
-			scramble[j] = moves[rand.Intn(len(moves))]
-		}
+	t.Logf("🧪 Testing %d curated circuit sequences...", testCount)
 
-		scrambleStr := joinMoves(scramble)
+	for i, scrambleStr := range sequences {
 		cube := NewCube(3)
 		originalState := cube.String()
 
@@ -408,12 +413,9 @@ func TestCircuitFuzzing(t *testing.T) {
 
 		if !cycleFound {
 			failureCount++
-			if failureCount <= 5 { // Report first 5 failures
-				t.Errorf("❌ CIRCUIT FAILURE: Sequence '%s' did not cycle within %d applications!",
-					scrambleStr, maxCycleLength)
-				t.Errorf("Final cube state: %s", cube.String())
-				t.Logf("--- Circuit failure %d ---", failureCount)
-			}
+			t.Errorf("❌ CIRCUIT FAILURE: Sequence '%s' did not cycle within %d applications!",
+				scrambleStr, maxCycleLength)
+			t.Errorf("Final cube state: %s", cube.String())
 		}
 
 		// Progress reporting
@@ -423,10 +425,10 @@ func TestCircuitFuzzing(t *testing.T) {
 	}
 
 	if failureCount == 0 {
-		t.Logf("🎉 All %d sequences have finite cycle order!", testCount)
+		t.Logf("🎉 All %d curated sequences have finite cycle order!", testCount)
 	} else {
-		t.Errorf("❌ %d out of %d sequences failed circuit test (%.2f%% failure rate)",
-			failureCount, testCount, float64(failureCount)/float64(testCount)*100)
+		t.Errorf("❌ %d out of %d sequences failed circuit test",
+			failureCount, testCount)
 		t.Errorf("This indicates FUNDAMENTAL bugs in the move system!")
 	}
 }

@@ -100,7 +100,7 @@ func getAffectedLayers(move Move, N int) []int {
 
 	// Handle face moves
 	if move.Wide {
-		// Wide moves affect outer two layers by default
+		// Wide moves affect outer N layers (default 2)
 		depth := move.WideDepth
 		if depth <= 0 {
 			depth = 2
@@ -110,8 +110,11 @@ func getAffectedLayers(move Move, N int) []int {
 			layers[i] = i
 		}
 		return layers
+	} else if move.Layer > 0 {
+		// Layer moves (2R, 3L, etc.) affect only the specified layer
+		return []int{move.Layer}
 	} else {
-		// Regular moves affect only outer layer
+		// Regular moves affect only outer layer (standard cubing convention)
 		return []int{0}
 	}
 }
