@@ -1,4 +1,4 @@
-.PHONY: build clean test run serve install dev fmt vet lint e2e-test test-all
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all
 
 # Build the binary
 build:
@@ -18,9 +18,7 @@ test:
 run:
 	go run ./cmd/cube
 
-# Start the web server
-serve:
-	go run ./cmd/cube serve
+# Serve command removed - this is a CLI-only tool
 
 # Install dependencies
 install:
