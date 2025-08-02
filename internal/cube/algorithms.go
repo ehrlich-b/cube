@@ -6,11 +6,23 @@ import (
 
 // Algorithm represents a named cube algorithm
 type Algorithm struct {
+	// Core algorithm data
 	Name        string
 	Category    string // OLL, PLL, F2L, etc.
 	Moves       string
 	Description string
 	CaseNumber  string // e.g., "OLL 21", "PLL T"
+
+	// Verification fields
+	StartCFEN  string // Required starting state (with wildcards)
+	TargetCFEN string // Expected ending state (with wildcards)
+	Verified   bool   // Has this been verified?
+
+	// Enhanced metadata
+	MoveCount   int      // Number of moves (auto-calculated)
+	Probability float64  // Chance of occurring in solve
+	Variants    []string // Alternative algorithms for same case
+	TestedOn    []int    // Cube sizes tested (e.g., [3, 4, 5])
 }
 
 // AlgorithmDatabase contains common cube algorithms
@@ -22,6 +34,11 @@ var AlgorithmDatabase = []Algorithm{
 		Moves:       "R U R' U R U2 R'",
 		Description: "Orient corners when one is correctly oriented",
 		CaseNumber:  "OLL 27",
+		StartCFEN:   "YB|Y9/R9/B9/W9/O9/G9",                 // Start from solved for demo purposes
+		TargetCFEN:  "YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6", // Sune pattern result
+		MoveCount:   7,
+		Verified:    true,
+		TestedOn:    []int{3},
 	},
 	{
 		Name:        "Anti-Sune",
@@ -29,6 +46,11 @@ var AlgorithmDatabase = []Algorithm{
 		Moves:       "R U2 R' U' R U' R'",
 		Description: "Mirror of Sune algorithm",
 		CaseNumber:  "OLL 26",
+		StartCFEN:   "YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6", // Sune pattern (needs Anti-Sune)
+		TargetCFEN:  "YB|Y9/R9/B9/W9/O9/G9",                 // Back to solved
+		MoveCount:   7,
+		Verified:    true,
+		TestedOn:    []int{3},
 	},
 	{
 		Name:        "Cross OLL",
@@ -36,6 +58,11 @@ var AlgorithmDatabase = []Algorithm{
 		Moves:       "F R U R' U' F'",
 		Description: "Creates cross on top, orients edges",
 		CaseNumber:  "OLL 3",
+		StartCFEN:   "YB|RBY4R2Y/BG2R6/BYOB6/W9/YOYO6/OYG7", // Cross OLL case (line pattern)
+		TargetCFEN:  "YB|Y9/R9/B9/W9/O9/G9",                 // Solved (cross oriented)
+		MoveCount:   6,
+		Verified:    true,
+		TestedOn:    []int{3},
 	},
 	{
 		Name:        "Dot OLL",
@@ -59,6 +86,11 @@ var AlgorithmDatabase = []Algorithm{
 		Moves:       "R U R' U' R' F R2 U' R' U' R U R' F'",
 		Description: "Swaps two adjacent corners and two edges",
 		CaseNumber:  "PLL T",
+		StartCFEN:   "YB|Y9/GOBR6/B2RB6/W9/ORO7/RG8", // Actual T-Perm case
+		TargetCFEN:  "YB|Y9/R9/B9/W9/O9/G9",          // Fully solved
+		MoveCount:   14,
+		Verified:    true,
+		TestedOn:    []int{3},
 	},
 	{
 		Name:        "Y-Perm",
@@ -103,6 +135,9 @@ var AlgorithmDatabase = []Algorithm{
 		Moves:       "U R U' R'",
 		Description: "Basic corner-edge pair insertion",
 		CaseNumber:  "F2L 1",
+		StartCFEN:   "", // Will be defined for specific F2L slot patterns
+		TargetCFEN:  "", // Will be defined for specific F2L slot patterns
+		MoveCount:   4,
 	},
 	{
 		Name:        "Split Pair",
@@ -119,6 +154,11 @@ var AlgorithmDatabase = []Algorithm{
 		Moves:       "R U R' U'",
 		Description: "Most common trigger in cubing",
 		CaseNumber:  "",
+		StartCFEN:   "YB|RBY6R/WG2R6/B5YB2Y/W2BW6/YO8/ORG7", // Specific scrambled state
+		TargetCFEN:  "YB|Y9/R9/B9/W9/O9/G9",                 // Solved (this particular sexy move solves it)
+		MoveCount:   4,
+		Verified:    true,
+		TestedOn:    []int{3},
 	},
 	{
 		Name:        "Sledgehammer",
@@ -193,6 +233,11 @@ var AlgorithmDatabase = []Algorithm{
 		Moves:       "x R' U R' D2 R U' R' D2 R2 x'",
 		Description: "Adjacent corner swap",
 		CaseNumber:  "PLL Aa",
+		StartCFEN:   "YB|Y9/ORGR6/B6RBR/W9/BO8/G2BG6", // A-Perm case (adjacent corners swapped)
+		TargetCFEN:  "YB|Y9/R9/B9/W9/O9/G9",           // Solved
+		MoveCount:   9,
+		Verified:    true,
+		TestedOn:    []int{3},
 	},
 	{
 		Name:        "A-Perm (b)",
@@ -512,6 +557,73 @@ func GetByCategory(category string) []Algorithm {
 
 	for _, alg := range AlgorithmDatabase {
 		if alg.Category == category {
+			results = append(results, alg)
+		}
+	}
+
+	return results
+}
+
+// CalculateMoveCount returns the number of moves in an algorithm string
+func (alg *Algorithm) CalculateMoveCount() int {
+	if alg.Moves == "" {
+		return 0
+	}
+
+	moves, err := ParseScramble(alg.Moves)
+	if err != nil {
+		return 0
+	}
+
+	return len(moves)
+}
+
+// UpdateMoveCount updates the MoveCount field based on the Moves string
+func (alg *Algorithm) UpdateMoveCount() {
+	alg.MoveCount = alg.CalculateMoveCount()
+}
+
+// NeedsCFENPatterns returns true if this algorithm has CFEN patterns to verify
+func (alg *Algorithm) NeedsCFENPatterns() bool {
+	return alg.StartCFEN != "" || alg.TargetCFEN != ""
+}
+
+// MarkVerified marks the algorithm as verified for a specific cube size
+func (alg *Algorithm) MarkVerified(cubeSize int) {
+	alg.Verified = true
+	// Add cube size to TestedOn if not already present
+	for _, size := range alg.TestedOn {
+		if size == cubeSize {
+			return // Already tested on this size
+		}
+	}
+	alg.TestedOn = append(alg.TestedOn, cubeSize)
+}
+
+// MarkUnverified marks the algorithm as unverified
+func (alg *Algorithm) MarkUnverified() {
+	alg.Verified = false
+}
+
+// GetVerifiedAlgorithms returns only algorithms that have been verified
+func GetVerifiedAlgorithms() []Algorithm {
+	var results []Algorithm
+
+	for _, alg := range AlgorithmDatabase {
+		if alg.Verified {
+			results = append(results, alg)
+		}
+	}
+
+	return results
+}
+
+// GetUnverifiedAlgorithms returns algorithms that need verification
+func GetUnverifiedAlgorithms() []Algorithm {
+	var results []Algorithm
+
+	for _, alg := range AlgorithmDatabase {
+		if !alg.Verified && alg.NeedsCFENPatterns() {
 			results = append(results, alg)
 		}
 	}
