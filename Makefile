@@ -1,9 +1,18 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools
 
 # Build the binary
 build:
 	mkdir -p dist
 	go build -o dist/cube ./cmd/cube
+
+# Build database tools
+build-tools:
+	mkdir -p dist/tools
+	go build -o dist/tools/verify-algorithm ./tools/verify-algorithm
+	go build -o dist/tools/verify-database ./tools/verify-database
+
+# Build everything (main binary + tools)
+build-all-local: build build-tools
 
 # Clean build artifacts
 clean:
