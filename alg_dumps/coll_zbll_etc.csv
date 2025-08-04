@@ -1,0 +1,8 @@
+COLL-U1,"ULL (Corners Oriented)","Advanced","R U2 R' U' R U' R2 U2 R U R' U R","Orients and permutes corners in 'U' OLL case","Edges remain oriented (COLL subset)","algdb.net"
+COLL-T1,"TOLL (T-COLL)","Advanced","R U R' U' R' F R2 U' R' U' R U R' F'","Orients corners in T-OLL case, leaving edges","T case COLL (permutes corners, edges oriented)","algdb.net"
+WV-1,"Winter Variation","Advanced","R U R' U R U2 R' F R U R' U' F'","Inserts last F2L pair while orienting last-layer edges","Use when one slot left, U-edge misoriented","speedsolving.com"
+SV-1,"Summer Variation","Advanced","r U' r' U' r U r' F' U F","Inserts last pair while orienting LL corners","Used when one slot left, corners unoriented","speedsolving.com"
+ZBLL-AS1,"ZBLL (Sune)","Advanced","R U R' U R U' R' U R U2 R' U' R U' R'","Solves last layer with edges oriented (Sune case)","Edges pre-oriented (ZZ method)","speedsolving.com"
+ZBLL-H1,"ZBLL (H)","Advanced","R' U R U' l U' R' U R U' R' U2 R l'","Solves LL with edges oriented (H case)","Edges oriented (cross on top)","speedsolving.com"
+OLLCP-1,"OLLCP","Advanced","R U R' U R U' R' U R U' R'","Orients last layer and permutes corners simultaneously","Leads to corner skip in PLL","speedsolving.com"
+VLS-1,"VLS","Advanced","R U R' U' R' F R2 U' R' U' R U R' F'","Solves last F2L pair + OLL (edges)","Variant Last Slot (edges oriented)","speedsolving.com"

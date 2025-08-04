@@ -1,5 +1,21 @@
 package cube
 
+// PATTERN-BASED SOLVING DATABASE - EXPERIMENTAL
+//
+// This file implements a pattern-matching approach to cube solving using state detection
+// and pre-defined algorithm sequences. It was an early experiment in solving methods.
+//
+// Status: Functional but superseded by planned approach in TODO.md
+// Approach: State detection with 4-look last layer method
+// Future: Will be replaced by piece tracking system (Phase 3+ in TODO.md)
+//
+// This code demonstrates:
+// - Pattern matching with wildcard support
+// - State-based algorithm selection
+// - 4-look last layer methodology
+//
+// Note: Current solvers in solver.go are unimplemented stubs
+
 import (
 	"fmt"
 )

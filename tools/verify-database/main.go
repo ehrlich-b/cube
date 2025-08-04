@@ -32,9 +32,9 @@ func main() {
 		algorithms = cube.GetByCategory(category)
 	}
 
-	// Filter to only algorithms with CFEN patterns
+	// Filter to only algorithms with patterns
 	for _, alg := range algorithms {
-		if alg.StartCFEN != "" || alg.TargetCFEN != "" {
+		if alg.Pattern != "" {
 			toVerify = append(toVerify, alg)
 		}
 	}
@@ -62,18 +62,11 @@ func main() {
 
 	// Verify each algorithm
 	for i, alg := range toVerify {
-		fmt.Printf("[%d/%d] Testing %s (%s)...", i+1, totalCount, alg.Name, alg.CaseNumber)
+		fmt.Printf("[%d/%d] Testing %s (%s)...", i+1, totalCount, alg.Name, alg.CaseID)
 
 		// Set up start and target CFENs
-		startCFEN := alg.StartCFEN
-		targetCFEN := alg.TargetCFEN
-
-		if startCFEN == "" {
-			startCFEN = "YB|Y9/R9/B9/W9/O9/G9" // Default to solved
-		}
-		if targetCFEN == "" {
-			targetCFEN = "YB|Y9/R9/B9/W9/O9/G9" // Default to solved
-		}
+		startCFEN := "YB|Y9/R9/B9/W9/O9/G9" // Always start from solved cube
+		targetCFEN := alg.Pattern // Expected pattern after applying algorithm
 
 		// Perform verification
 		err := verifyAlgorithm(alg, startCFEN, targetCFEN, false)

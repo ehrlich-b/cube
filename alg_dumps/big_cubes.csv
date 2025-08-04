@@ -1,0 +1,6 @@
+4x4-OLL-PARITY,"OLL Parity","4x4-PARITY","r U2 x (R U R' U') (R U R' U') r' U2 r U2 r' x'","Fixes 4x4 OLL parity (flipped edge)","One dedge (edge-pair) oriented incorrectly:contentReference[oaicite:31]{index=31}","speedsolving.com"
+4x4-PLL-PARITY,"PLL Parity","4x4-PARITY","r2 U2 r2 Uw2 r2 u2","Fixes 4x4 PLL parity (swap two dedges)","Two edge-pairs swapped (unsolvable 3x3 state):contentReference[oaicite:32]{index=32}:contentReference[oaicite:33]{index=33}","kewbz.co.uk"
+5x5-OLL-PARITY,"5x5 OLL Parity","5x5-PARITY","Rw2 B2 U2 l U2 r' U2 r U2 F2 r F2 l' B2 Rw2","Fixes 5x5 OLL parity (flipped edge pair)","Two adjacent wing edges flipped (like 4x4 OLL parity)","kewbz.co.uk"
+5x5-Edge-PARITY,"5x5 Edge Parity","5x5-PARITY","(apply 4x4 OLL parity alg)","Fixes odd-parity in edge pairing","Single wing flip or swap on 5x5","speedsolving.com"
+6x6-Edge-PARITY,"6x6 Edge Parity (Lucas)","6x6-PARITY","2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2","Fixes 6x6 last two edge parity","Two opposite edge pairs mispaired","kewbz.co.uk:contentReference[oaicite:34]{index=34}"
+7x7-Parity,"7x7 Parity","7x7-PARITY","(similar algorithms as 5x5/6x6)","Any parity on 7x7 (multiple types)","Multiple wing swaps or flips","speedsolving.com"

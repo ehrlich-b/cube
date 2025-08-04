@@ -1,290 +1,211 @@
-# TODO.md - Rubik's Cube Verified Algorithm Database
+# TODO.md - Rubik's Cube Solver Project
 
-## 🎯 **NEW FOCUS: Building a Verified Algorithm Database**
+## 🔍 Project Status: Reality Check
 
-We're pivoting from solver implementation to building a robust foundation of verified algorithms. This database will become the bedrock for future solver development.
-
----
-
-## ✅ **PHASE 2 COMPLETE: Enhanced Verification System**
-
-### **✅ ACCOMPLISHED**
-Phase 2 has been successfully completed! The enhanced verification system is fully functional and tested.
-
-### **✅ Implemented Features**
-
-```bash
-# ✅ Flexible verification with CFEN start/target states
-cube verify "R U R' U R U2 R'" --start "YB|Y2OY2BY2B/R2YGR2YR2/B2WB2YB3/W2RW6/GO8/GR2G6" --target "YB|Y9/?9/?9/W9/?9/?9"
-
-# ✅ T-Perm verification (maintains top face, permutes sides)
-cube verify "R U R' U' R' F R2 U' R' U' R U R' F'" --start "YB|Y9/R9/B9/W9/O9/G9" --target "YB|Y9/?9/?9/W9/?9/?9"
-
-# ✅ Verbose mode showing all intermediate states
-cube verify "U R U' R'" --start "YB|Y2OY2BY2B/R2YGR2YR2/B2WB2YB3/W2RW6/GO8/GR2G6" --target "YB|Y9/R9/B9/W9/O9/G9" --verbose
-
-# ✅ Wildcard matching for pattern-based verification
-cube verify "R U R' U'" --target "YB|Y9/?9/?9/W9/?9/?9"  # Only top face matters
-```
-
-### ✅ **Completed Verification Enhancement Tasks**
-
-**1. Enhanced `verify` Command**
-- ✅ Full `verify` command with `--start` and `--target` CFEN support
-- ✅ Default `--start` to solved cube if not specified
-- ✅ Default `--target` to solved cube if not specified
-- ✅ `--verbose` mode showing intermediate states with full cube visualization
-- ✅ Comprehensive error handling and validation
-
-**2. Wildcard Semantics**
-- ✅ Perfect wildcard behavior: `?` means "don't care about this sticker"
-- ✅ Wildcards work correctly for:
-  - ✅ OLL: Only top face orientation matters (`YB|Y9/?9/?9/W9/?9/?9`)
-  - ✅ PLL: Permutation verification with flexible matching
-  - ✅ Cross patterns: Specific edge verification
-  - ✅ Any custom pattern matching scenarios
-
-**3. CFEN Infrastructure**
-- ✅ Complete CFEN parsing and generation (`internal/cfen/`)
-- ✅ Cube-to-CFEN and CFEN-to-cube conversion
-- ✅ Orientation mapping for different cube views
-- ✅ Run-length encoding for compact representation
-- ✅ Robust wildcard matching with `MatchesCube()` function
-
-**4. Testing & Validation**
-- ✅ All 79 end-to-end tests passing
-- ✅ Real algorithm verification tested (T-Perm, inverses, etc.)
-- ✅ Wildcard pattern matching verified
-- ✅ Cross-platform compatibility confirmed
+This project has built excellent infrastructure for cube manipulation and algorithm verification, but **the actual solving functionality is completely unimplemented**. This TODO represents an honest assessment and a pragmatic path forward.
 
 ---
 
-## ✅ **PHASE 3 COMPLETE: Algorithm Database Schema & Clean Architecture**
+## 📋 Phase 0: Foundation & Cleanup
+*Goal: Clean house and establish solid foundations*
 
-### **✅ ACCOMPLISHED**
-Phase 3 has been successfully completed! The algorithm database schema has been enhanced with verification capabilities, and the architecture has been cleaned up with proper separation of concerns.
+### Documentation Truth Reconciliation
+- [x] Update CLAUDE.md to reflect actual counts:
+  - [x] Change "60+ algorithms" → "67 algorithms"
+  - [x] Change "79 end-to-end tests" → "98 end-to-end tests"
+  - [x] Remove claim of "basic placeholder implementations" for solvers
+  - [x] Add note that solvers are completely unimplemented
+  - [x] Add note about CSV algorithm dumps ready for import
+- [x] Update README.md to be transparent about solver status
+- [x] Add links to `/docs/` project documentation
 
-### **✅ Enhanced Algorithm Database Schema**
-
-**Enhanced Data Structure:**
-```go
-type Algorithm struct {
-    // ✅ Core algorithm data (backward compatible)
-    Name        string      // Human-readable name ("Sune", "T-Perm", etc.)
-    Category    string      // "OLL", "PLL", "F2L", "CROSS", etc.
-    Moves       string      // Algorithm notation ("R U R' U R U2 R'")
-    Description string      // Visual pattern description
-    CaseNumber  string      // e.g., "OLL 27", "PLL T"
-    
-    // ✅ Verification fields
-    StartCFEN   string      // Required starting state (with wildcards)
-    TargetCFEN  string      // Expected ending state (with wildcards)  
-    Verified    bool        // Has this been verified?
-    
-    // ✅ Enhanced metadata
-    MoveCount   int         // Number of moves (auto-calculated)
-    Probability float64     // Chance of occurring in solve
-    Variants    []string    // Alternative algorithms for same case
-    TestedOn    []int       // Cube sizes tested (e.g., [3, 4, 5])
-}
-```
-
-### ✅ **Completed Phase 3 Implementation Tasks**
-
-**1. Enhanced Algorithm Structure** ✅
-- ✅ Extended existing `Algorithm` struct with verification fields
-- ✅ Added CFEN pattern support (`StartCFEN`, `TargetCFEN`)
-- ✅ Implemented algorithm validation and move counting
-- ✅ Maintained full backward compatibility with existing database
-
-**2. CFEN Pattern Implementation** ✅
-- ✅ **Sune Algorithm**: Real pattern from solved → specific Sune case
-- ✅ **Anti-Sune Algorithm**: Real pattern from Sune case → solved
-- ✅ **T-Perm Algorithm**: Real T-Perm case → solved state
-- ✅ All patterns use actual CFEN states (no wildcard-only patterns)
-
-**3. Database Enhancement** ✅
-- ✅ Enhanced existing `AlgorithmDatabase` with verification metadata
-- ✅ Added verified CFEN patterns to 3 core algorithms
-- ✅ Created algorithm validation functions (`UpdateMoveCount`, `MarkVerified`)
-- ✅ Implemented algorithm verification status tracking
-
-**4. Clean Architecture with Separate Tools** ✅
-- ✅ **Removed specialized commands from main CLI** (kept it clean and focused)
-- ✅ **Created separate database tools** as standalone utilities:
-  - `tools/verify-algorithm/` - Single algorithm verification
-  - `tools/verify-database/` - Batch verification of all algorithms
-- ✅ **Enhanced build system** with `make build-tools` and `make build-all-local`
-- ✅ **Tools use cube package as library** (proper Go architecture)
-
-### **✅ Current Verified Algorithm Database**
-```bash
-❯ ./dist/tools/verify-algorithm --list
-Sune (OLL 27) - ✅ VERIFIED (tested on: [3])
-Anti-Sune (OLL 26) - ✅ VERIFIED (tested on: [3])  
-T-Perm (PLL T) - ✅ VERIFIED (tested on: [3])
-```
-
-### **✅ Clean CLI Interface**
-```bash
-❯ ./dist/cube help | grep verify
-  verify        Verify an algorithm transforms start state to target state
-  verify-cfen   Verify that a solution reaches the target CFEN state
-```
-
-### **✅ Working Database Tools**
-```bash
-# Single algorithm verification
-./dist/tools/verify-algorithm "T-Perm" --verbose
-
-# Batch database verification  
-./dist/tools/verify-database --category OLL
-```
+### Code Organization
+- [x] Document unused `cubie.go` addressing system (future piece tracking)
+- [x] Document `permutations.go` alternative move system (performance option)
+- [x] Add comments to `solver.go` clarifying unimplemented status
+- [x] Document `solving_db.go` experimental pattern-matching approach
 
 ---
 
-## 🔬 **PHASE 4: Algorithm Collection & Curation**
+## 🗃️ Phase 1: Algorithm Database Modernization
+*Goal: Replace current 67-algorithm database with comprehensive, well-structured system*
 
-### **Standard Algorithm Sets**
+### 1.1 Refactor Core Structure ✅ COMPLETE
+- [x] Implement new Algorithm struct per `/docs/move_db_refactor.md`:
+  - [x] Remove `Verified`, `TestedOn`, `StartCFEN`, `TargetCFEN` fields
+  - [x] Add `CaseID`, `Pattern`, `Recognition`, `Inverse`, `Mirror` fields
+  - [x] Update all existing code references
+- [x] Build pattern generation tool:
+  - [x] Apply algorithm to solved YB cube
+  - [x] Generate CFEN patterns automatically (`tools/generate-patterns/`)
+  - [x] Updated 5 key algorithms with generated patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move)
+- [x] Update CLI commands and database tools to work with new structure
+- [x] Fix e2e tests - all 98 tests now passing ✅
 
-**1. OLL Algorithms (57 cases)**
-- [ ] All edges oriented correctly (Cross cases)
-- [ ] T shapes
-- [ ] Pi shapes
-- [ ] U shapes
-- [ ] H shape
-- [ ] L shapes
-- [ ] Fish shapes
-- [ ] Knight shapes
-- [ ] Awkward shapes
-- [ ] Dot cases
+### 1.2 Import Comprehensive Dataset
+- [ ] Create CSV import system for `/alg_dumps/` (9 files, 100+ algorithms)
+- [ ] Handle data quality issues (inconsistent formats, references)
+- [ ] Merge duplicates across CSV files
+- [ ] Auto-generate patterns for all imported algorithms
+- [ ] Support multi-dimensional algorithms (2x2, 4x4+, parity cases)
 
-**2. PLL Algorithms (21 cases)**
-- [ ] Edge permutations (U perms)
-- [ ] Corner permutations (A perms)
-- [ ] Adjacent swaps (J, T, F perms)
-- [ ] Diagonal swaps (Y, V, N perms)
-- [ ] Special cases (G perms, R perms)
-
-**3. F2L Algorithms (41 standard cases)**
-- [ ] Both pieces in top layer
-- [ ] Corner in slot, edge in top
-- [ ] Edge in slot, corner in top
-- [ ] Both pieces in slots
-
-**4. Advanced Algorithms**
-- [ ] COLL (42 cases)
-- [ ] ZBLL (493 cases - future)
-- [ ] Winter Variation (27 cases)
-- [ ] VLS (216 cases - future)
-
-### 🎯 **Collection Tasks**
-
-**1. Initial Algorithm Set**
-- [ ] Start with basic OLL/PLL algorithms
-- [ ] Source from well-known algorithm databases
-- [ ] Ensure each algorithm has proper attribution
-- [ ] Test on multiple cube sizes where applicable
-
-**2. CFEN Pattern Generation**
-- [ ] Create tool to generate StartCFEN from case description
-- [ ] Create tool to generate TargetCFEN from algorithm effect
-- [ ] Validate patterns are minimal (only specify necessary stickers)
-
-**3. Quality Assurance**
-- [ ] Each algorithm must be verified before inclusion
-- [ ] Check for move cancellations and optimize
-- [ ] Ensure consistent notation (no Rw vs r confusion)
-- [ ] Add execution notes (finger tricks, etc.)
+### 1.3 Database Enhancement
+- [ ] Identify inverse and mirror relationships automatically
+- [ ] Add algorithm lookup/search improvements
+- [ ] Create database validation tools
+- [ ] Update CLI commands to work with new structure
 
 ---
 
-## 🛠️ **PHASE 5: Verification Infrastructure**
+## 🎨 Phase 2: Enhanced Visualization
+*Goal: Better algorithm display and pattern recognition*
 
-### **Testing Framework**
+### 2.1 Context-Aware Display
+- [ ] Implement last layer mode per `/docs/move_visualization.md`
+- [ ] Auto-detect when algorithms only affect top 2 layers
+- [ ] Create 5x5 grid view (top face + surrounding edges)
+- [ ] Keep full cube view for F2L and multi-layer algorithms
 
-**1. Unit Tests**
-- [ ] Test verifier with known algorithm/state combinations
-- [ ] Test wildcard matching edge cases
-- [ ] Test multi-algorithm chains
-- [ ] Test on different cube sizes
-
-**2. Integration Tests**
-- [ ] Full database verification test
-- [ ] Performance benchmarks
-- [ ] Memory usage analysis
-- [ ] Cross-platform compatibility
-
-**3. Continuous Verification**
-- [ ] GitHub Action to verify algorithms on PR
-- [ ] Nightly full database verification
-- [ ] Algorithm performance tracking
-
-### **Visualization Tools**
-
-**1. Algorithm Viewer**
-- [ ] `cube show-alg <algorithm-id>` command
-- [ ] Display start state, algorithm, end state
-- [ ] Show intermediate states for learning
-- [ ] Support `--animate` flag for step-by-step
-
-**2. Pattern Recognition**
-- [ ] `cube identify <cfen>` to find matching OLL/PLL cases
-- [ ] Suggest algorithms based on current state
-- [ ] Show multiple algorithm options
+### 2.2 CLI Integration
+- [ ] Add view mode flags: `--view=last`, `--view=full`, `--view=both`
+- [ ] Update `cube show-alg` command
+- [ ] Test with OLL/PLL algorithms for clarity
 
 ---
 
-## 📊 **Success Metrics**
+## 🧩 Phase 3: Core Solving Infrastructure
+*Goal: Build the foundation needed for ANY solving algorithm*
 
-1. **Coverage**: 
-   - ✅ All 57 OLL cases verified
-   - ✅ All 21 PLL cases verified  
-   - ✅ Core F2L cases verified
-   - ✅ 4x4 parity algorithms verified
+### 3.1 Piece Tracking System
+- [ ] Implement piece identification:
+  - [ ] Define PieceType (Corner, Edge, Center)
+  - [ ] Track 8 corners (3 colors each)
+  - [ ] Track 12 edges (2 colors each)
+  - [ ] Handle centers (fixed on odd cubes, mobile on even)
+- [ ] Build piece location mapping:
+  - [ ] `GetPieceByColors(colors []Color) *Piece`
+  - [ ] `GetPieceLocation(piece *Piece) Position`
+  - [ ] `IsPieceInCorrectPosition(piece *Piece) bool`
+  - [ ] `IsPieceCorrectlyOriented(piece *Piece) bool`
 
-2. **Reliability**:
-   - ✅ 100% of algorithms pass verification
-   - ✅ Verification works on 3x3 through 7x7
-   - ✅ No false positives/negatives
-
-3. **Performance**:
-   - ✅ Full database verification < 10 seconds
-   - ✅ Single algorithm verification < 100ms
-   - ✅ Memory usage < 100MB
-
----
-
-## 🚀 **Why This Matters**
-
-Building a verified algorithm database gives us:
-
-1. **Foundation for Solvers**: Can't build reliable solvers without verified algorithms
-2. **Learning Tool**: Users can explore and understand algorithms
-3. **Consistency**: Single source of truth for algorithm notation
-4. **Extensibility**: Easy to add new algorithms and methods
-5. **Quality**: Every algorithm is tested and proven to work
-
-This is the critical infrastructure piece we need before attempting to build world-class solvers.
+### 3.2 Semantic Pattern Recognition
+- [ ] Define pattern interface for cube states
+- [ ] Implement concrete patterns:
+  - [ ] WhiteCrossPattern (4 white edges in correct positions)
+  - [ ] WhiteLayerPattern (cross + 4 corners)
+  - [ ] F2LSlotPattern (corner-edge pair in position)
+  - [ ] OLLSolvedPattern (all yellow stickers on top)
+  - [ ] PLLSolvedPattern (last layer permuted correctly)
+- [ ] Connect patterns to CFEN system for verification
 
 ---
 
-## 📋 **Immediate Next Steps** (Phase 4 Focus)
+## 🚀 Phase 4: First Working Solver
+*Goal: Implement beginner method solver that actually solves cubes*
 
-1. **✅ Enhanced `verify` command** - COMPLETE with flexible start/target states
-2. **✅ Enhanced algorithm database schema** - COMPLETE with verification fields
-3. **✅ CFEN patterns for core algorithms** - COMPLETE with Sune, T-Perm, Anti-Sune
-4. **✅ Clean architecture with separate tools** - COMPLETE with proper separation of concerns
-5. **🏗️ Expand algorithm collection** - Add more OLL/PLL algorithms with CFEN patterns
-6. **🏗️ Systematic pattern generation** - Tool to generate CFEN patterns for all 57 OLL cases
-7. **🏗️ Database curation workflows** - Validation and quality assurance processes
+### 4.1 White Cross Solver
+- [ ] Implement cross piece finding and optimal insertion order
+- [ ] Build move generation to position edges without disturbing placed pieces
+- [ ] Create solving logic with progress tracking
 
-**Current Priority:** Begin Phase 4 by systematically expanding the verified algorithm collection, starting with the most common OLL and PLL cases.
+### 4.2 First Two Layers (F2L)
+- [ ] Implement intuitive F2L (not advanced algorithms)
+- [ ] Find corner-edge pairs and position above slots
+- [ ] Insert using basic algorithms and track completed slots
 
-**Architecture Status:** ✅ **SOLID FOUNDATION COMPLETE**
-- Clean CLI interface focused on end-user functionality
-- Robust verification system with CFEN pattern matching
-- Separate database tools for algorithm curation
-- All infrastructure ready for large-scale algorithm collection
+### 4.3 Last Layer
+- [ ] OLL recognition from pattern database and algorithm application
+- [ ] PLL recognition from piece positions and algorithm application
+- [ ] Verification that cube is fully solved
 
-Let's build the world's most reliable cube algorithm database! 🎯
+### 4.4 Integration & Testing
+- [ ] Generate random scrambles and solve end-to-end
+- [ ] Verify all solutions actually solve the cube
+- [ ] Add solving tests to e2e suite
+- [ ] Benchmark solving performance
+
+---
+
+## 🔍 Phase 5: Search & Optimization
+*Goal: Add search-based solving for better solutions*
+
+### 5.1 Basic Search Implementation
+- [ ] Implement breadth-first search with state representation
+- [ ] Add iterative deepening with depth limits
+- [ ] Create duplicate detection and solution extraction
+
+### 5.2 Heuristic Search
+- [ ] Implement A* search with heuristic functions
+- [ ] Create pattern databases (corner/edge orientation)
+- [ ] Build pruning tables for search optimization
+
+---
+
+## 🎓 Phase 6: Advanced Methods
+*Goal: Implement CFOP and Kociemba solvers*
+
+### 6.1 CFOP Implementation
+- [ ] Cross optimization (extended cross, color neutrality)
+- [ ] Advanced F2L with look-ahead
+- [ ] Algorithm-based OLL/PLL from database
+
+### 6.2 Kociemba Two-Phase
+- [ ] Phase 1: Reduce to &lt;U,D,R2,L2,F2,B2&gt; subgroup
+- [ ] Phase 2: Solve within subgroup optimally
+- [ ] Generate pruning tables and coordinate systems
+
+### 6.3 Big Cube Support
+- [ ] 4x4 reduction method (centers, edges, parity)
+- [ ] 5x5+ support with generalized algorithms
+
+---
+
+## 📊 Phase 7: Polish & Performance
+*Goal: Production-ready solver with great UX*
+
+### 7.1 Optimization
+- [ ] Profile and optimize hot paths
+- [ ] Implement move cancellation and solution compression
+- [ ] Add caching for common patterns
+
+### 7.2 User Experience
+- [ ] Add solve explanation mode and step-by-step playback
+- [ ] Create difficulty settings and solving statistics
+- [ ] Implement progress tracking and hints
+
+### 7.3 Integration
+- [ ] Web API for solving service
+- [ ] Export solutions in standard notation
+- [ ] Competition timer integration
+
+---
+
+## 🎯 Success Criteria
+
+- **Phase 1**: Comprehensive algorithm database with 100+ algorithms and auto-generated patterns
+- **Phase 2**: Clean last-layer visualization for OLL/PLL algorithms
+- **Phase 3**: Working piece tracking and pattern recognition systems
+- **Phase 4**: Beginner method that solves any valid 3x3 scramble
+- **Phase 5**: Sub-second solving with search optimization
+- **Phase 6**: Multiple solving methods (CFOP, Kociemba) with &lt;20 move average
+- **Phase 7**: Production-ready solver with &lt;100ms response time
+
+---
+
+## 🔗 References
+
+- **Algorithm Database Design**: `/docs/move_db_refactor.md`
+- **Visualization Design**: `/docs/move_visualization.md`
+- **Solver Analysis**: `/docs/solvers.md`
+- **Raw Algorithm Data**: `/alg_dumps/` (9 CSV files)
+
+---
+
+## 💡 Development Philosophy
+
+1. **Iterative Progress**: Each phase should produce working improvements
+2. **Quality First**: Write tests before implementation to ensure correctness
+3. **Honest Assessment**: Update progress based on reality, not aspirations
+4. **Practical Focus**: The best solver is one that actually solves cubes
+
+**Remember**: Perfect is the enemy of good. A working beginner solver beats a perfect plan.
