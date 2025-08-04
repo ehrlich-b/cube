@@ -1,5 +1,20 @@
 package cube
 
+// PERMUTATION-BASED MOVE SYSTEM - ALTERNATIVE IMPLEMENTATION
+//
+// This file implements an alternative move system using permutation matrices instead of
+// the current coordinate-based approach. It pre-computes permutations for all moves and
+// applies them via array indexing for potentially better performance.
+//
+// Status: Complete implementation but not used (current system uses rings.go)
+// Activation: Set environment variable CUBE_USE_PERMUTATION_MOVES=true
+// Performance: Potentially faster for repeated moves, more memory usage
+//
+// This system could be valuable for:
+// - High-performance solving algorithms
+// - Batch move application
+// - Algorithm verification at scale
+
 import "sync"
 
 // PermKey represents a cache key for permutations

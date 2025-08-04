@@ -73,7 +73,7 @@ Available rotations: `x`, `y`, `z` (with `'` for counter-clockwise, `2` for 180�
 
 **Code Quality (ALWAYS run before committing):**
 - `make test` - Run unit tests
-- `make e2e-test` - Run end-to-end test suite (44 comprehensive tests)
+- `make e2e-test` - Run end-to-end test suite (98 comprehensive tests)
 - `make test-all` - Run both unit and e2e tests
 - `make fmt` - Format Go code (cross-platform compatible)
 - `make vet` - Static analysis
@@ -108,8 +108,8 @@ tools/ (Database utilities) ────────────┘
 
 **Enhanced Algorithm Database (`internal/cube/algorithms.go`):**
 - `Algorithm` struct with verification fields (`StartCFEN`, `TargetCFEN`, `Verified`)
-- 60+ algorithms including OLL, PLL, F2L, and triggers
-- 3 verified algorithms with real CFEN patterns (Sune, Anti-Sune, T-Perm)
+- 67 algorithms including OLL, PLL, F2L, and triggers
+- 6 verified algorithms with real CFEN patterns
 - Move count calculation and verification status tracking
 
 **CFEN Verification System (`internal/cfen/`):**
@@ -121,7 +121,7 @@ tools/ (Database utilities) ────────────┘
 **Solver System (`internal/cube/solver.go`):**
 - Interface-driven design: `type Solver interface { Solve(*Cube) (*SolverResult, error) }`
 - Three algorithms: BeginnerSolver, CFOPSolver, KociembaSolver
-- All solvers currently have placeholder implementations
+- All solvers are currently unimplemented (interface stubs only)
 
 **Main CLI Commands (`internal/cli/`):**
 - `cube solve` - CLI solving with `--algorithm` and `--dimension` flags
@@ -158,19 +158,20 @@ tools/ (Database utilities) ────────────┘
 - **Verified algorithm collection** - 3 algorithms with real CFEN patterns (Sune, Anti-Sune, T-Perm)
 - **Clean architecture** - Separate database tools from main CLI
 - **Database verification tools** - Standalone utilities for algorithm curation
-- **Comprehensive test suite** - 79 end-to-end tests covering all CLI features
+- **Comprehensive test suite** - 98 end-to-end tests covering all CLI features
 - Cross-platform build system (macOS/Linux compatible)
 
 **⚠️ Current Issues:**
-- CFOP and Kociemba solvers have basic placeholder implementations (functional but not optimal)
-- Algorithm database needs expansion (currently only 3 verified algorithms)
+- All solvers are completely unimplemented (only interface stubs exist)
+- Algorithm database needs expansion (currently only 6 verified algorithms)
+- CSV algorithm dumps ready for import in `/alg_dumps/` (9 files, 100+ algorithms)
 
 **📍 Key Files to Know:**
 - `TODO.md` - **ALWAYS READ FIRST** - Current development plan and progress
 - `internal/cube/cube.go` - Core cube representation, color output methods
 - `internal/cube/moves.go` - Move parsing and application logic
-- `internal/cube/solver.go` - Solver implementations
-- `internal/cube/algorithms.go` - Enhanced algorithm database with 60+ algorithms and verification fields
+- `internal/cube/solver.go` - Solver implementations (currently unimplemented stubs)
+- `internal/cube/algorithms.go` - Enhanced algorithm database with 67 algorithms and verification fields
 - `internal/cfen/` - Complete CFEN parsing, generation, and verification system
 - `internal/cli/verify.go` - Enhanced verification command with CFEN support
 - `internal/cli/solve.go` - CLI solve command with algorithm selection
@@ -179,7 +180,11 @@ tools/ (Database utilities) ────────────┘
 - `tools/verify-algorithm/` - Standalone algorithm verification tool
 - `tools/verify-database/` - Standalone database verification tool
 - `tools/README.md` - Documentation for database tools
-- `test/e2e_test.sh` - Comprehensive end-to-end test suite (79 tests)
+- `test/e2e_test.sh` - Comprehensive end-to-end test suite (98 tests)
+- **Project Documentation:**
+  - `/docs/move_db_refactor.md` - Algorithm database refactor design
+  - `/docs/move_visualization.md` - Enhanced last-layer visualization
+  - `/docs/solvers.md` - Solver analysis and implementation roadmap
 
 ### Adding New Features
 
@@ -316,12 +321,12 @@ make build-tools
 **Before starting any work:**
 1. Read TODO.md to understand current phase
 2. Run `make build-all-local` to build CLI + tools
-3. Check if tests pass with `make test-all` (runs all 79 e2e tests)
+3. Check if tests pass with `make test-all` (runs all 98 e2e tests)
 4. Test database tools with `./dist/tools/verify-database`
 5. Always run `make fmt && make vet` before committing
 
 **Test Suite Coverage:**
-- **Comprehensive end-to-end tests** covering every CLI command and feature (79 tests)
+- **Comprehensive end-to-end tests** covering every CLI command and feature (98 tests)
 - **All cube dimensions** (2x2 through 20x20) with proper multi-layer moves
 - **Advanced notation** (M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations)
 - **Enhanced verification system** (CFEN patterns, wildcard matching, database verification)

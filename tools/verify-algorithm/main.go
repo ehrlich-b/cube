@@ -32,25 +32,18 @@ func main() {
 
 	algorithm := algorithms[0]
 
-	// Check if algorithm has CFEN patterns
-	if algorithm.StartCFEN == "" && algorithm.TargetCFEN == "" {
-		fmt.Printf("Error: algorithm '%s' has no CFEN patterns defined\n", algorithm.Name)
+	// Check if algorithm has pattern
+	if algorithm.Pattern == "" {
+		fmt.Printf("Error: algorithm '%s' has no pattern defined\n", algorithm.Name)
 		os.Exit(1)
 	}
 
 	// Update move count
 	algorithm.UpdateMoveCount()
 
-	// Use defaults if patterns are missing
-	startCFEN := algorithm.StartCFEN
-	targetCFEN := algorithm.TargetCFEN
-
-	if startCFEN == "" {
-		startCFEN = "YB|Y9/R9/B9/W9/O9/G9" // Default to solved
-	}
-	if targetCFEN == "" {
-		targetCFEN = "YB|Y9/R9/B9/W9/O9/G9" // Default to solved
-	}
+	// Use solved cube as start state for pattern verification
+	startCFEN := "YB|Y9/R9/B9/W9/O9/G9" // Solved cube
+	targetCFEN := algorithm.Pattern // Expected pattern after applying algorithm
 
 	// Perform verification
 	err := verifyAlgorithm(algorithm, startCFEN, targetCFEN, verbose)
@@ -68,20 +61,15 @@ func listAlgorithms() {
 	fmt.Println()
 
 	for _, alg := range algorithms {
-		if alg.StartCFEN != "" || alg.TargetCFEN != "" {
+		if alg.Pattern != "" {
 			verifiableCount++
-			status := "❓ NOT VERIFIED"
-			if alg.Verified {
-				status = fmt.Sprintf("✅ VERIFIED (tested on: %v)", alg.TestedOn)
-			}
+			status := "✅ HAS PATTERN"
 
-			fmt.Printf("%s (%s) - %s\n", alg.Name, alg.CaseNumber, status)
+			fmt.Printf("%s (%s) - %s\n", alg.Name, alg.CaseID, status)
 			fmt.Printf("  Moves: %s\n", alg.Moves)
-			if alg.StartCFEN != "" {
-				fmt.Printf("  Start:  %s\n", alg.StartCFEN)
-			}
-			if alg.TargetCFEN != "" {
-				fmt.Printf("  Target: %s\n", alg.TargetCFEN)
+			fmt.Printf("  Pattern: %s\n", alg.Pattern)
+			if alg.Recognition != "" {
+				fmt.Printf("  Recognition: %s\n", alg.Recognition)
 			}
 			fmt.Println()
 		}
@@ -110,7 +98,7 @@ func verifyAlgorithm(algorithm cube.Algorithm, startCFEN, targetCFEN string, ver
 	}
 
 	if verbose {
-		fmt.Printf("Algorithm: %s (%s)\n", algorithm.Name, algorithm.CaseNumber)
+		fmt.Printf("Algorithm: %s (%s)\n", algorithm.Name, algorithm.CaseID)
 		fmt.Printf("Moves: %s\n", algorithm.Moves)
 		fmt.Printf("Move count: %d\n", algorithm.MoveCount)
 		fmt.Printf("\nStart state:\n")

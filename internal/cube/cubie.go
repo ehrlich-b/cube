@@ -1,5 +1,14 @@
 package cube
 
+// CUBIE ADDRESSING SYSTEM - CURRENTLY UNUSED
+//
+// This file implements a linear addressing system for cube positions that could be useful
+// for advanced solving algorithms that need to track individual pieces. The system maps
+// 3D cube positions to linear indices for efficient computation.
+//
+// Status: Implemented but not integrated into current solving system
+// Future use: Piece tracking for advanced solvers (Phase 3+ in TODO.md)
+//
 // CubiePosition represents a 3D position on the cube using linear addressing
 // For an NxN cube, positions are numbered 1 to (6 * N * N):
 //

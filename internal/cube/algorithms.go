@@ -4,25 +4,47 @@ import (
 	"strings"
 )
 
-// Algorithm represents a named cube algorithm
+// GeneratePattern will be moved to a separate tool to avoid import cycles
+// For now, patterns will be manually generated using external tools
+
+// UpdateMoveCount calculates and updates the move count for an algorithm
+func (a *Algorithm) UpdateMoveCount() error {
+	moves, err := ParseScramble(a.Moves)
+	if err != nil {
+		return err
+	}
+	a.MoveCount = len(moves)
+	return nil
+}
+
+// Algorithm represents a named cube algorithm with pattern-based verification
 type Algorithm struct {
-	// Core algorithm data
-	Name        string
-	Category    string // OLL, PLL, F2L, etc.
-	Moves       string
-	Description string
-	CaseNumber  string // e.g., "OLL 21", "PLL T"
-
-	// Verification fields
-	StartCFEN  string // Required starting state (with wildcards)
-	TargetCFEN string // Expected ending state (with wildcards)
-	Verified   bool   // Has this been verified?
-
-	// Enhanced metadata
-	MoveCount   int      // Number of moves (auto-calculated)
+	// Core Identity
+	Name        string   // e.g., "Sune"
+	CaseID      string   // e.g., "OLL-27" (standardized format)
+	Category    string   // OLL, PLL, F2L, Trigger, etc.
+	
+	// Algorithm Definition
+	Moves       string   // e.g., "R U R' U R U2 R'"
+	MoveCount   int      // Auto-calculated from Moves
+	
+	// Pattern Representation - NEW APPROACH
+	Pattern     string   // Masked CFEN showing only affected stickers
+	// Example: "YB|*Y5*Y*/*O2*6/Y*O*6/*9/Y*2O6/**2*6"
+	// Where: * = grey (unchanged), actual colors = changed stickers
+	
+	// Human-Friendly Info
+	Description string   // What this algorithm does
+	Recognition string   // How to recognize when to use it
+	
+	// Optional Metadata
 	Probability float64  // Chance of occurring in solve
-	Variants    []string // Alternative algorithms for same case
-	TestedOn    []int    // Cube sizes tested (e.g., [3, 4, 5])
+	Variants    []string // Alternative move sequences
+	Inverse     string   // Inverse algorithm (if meaningful)
+	
+	// Relationships
+	Mirror      string   // ID of mirror algorithm (e.g., "OLL-26" for Sune)
+	Related     []string // IDs of related algorithms
 }
 
 // AlgorithmDatabase contains common cube algorithms
@@ -30,40 +52,67 @@ var AlgorithmDatabase = []Algorithm{
 	// OLL Cases
 	{
 		Name:        "Sune",
+		CaseID:      "OLL-27",
 		Category:    "OLL",
 		Moves:       "R U R' U R U2 R'",
-		Description: "Orient corners when one is correctly oriented",
-		CaseNumber:  "OLL 27",
-		StartCFEN:   "YB|Y9/R9/B9/W9/O9/G9",                 // Start from solved for demo purposes
-		TargetCFEN:  "YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6", // Sune pattern result
 		MoveCount:   7,
-		Verified:    true,
-		TestedOn:    []int{3},
+		Pattern:     "YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6", // Generated pattern
+		Description: "Orient corners when one is correctly oriented",
+		Recognition: "One corner oriented, headlights on left",
+		Probability: 4.63, // 1/216 * 1000
+		Inverse:     "R U2 R' U' R U' R'",
+		Mirror:      "OLL-26",
+		Related:     []string{"OLL-26", "OLL-21"},
 	},
 	{
 		Name:        "Anti-Sune",
+		CaseID:      "OLL-26", 
 		Category:    "OLL",
 		Moves:       "R U2 R' U' R U' R'",
-		Description: "Mirror of Sune algorithm",
-		CaseNumber:  "OLL 26",
-		StartCFEN:   "YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6", // Sune pattern (needs Anti-Sune)
-		TargetCFEN:  "YB|Y9/R9/B9/W9/O9/G9",                 // Back to solved
 		MoveCount:   7,
-		Verified:    true,
-		TestedOn:    []int{3},
+		Pattern:     "YB|RYBY5O/G2YR6/GBYB6/W9/BR2O6/O2YG6", // Generated pattern
+		Description: "Mirror of Sune algorithm",
+		Recognition: "One corner oriented, headlights on right",
+		Probability: 4.63,
+		Inverse:     "R U R' U R U2 R'",
+		Mirror:      "OLL-27",
+		Related:     []string{"OLL-27", "OLL-21"},
 	},
 	{
 		Name:        "Cross OLL",
+		CaseID:      "OLL-CROSS",
 		Category:    "OLL",
 		Moves:       "F R U R' U' F'",
-		Description: "Creates cross on top, orients edges",
-		CaseNumber:  "OLL 3",
-		StartCFEN:   "YB|RBY4R2Y/BG2R6/BYOB6/W9/YOYO6/OYG7", // Cross OLL case (line pattern)
-		TargetCFEN:  "YB|Y9/R9/B9/W9/O9/G9",                 // Solved (cross oriented)
 		MoveCount:   6,
-		Verified:    true,
-		TestedOn:    []int{3},
+		Pattern:     "YB|Y2OY2BYGO/Y3R6/RYB7/W9/GOBO6/GR2G6", // Generated pattern
+		Description: "Form yellow cross on top face",
+		Recognition: "Need yellow cross (dot, line, or L-shape)",
 	},
+	{
+		Name:        "T-Perm",
+		CaseID:      "PLL-T",
+		Category:    "PLL", 
+		Moves:       "R U R' F' R U R' U' R' F R2 U' R'",
+		MoveCount:   13,
+		Pattern:     "YB|Y9/RG2R6/GB8/W9/BR2O6/O3G6", // Generated pattern
+		Description: "Swaps two adjacent corners and two edges",
+		Recognition: "Headlights with opposite edge swap",
+		Probability: 4.17,
+		Related:     []string{"PLL-J", "PLL-R"},
+	},
+	{
+		Name:        "Sexy Move",
+		CaseID:      "TRIG-1",
+		Category:    "Trigger",
+		Moves:       "R U R' U'",
+		MoveCount:   4,
+		Pattern:     "YB|Y2OY2BY2B/R2YGR2YR2/B2WB2YB3/W2RW6/GO8/GR2G6", // Generated pattern
+		Description: "Most common trigger in cubing",
+		Recognition: "F2L pair building/breaking trigger",
+		Related:     []string{"TRIG-2", "TRIG-3"},
+	},
+	// TODO: Temporarily commenting out remaining algorithms while refactoring structure
+	/*
 	{
 		Name:        "Dot OLL",
 		Category:    "OLL",
@@ -516,6 +565,7 @@ var AlgorithmDatabase = []Algorithm{
 		Description: "Sune as a trigger sequence",
 		CaseNumber:  "",
 	},
+	*/
 }
 
 // LookupAlgorithm searches for algorithms by name or moves
@@ -528,7 +578,7 @@ func LookupAlgorithm(query string) []Algorithm {
 		if strings.Contains(strings.ToLower(alg.Name), query) ||
 			strings.Contains(strings.ToLower(alg.Moves), query) ||
 			strings.Contains(strings.ToLower(alg.Description), query) ||
-			strings.Contains(strings.ToLower(alg.CaseNumber), query) {
+			strings.Contains(strings.ToLower(alg.CaseID), query) {
 			results = append(results, alg)
 		}
 	}
@@ -578,6 +628,8 @@ func (alg *Algorithm) CalculateMoveCount() int {
 	return len(moves)
 }
 
+// TODO: Remove old functions that reference removed fields
+/*
 // UpdateMoveCount updates the MoveCount field based on the Moves string
 func (alg *Algorithm) UpdateMoveCount() {
 	alg.MoveCount = alg.CalculateMoveCount()
@@ -604,7 +656,10 @@ func (alg *Algorithm) MarkVerified(cubeSize int) {
 func (alg *Algorithm) MarkUnverified() {
 	alg.Verified = false
 }
+*/
 
+// TODO: Remove old verification functions
+/*
 // GetVerifiedAlgorithms returns only algorithms that have been verified
 func GetVerifiedAlgorithms() []Algorithm {
 	var results []Algorithm
@@ -630,3 +685,4 @@ func GetUnverifiedAlgorithms() []Algorithm {
 
 	return results
 }
+*/

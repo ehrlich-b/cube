@@ -204,13 +204,13 @@ run_test "Show with color and highlight" "$CUBE_BIN show \"R U\" --highlight-oll
 
 # Lookup Command Tests
 echo -e "\n${YELLOW}Lookup Command Tests:${NC}"
-run_test "Lookup by name" "$CUBE_BIN lookup sune" "OLL 27 - Sune"
+run_test "Lookup by name" "$CUBE_BIN lookup sune" "OLL-27 - Sune"
 run_test "Lookup by pattern" "$CUBE_BIN lookup --pattern \"R U R' U'\"" "Sexy Move"
 run_test "Lookup by category OLL" "$CUBE_BIN lookup --category OLL" "Sune"
 run_test "Lookup by category PLL" "$CUBE_BIN lookup --category PLL" "T-Perm"
 run_test "Lookup all algorithms" "$CUBE_BIN lookup --all" "All algorithms in database:"
 run_test "Lookup with preview" "$CUBE_BIN lookup sune --preview" "Top face after algorithm:"
-run_test "Lookup T-Perm" "$CUBE_BIN lookup \"T-Perm\"" "PLL T - T-Perm"
+run_test "Lookup T-Perm" "$CUBE_BIN lookup \"T-Perm\"" "PLL-T - T-Perm"
 run_test "Lookup non-existent" "$CUBE_BIN lookup xyz123" "No algorithms found"
 run_test "Lookup no args" "$CUBE_BIN lookup" "Please provide a query"
 
@@ -684,6 +684,93 @@ else
     echo -e "${RED}failed${NC} (WG: $WG_CFEN -> YB: $YB_FROM_WG)"
     TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
+
+# Database Verification Tests
+echo -e "\n${YELLOW}Database Verification Tests:${NC}"
+
+# Test verify-algorithm tool exists and works
+if [ -f "./dist/tools/verify-algorithm" ]; then
+    run_test "verify-algorithm tool listing" "./dist/tools/verify-algorithm --list" "Sune.*VERIFIED"
+    run_test "verify-algorithm single test" "./dist/tools/verify-algorithm 'Sune'" "✅ PASS"
+    run_test "verify-algorithm verbose mode" "./dist/tools/verify-algorithm 'T-Perm' --verbose" "✅ PASS"
+    run_test "verify-algorithm nonexistent algorithm" "./dist/tools/verify-algorithm 'NonExistent'" "" true
+else
+    echo -e "${BLUE}Testing:${NC} verify-algorithm tool exists... ${YELLOW}SKIP${NC} (not built)"
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+fi
+
+# Test verify-database tool exists and works  
+if [ -f "./dist/tools/verify-database" ]; then
+    run_test "verify-database full verification" "./dist/tools/verify-database" "All algorithms verified successfully"
+    run_test "verify-database category filter" "./dist/tools/verify-database --category OLL" "algorithms tested"
+    run_test "verify-database verbose mode" "./dist/tools/verify-database --verbose" "✅ PASS"
+    run_test "verify-database invalid category" "./dist/tools/verify-database --category INVALID" "No algorithms.*found.*INVALID"
+else
+    echo -e "${BLUE}Testing:${NC} verify-database tool exists... ${YELLOW}SKIP${NC} (not built)"
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+fi
+
+# Performance benchmarking tests
+echo -e "\n${YELLOW}Performance Benchmarking Tests:${NC}"
+
+# Time the full database verification
+if [ -f "./dist/tools/verify-database" ]; then
+    echo -ne "${BLUE}Testing:${NC} Database verification performance... "
+    start_time=$(date +%s%N)
+    ./dist/tools/verify-database > /dev/null 2>&1
+    end_time=$(date +%s%N)
+    duration_ms=$(( (end_time - start_time) / 1000000 ))
+    
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+    if [ $duration_ms -lt 10000 ]; then  # Less than 10 seconds
+        echo -e "${GREEN}PASS${NC} (${duration_ms}ms)"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+    else
+        echo -e "${RED}SLOW${NC} (${duration_ms}ms - exceeds 10s limit)"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+else
+    echo -e "${BLUE}Testing:${NC} Database verification performance... ${YELLOW}SKIP${NC} (not built)"
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+fi
+
+# Algorithm verification consistency test  
+if [ -f "./dist/tools/verify-algorithm" ]; then
+    echo -ne "${BLUE}Testing:${NC} Algorithm verification consistency... "
+    
+    # Run same algorithm verification 3 times and check consistency
+    result1=$(./dist/tools/verify-algorithm "Sune" 2>&1 | grep -c "✅ PASS" || echo 0)
+    result2=$(./dist/tools/verify-algorithm "Sune" 2>&1 | grep -c "✅ PASS" || echo 0)
+    result3=$(./dist/tools/verify-algorithm "Sune" 2>&1 | grep -c "✅ PASS" || echo 0)
+    
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+    if [ "$result1" = "$result2" ] && [ "$result2" = "$result3" ] && [ "$result1" = "1" ]; then
+        echo -e "${GREEN}PASS${NC} (consistent results)"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+    else
+        echo -e "${RED}FAIL${NC} (inconsistent: $result1, $result2, $result3)"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+    fi
+else
+    echo -e "${BLUE}Testing:${NC} Algorithm verification consistency... ${YELLOW}SKIP${NC} (not built)"
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+fi
+
+# Visualization Tools Tests
+echo -e "\n${YELLOW}Visualization Tools Tests:${NC}"
+
+# Test show-alg command
+run_test "show-alg basic display" "$CUBE_BIN show-alg 'Sune'" "Pattern:"
+run_test "show-alg with color" "$CUBE_BIN show-alg 'T-Perm' --color" "🎯 FINAL STATE"
+run_test "show-alg nonexistent algorithm" "$CUBE_BIN show-alg 'NonExistent'" "" true
+run_test "show-alg without CFEN patterns" "$CUBE_BIN show-alg 'NonExistentAlg'" "not found in database" true
+
+# Test identify command
+run_test "identify solved state" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9'" "🔍 ANALYZING PATTERN"
+run_test "identify Sune pattern" "$CUBE_BIN identify 'YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6'" "Anti-Sune"
+run_test "identify with suggestions" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9' --suggest" "RECOMMENDED ACTIONS"
+run_test "identify with category filter" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9' --category OLL" "Category: OLL"
+run_test "identify invalid CFEN" "$CUBE_BIN identify 'INVALID'" "" true
 
 # Summary
 echo -e "\n${YELLOW}=== Test Summary ===${NC}"

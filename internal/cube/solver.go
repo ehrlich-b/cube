@@ -46,6 +46,14 @@ func (s *BeginnerSolver) Solve(cube *Cube) (*SolverResult, error) {
 	}, nil
 }
 
+// SOLVER IMPLEMENTATIONS - CURRENTLY UNIMPLEMENTED STUBS
+//
+// Status: Interface framework is complete, but all solver implementations are empty stubs
+// Next steps: See TODO.md Phase 3-4 for piece tracking and beginner method implementation
+//
+// The current solvers return empty solutions regardless of cube state.
+// This is honest behavior - they don't claim to solve when they cannot.
+
 // TODO: All solver helper methods will be implemented with the new design
 
 // CFOPSolver implements CFOP method (placeholder)

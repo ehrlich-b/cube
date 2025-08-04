@@ -197,19 +197,7 @@ cmd/cube/main.go                    # CLI entry point
 
 ## API Examples
 
-### Web API
-
-```bash
-# Start server
-./dist/cube serve --port 8080
-
-# Solve via API
-curl -X POST http://localhost:8080/api/solve \
-  -H "Content-Type: application/json" \
-  -d '{"scramble": "R U R'\'' U'\''", "algorithm": "beginner", "dimension": 3}'
-```
-
-### Programmatic Usage
+### Current Programmatic Usage
 
 ```go
 package main
@@ -220,17 +208,19 @@ import (
 )
 
 func main() {
-    // Create and scramble cube
+    // Create and manipulate cube
     c := cube.NewCube(3)
     moves, _ := cube.ParseScramble("R U R' U'")
     c.ApplyMoves(moves)
 
-    // Solve with beginner method
-    solver, _ := cube.GetSolver("beginner")
-    result, _ := solver.Solve(c)
+    // Display cube state
+    fmt.Println(c.String())  // ASCII representation
+    fmt.Println(c.ColorString())  // With colors
 
-    fmt.Printf("Solution: %v\n", result.Solution)
-    fmt.Printf("Steps: %d\n", result.Steps)
+    // Verify algorithms
+    alg := cube.GetAlgorithm("Sune")
+    verified := cube.VerifyAlgorithm(alg)
+    fmt.Printf("Algorithm verified: %v\n", verified)
 }
 ```
 

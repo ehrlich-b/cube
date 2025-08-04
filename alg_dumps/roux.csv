@@ -1,0 +1,4 @@
+ROUX-CMLL-1,"CMLL U-case","ROUX-CMLL","R U R' F' R U R' U' R' F R2 U' R'","Permutes and orients last-layer corners (Roux)","Corners solved with U face pattern","rouxers.com"
+ROUX-CMLL-2,"CMLL T-case","ROUX-CMLL","R U R' U' M' U R U' r'","Solves corners (T orientation)","Two corners oriented (headlights)","rouxers.com"
+ROUX-LSE-1,"LSE EO","ROUX-LSE","M U M U M U2 M' U M'","Orients last six edges (Roux)","M-slice edges misoriented (do M U until solved)","speedsolving.com"
+ROUX-LSE-2,"LSE Ulti","ROUX-LSE","M2 U M2 U M2","Permutes last four edges (Roux)","Solves remaining M-slice edges (endgame)","speedsolving.com"

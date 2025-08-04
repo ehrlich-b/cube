@@ -65,8 +65,8 @@ Examples:
 				fmt.Println(strings.Repeat("-", 50))
 			}
 
-			if alg.CaseNumber != "" {
-				fmt.Printf("%s - %s\n", alg.CaseNumber, alg.Name)
+			if alg.CaseID != "" {
+				fmt.Printf("%s - %s\n", alg.CaseID, alg.Name)
 			} else {
 				fmt.Printf("%s (%s)\n", alg.Name, alg.Category)
 			}
