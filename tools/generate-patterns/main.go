@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/ehrlich-b/cube/internal/cube"
 	"github.com/ehrlich-b/cube/internal/cfen"
+	"github.com/ehrlich-b/cube/internal/cube"
 )
 
 func main() {
@@ -16,7 +16,7 @@ func main() {
 	}
 
 	moves := os.Args[1]
-	
+
 	// Generate pattern for the given moves
 	pattern, err := generatePattern(moves)
 	if err != nil {
@@ -25,13 +25,13 @@ func main() {
 
 	fmt.Printf("Moves: %s\n", moves)
 	fmt.Printf("Pattern: %s\n", pattern)
-	
+
 	// Also show move count
 	parsedMoves, err := cube.ParseScramble(moves)
 	if err != nil {
 		log.Fatalf("Error parsing moves: %v", err)
 	}
-	
+
 	fmt.Printf("Move Count: %d\n", len(parsedMoves))
 }
 
@@ -39,23 +39,23 @@ func main() {
 func generatePattern(moves string) (string, error) {
 	// Create solved cube in canonical YB orientation
 	c := cube.NewCube(3)
-	
+
 	// Parse and apply the algorithm moves
 	parsedMoves, err := cube.ParseScramble(moves)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Apply moves
 	for _, move := range parsedMoves {
 		c.ApplyMove(move)
 	}
-	
+
 	// Get after state as CFEN
 	afterCFEN, err := cfen.GenerateCFEN(c)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return afterCFEN, nil
 }

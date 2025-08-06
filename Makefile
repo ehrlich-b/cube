@@ -10,6 +10,9 @@ build-tools:
 	mkdir -p dist/tools
 	go build -o dist/tools/verify-algorithm ./tools/verify-algorithm
 	go build -o dist/tools/verify-database ./tools/verify-database
+	go build -o dist/tools/import-algorithms ./tools/import-algorithms
+	go build -o dist/tools/analyze-algorithms ./tools/analyze-algorithms
+	go build -o dist/tools/update-relationships ./tools/update-relationships
 
 # Build everything (main binary + tools)
 build-all-local: build build-tools

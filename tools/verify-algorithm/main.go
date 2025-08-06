@@ -43,7 +43,7 @@ func main() {
 
 	// Use solved cube as start state for pattern verification
 	startCFEN := "YB|Y9/R9/B9/W9/O9/G9" // Solved cube
-	targetCFEN := algorithm.Pattern // Expected pattern after applying algorithm
+	targetCFEN := algorithm.Pattern     // Expected pattern after applying algorithm
 
 	// Perform verification
 	err := verifyAlgorithm(algorithm, startCFEN, targetCFEN, verbose)

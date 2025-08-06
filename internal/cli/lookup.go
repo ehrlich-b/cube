@@ -19,7 +19,8 @@ Examples:
   cube lookup "R U R' U'"
   cube lookup --category OLL
   cube lookup "T-Perm"
-  cube lookup --pattern "R U R' U'"`,
+  cube lookup --pattern "R U R' U'"
+  cube lookup --fuzzy "sun"  # fuzzy matches "Sune", "Anti-Sune"`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		query := ""
@@ -30,6 +31,7 @@ Examples:
 		pattern, _ := cmd.Flags().GetString("pattern")
 		category, _ := cmd.Flags().GetString("category")
 		listAll, _ := cmd.Flags().GetBool("all")
+		fuzzy, _ := cmd.Flags().GetBool("fuzzy")
 
 		var results []cube.Algorithm
 
@@ -41,11 +43,16 @@ Examples:
 			results = cube.GetByCategory(category)
 			fmt.Printf("Algorithms in category '%s':\n\n", strings.ToUpper(category))
 		} else if listAll {
-			results = cube.AlgorithmDatabase
+			results = cube.GetAllAlgorithms()
 			fmt.Println("All algorithms in database:")
 		} else if query != "" {
-			results = cube.LookupAlgorithm(query)
-			fmt.Printf("Algorithms matching '%s':\n\n", query)
+			if fuzzy {
+				results = cube.FuzzyLookupAlgorithm(query)
+				fmt.Printf("Fuzzy search results for '%s':\n\n", query)
+			} else {
+				results = cube.LookupAlgorithm(query)
+				fmt.Printf("Algorithms matching '%s':\n\n", query)
+			}
 		} else {
 			fmt.Println("Please provide a query, use --pattern, --category, or --all")
 			fmt.Println("\nExample: cube lookup sune")
@@ -121,4 +128,5 @@ func init() {
 	lookupCmd.Flags().BoolP("all", "a", false, "List all algorithms")
 	lookupCmd.Flags().Bool("color", false, "Use colored output")
 	lookupCmd.Flags().Bool("preview", false, "Show preview of algorithm effect")
+	lookupCmd.Flags().BoolP("fuzzy", "f", false, "Use fuzzy string matching for better search")
 }
