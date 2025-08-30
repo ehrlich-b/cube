@@ -63,8 +63,8 @@ func (s *BeginnerSolver) Solve(cube *Cube) (*SolverResult, error) {
 		}, nil
 	}
 
-	// Use breadth-first search to find the shortest solution
-	solution, err = s.breadthFirstSearch(cube, 6) // Search up to 6 moves deep
+	// Try A* search with heuristic pruning for better performance
+	solution, err = s.aStarSearch(cube, 8) // Search up to 8 moves deep with A*
 	if err != nil {
 		return nil, fmt.Errorf("could not solve cube: %w", err)
 	}
@@ -303,6 +303,226 @@ func (s *BeginnerSolver) cubeStateString(cube *Cube) string {
 		}
 	}
 	return result
+}
+
+// Iterative deepening search - more memory efficient than BFS
+func (s *BeginnerSolver) iterativeDeepeningSearch(cube *Cube, maxDepth int) ([]Move, error) {
+	// Create a solved cube to compare against
+	solvedCube := NewCube(cube.Size)
+	
+	// If already solved, return empty solution
+	if s.cubesMatch(cube, solvedCube) {
+		return []Move{}, nil
+	}
+	
+	// Try each depth from 1 to maxDepth
+	for depth := 1; depth <= maxDepth; depth++ {
+		solution, found := s.depthLimitedSearch(s.copyCube(cube), solvedCube, []Move{}, depth, 0)
+		if found {
+			return solution, nil
+		}
+	}
+	
+	return nil, fmt.Errorf("no solution found within %d moves", maxDepth)
+}
+
+// Depth-limited search with recursion
+func (s *BeginnerSolver) depthLimitedSearch(cube *Cube, target *Cube, path []Move, limit int, depth int) ([]Move, bool) {
+	// Check if solved
+	if s.cubesMatch(cube, target) {
+		return path, true
+	}
+	
+	// If we've reached the depth limit, return
+	if depth >= limit {
+		return nil, false
+	}
+	
+	// Basic move set for 3x3 cube
+	moves := []Move{
+		{Face: Right, Clockwise: true},
+		{Face: Right, Clockwise: false},
+		{Face: Left, Clockwise: true},
+		{Face: Left, Clockwise: false},
+		{Face: Up, Clockwise: true},
+		{Face: Up, Clockwise: false},
+		{Face: Down, Clockwise: true},
+		{Face: Down, Clockwise: false},
+		{Face: Front, Clockwise: true},
+		{Face: Front, Clockwise: false},
+		{Face: Back, Clockwise: true},
+		{Face: Back, Clockwise: false},
+	}
+	
+	// Try each possible move
+	for _, move := range moves {
+		// Avoid immediate move cancellation (simple pruning)
+		if len(path) > 0 && s.isOppositeMove(path[len(path)-1], move) {
+			continue
+		}
+		
+		// Create a copy and apply the move
+		newCube := s.copyCube(cube)
+		newCube.ApplyMove(move)
+		
+		// Build new path
+		newPath := make([]Move, len(path)+1)
+		copy(newPath, path)
+		newPath[len(path)] = move
+		
+		// Recursive search
+		solution, found := s.depthLimitedSearch(newCube, target, newPath, limit, depth+1)
+		if found {
+			return solution, true
+		}
+	}
+	
+	return nil, false
+}
+
+// Check if two moves are opposites (for basic pruning)
+func (s *BeginnerSolver) isOppositeMove(move1, move2 Move) bool {
+	// Same face, opposite direction
+	return move1.Face == move2.Face && move1.Clockwise != move2.Clockwise &&
+		!move1.Double && !move2.Double
+}
+
+// Simple heuristic: count misplaced stickers (admissible but not very tight)
+func (s *BeginnerSolver) heuristic(cube *Cube) int {
+	solvedCube := NewCube(cube.Size)
+	misplaced := 0
+	
+	// Count misplaced stickers
+	for face := 0; face < 6; face++ {
+		for row := 0; row < cube.Size; row++ {
+			for col := 0; col < cube.Size; col++ {
+				if cube.Faces[face][row][col] != solvedCube.Faces[face][row][col] {
+					misplaced++
+				}
+			}
+		}
+	}
+	
+	// Very rough estimate: each move can fix at most 8 stickers
+	// This is admissible (never overestimates) but not very tight
+	return misplaced / 8
+}
+
+// A* search with heuristic function
+func (s *BeginnerSolver) aStarSearch(cube *Cube, maxDepth int) ([]Move, error) {
+	// Create a solved cube to compare against
+	solvedCube := NewCube(cube.Size)
+	
+	// If already solved, return empty solution
+	if s.cubesMatch(cube, solvedCube) {
+		return []Move{}, nil
+	}
+	
+	// Priority queue node for A*
+	type aStarNode struct {
+		cube  *Cube
+		moves []Move
+		gCost int // Actual cost (moves so far)
+		hCost int // Heuristic cost (estimated remaining)
+		fCost int // Total cost (g + h)
+	}
+	
+	// Simple priority queue implementation (not optimal but works)
+	var openList []*aStarNode
+	visited := make(map[string]bool)
+	
+	// Add initial state
+	initialHCost := s.heuristic(cube)
+	openList = append(openList, &aStarNode{
+		cube:  s.copyCube(cube),
+		moves: []Move{},
+		gCost: 0,
+		hCost: initialHCost,
+		fCost: initialHCost,
+	})
+	
+	nodesExamined := 0
+	maxNodes := 50000
+	
+	for len(openList) > 0 && nodesExamined < maxNodes {
+		// Find node with lowest f-cost (simple implementation)
+		currentIdx := 0
+		for i := 1; i < len(openList); i++ {
+			if openList[i].fCost < openList[currentIdx].fCost {
+				currentIdx = i
+			}
+		}
+		
+		current := openList[currentIdx]
+		// Remove from open list
+		openList = append(openList[:currentIdx], openList[currentIdx+1:]...)
+		
+		nodesExamined++
+		
+		// Check if solved
+		if s.cubesMatch(current.cube, solvedCube) {
+			return current.moves, nil
+		}
+		
+		// Skip if too deep
+		if current.gCost >= maxDepth {
+			continue
+		}
+		
+		// Mark as visited
+		stateStr := s.cubeStateString(current.cube)
+		if visited[stateStr] {
+			continue
+		}
+		visited[stateStr] = true
+		
+		// Basic move set for 3x3 cube
+		moves := []Move{
+			{Face: Right, Clockwise: true},
+			{Face: Right, Clockwise: false},
+			{Face: Left, Clockwise: true},
+			{Face: Left, Clockwise: false},
+			{Face: Up, Clockwise: true},
+			{Face: Up, Clockwise: false},
+			{Face: Down, Clockwise: true},
+			{Face: Down, Clockwise: false},
+			{Face: Front, Clockwise: true},
+			{Face: Front, Clockwise: false},
+			{Face: Back, Clockwise: true},
+			{Face: Back, Clockwise: false},
+		}
+		
+		// Try each possible move
+		for _, move := range moves {
+			// Avoid immediate move cancellation
+			if len(current.moves) > 0 && s.isOppositeMove(current.moves[len(current.moves)-1], move) {
+				continue
+			}
+			
+			// Create new state
+			newCube := s.copyCube(current.cube)
+			newCube.ApplyMove(move)
+			
+			newMoves := make([]Move, len(current.moves)+1)
+			copy(newMoves, current.moves)
+			newMoves[len(current.moves)] = move
+			
+			newGCost := current.gCost + 1
+			newHCost := s.heuristic(newCube)
+			newFCost := newGCost + newHCost
+			
+			// Add to open list
+			openList = append(openList, &aStarNode{
+				cube:  newCube,
+				moves: newMoves,
+				gCost: newGCost,
+				hCost: newHCost,
+				fCost: newFCost,
+			})
+		}
+	}
+	
+	return nil, fmt.Errorf("no solution found within %d moves (examined %d nodes)", maxDepth, nodesExamined)
 }
 
 // White cross solving implementation
