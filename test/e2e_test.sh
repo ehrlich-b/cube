@@ -690,7 +690,7 @@ echo -e "\n${YELLOW}Database Verification Tests:${NC}"
 
 # Test verify-algorithm tool exists and works
 if [ -f "./dist/tools/verify-algorithm" ]; then
-    run_test "verify-algorithm tool listing" "./dist/tools/verify-algorithm --list" "Sune.*VERIFIED"
+    run_test "verify-algorithm tool listing" "./dist/tools/verify-algorithm --list" "Sune.*HAS PATTERN"
     run_test "verify-algorithm single test" "./dist/tools/verify-algorithm 'Sune'" "✅ PASS"
     run_test "verify-algorithm verbose mode" "./dist/tools/verify-algorithm 'T-Perm' --verbose" "✅ PASS"
     run_test "verify-algorithm nonexistent algorithm" "./dist/tools/verify-algorithm 'NonExistent'" "" true
@@ -762,6 +762,11 @@ echo -e "\n${YELLOW}Visualization Tools Tests:${NC}"
 # Test show-alg command
 run_test "show-alg basic display" "$CUBE_BIN show-alg 'Sune'" "Pattern:"
 run_test "show-alg with color" "$CUBE_BIN show-alg 'T-Perm' --color" "🎯 FINAL STATE"
+run_test "show-alg last layer view" "$CUBE_BIN show-alg 'Sune' --color --view=last" "(Last layer view)"
+run_test "show-alg full view" "$CUBE_BIN show-alg 'Sune' --color --view=full" "🎯 FINAL STATE"
+run_test "show-alg both views" "$CUBE_BIN show-alg 'T-Perm' --color --view=both" "Last layer view:"
+run_test "show-alg auto-detect OLL" "$CUBE_BIN show-alg 'Sune' --color --view=auto" "(Last layer view)"
+run_test "show-alg auto-detect non-OLL" "$CUBE_BIN show-alg 'Sexy Move' --color --view=auto" "🎯 FINAL STATE"
 run_test "show-alg nonexistent algorithm" "$CUBE_BIN show-alg 'NonExistent'" "" true
 run_test "show-alg without CFEN patterns" "$CUBE_BIN show-alg 'NonExistentAlg'" "not found in database" true
 
@@ -771,6 +776,16 @@ run_test "identify Sune pattern" "$CUBE_BIN identify 'YB|BY5RYG/YO2R6/YBOB6/W9/Y
 run_test "identify with suggestions" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9' --suggest" "RECOMMENDED ACTIONS"
 run_test "identify with category filter" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9' --category OLL" "Category: OLL"
 run_test "identify invalid CFEN" "$CUBE_BIN identify 'INVALID'" "" true
+
+# Phase 3 Tests - Piece Tracking and Pattern Recognition
+echo -e "\n${YELLOW}Phase 3 Pattern Recognition Tests:${NC}"
+
+run_test "analyze solved cube" "$CUBE_BIN analyze" "Cube is already solved! 🎉"
+run_test "analyze with scramble" "$CUBE_BIN analyze \"R U R' U'\"" "PATTERN ANALYSIS"
+run_test "analyze pattern detection" "$CUBE_BIN analyze \"R U R' U'\"" "White Cross: 100.0% complete"
+run_test "analyze next step suggestion" "$CUBE_BIN analyze \"F R U R' U' F'\"" "Orient last layer"
+run_test "analyze verbose mode" "$CUBE_BIN analyze 'R U' --verbose" "Cube state:"
+run_test "analyze piece tracking" "$CUBE_BIN analyze 'R U' --pieces" "Edge pieces:"
 
 # Summary
 echo -e "\n${YELLOW}=== Test Summary ===${NC}"

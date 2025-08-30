@@ -30,12 +30,11 @@ Usage: update-relationships <command>
 
 Commands:
   apply    Apply discovered relationships to algorithm database
-  preview  Show what relationships would be applied
-`)
+  preview  Show what relationships would be applied`)
 }
 
 func previewRelationships() {
-	fmt.Println("Preview of relationships that would be applied:\n")
+	fmt.Println("Preview of relationships that would be applied:")
 
 	relationships := getKnownRelationships()
 

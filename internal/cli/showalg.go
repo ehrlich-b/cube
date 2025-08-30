@@ -19,6 +19,7 @@ var showAlgCmd = &cobra.Command{
 		algorithmName := args[0]
 		color, _ := cmd.Flags().GetBool("color")
 		animate, _ := cmd.Flags().GetBool("animate")
+		viewMode, _ := cmd.Flags().GetString("view")
 
 		// Find algorithm in database
 		results := cube.LookupAlgorithm(algorithmName)
@@ -56,19 +57,42 @@ var showAlgCmd = &cobra.Command{
 			return fmt.Errorf("failed to parse algorithm moves: %w", err)
 		}
 
-		// Create working cube (start from solved state)
-		// TODO: Implement pattern-based starting state
-		workingCube := cube.NewCube(3)
+		// Create cubes for before/after comparison
+		beforeCube := cube.NewCube(3)
+		afterCube := cube.NewCube(3)
 
-		// Apply all moves
+		// Apply all moves to after cube
 		for _, move := range moves {
-			workingCube.ApplyMove(move)
+			afterCube.ApplyMove(move)
+		}
+
+		// Determine view mode
+		useLastLayer := false
+		if viewMode == "last" {
+			useLastLayer = true
+		} else if viewMode == "auto" {
+			// Auto-detect based on algorithm category and changes
+			useLastLayer = (alg.Category == "OLL" || alg.Category == "PLL" || alg.Category == "CFOP-OLL" || alg.Category == "CFOP-PLL") &&
+				cube.AffectsOnlyLastLayers(beforeCube, afterCube)
 		}
 
 		// Display final state
 		fmt.Println("🎯 FINAL STATE:")
-		output := workingCube.StringWithColor(color)
-		fmt.Println(output)
+		if viewMode == "both" {
+			fmt.Println("Last layer view:")
+			output := afterCube.LastLayerString(color, color)
+			fmt.Println(output)
+			fmt.Println("\nFull cube view:")
+			output = afterCube.StringWithColor(color)
+			fmt.Println(output)
+		} else if useLastLayer {
+			fmt.Println("(Last layer view)")
+			output := afterCube.LastLayerString(color, color)
+			fmt.Println(output)
+		} else {
+			output := afterCube.StringWithColor(color)
+			fmt.Println(output)
+		}
 
 		// TODO: Implement pattern verification with new Pattern field
 		fmt.Println("✅ Algorithm executed successfully")
@@ -113,5 +137,6 @@ func showAlgorithmAnimated(alg cube.Algorithm, color bool) error {
 func init() {
 	showAlgCmd.Flags().BoolP("color", "c", false, "Use colored output")
 	showAlgCmd.Flags().Bool("animate", false, "Show step-by-step animation")
+	showAlgCmd.Flags().String("view", "auto", "View mode: auto, last, full, both")
 	rootCmd.AddCommand(showAlgCmd)
 }

@@ -40,12 +40,11 @@ Commands:
   relationships  Find inverse and mirror relationships
   duplicates     Find potential duplicate algorithms
   statistics     Show database statistics
-  validate       Validate database consistency
-`)
+  validate       Validate database consistency`)
 }
 
 func analyzeRelationships() {
-	fmt.Println("Analyzing algorithm relationships...\n")
+	fmt.Println("Analyzing algorithm relationships...")
 
 	algorithms := cube.GetAllAlgorithms()
 
@@ -176,7 +175,7 @@ func areMirror(alg1, alg2 cube.Algorithm) bool {
 }
 
 func findDuplicates() {
-	fmt.Println("Finding potential duplicate algorithms...\n")
+	fmt.Println("Finding potential duplicate algorithms...")
 
 	algorithms := cube.GetAllAlgorithms()
 
@@ -209,7 +208,7 @@ func normalizeMoves(moves string) string {
 }
 
 func showStatistics() {
-	fmt.Println("Database Statistics\n")
+	fmt.Println("Database Statistics")
 
 	algorithms := cube.GetAllAlgorithms()
 
@@ -266,7 +265,7 @@ func showStatistics() {
 }
 
 func validateDatabase() {
-	fmt.Println("Validating database consistency...\n")
+	fmt.Println("Validating database consistency...")
 
 	algorithms := cube.GetAllAlgorithms()
 	issues := 0

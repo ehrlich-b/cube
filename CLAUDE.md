@@ -23,6 +23,18 @@ make build-all-local    # Everything locally
 ./dist/cube show "R U R' U'" --highlight-oll --color
 ./dist/cube lookup sune --preview
 
+# Test enhanced visualization system
+./dist/cube show-alg "Sune" --color --view=auto      # Auto-detect view mode
+./dist/cube show-alg "T-Perm" --color --view=last    # Last-layer focused view
+./dist/cube show-alg "Sune" --color --view=both      # Compare both views
+./dist/cube show-alg "Sexy Move" --color --view=full # Full cube view
+
+# Test piece tracking and pattern recognition (NEW!)
+./dist/cube analyze ""                               # Analyze solved cube
+./dist/cube analyze "R U R' U'" --verbose            # Detailed analysis
+./dist/cube analyze "F R U R' U' F'" --pieces        # Show piece positions
+./dist/cube analyze "R U R' F R F' U' R'" -v -p      # Full analysis
+
 # Test database tools (separate utilities)
 ./dist/tools/verify-algorithm "T-Perm" --verbose
 ./dist/tools/verify-database --category OLL
@@ -154,17 +166,24 @@ tools/ (Database utilities) ────────────┘
 - **Enhanced verification system** - `cube verify` command with flexible CFEN start/target support
 - **CFEN infrastructure** - Complete parsing, generation, and wildcard matching
 - **Pattern highlighting system** - `cube show` with cross/OLL/PLL/F2L highlighting
-- **Enhanced algorithm database** - 60+ algorithms with verification capabilities
-- **Verified algorithm collection** - 3 algorithms with real CFEN patterns (Sune, Anti-Sune, T-Perm)
+- **Enhanced algorithm database** - 140 algorithms across all categories with CFEN patterns
+- **Advanced visualization system** - `cube show-alg` with last-layer view and auto-detection
+  - Last-layer focused 5x5 grid view for OLL/PLL algorithms
+  - Auto-detection based on algorithm category and cube analysis
+  - View modes: `--view=auto|last|full|both` for flexible display
+- **Complete piece tracking system** - `cube analyze` with comprehensive pattern recognition
+  - 3D piece identification for corners, edges, and centers with proper mappings
+  - Semantic pattern recognition (white cross, F2L, OLL, PLL) with completion percentages
+  - Intelligent next-step suggestions for solving progression
+  - Detailed piece analysis showing positions and orientations
 - **Clean architecture** - Separate database tools from main CLI
-- **Database verification tools** - Standalone utilities for algorithm curation
-- **Comprehensive test suite** - 98 end-to-end tests covering all CLI features
+- **Database verification tools** - Standalone utilities for algorithm curation  
+- **Comprehensive test suite** - 109 end-to-end tests covering all CLI features
 - Cross-platform build system (macOS/Linux compatible)
 
 **⚠️ Current Issues:**
 - All solvers are completely unimplemented (only interface stubs exist)
-- Algorithm database needs expansion (currently only 6 verified algorithms)
-- CSV algorithm dumps ready for import in `/alg_dumps/` (9 files, 100+ algorithms)
+- Ready to move to Phase 4 (First Working Solver) with complete piece tracking foundation
 
 **📍 Key Files to Know:**
 - `TODO.md` - **ALWAYS READ FIRST** - Current development plan and progress
@@ -177,10 +196,14 @@ tools/ (Database utilities) ────────────┘
 - `internal/cli/solve.go` - CLI solve command with algorithm selection
 - `internal/cli/show.go` - Cube display with pattern highlighting
 - `internal/cli/lookup.go` - Algorithm database lookup command
+- `internal/cube/pieces.go` - Comprehensive piece tracking system with 3D mappings
+- `internal/cube/piece_mapping.go` - 3D edge and corner position mappings  
+- `internal/cube/patterns.go` - Semantic pattern recognition (cross, F2L, OLL, PLL)
+- `internal/cli/analyze.go` - Pattern analysis CLI command with piece tracking
 - `tools/verify-algorithm/` - Standalone algorithm verification tool
 - `tools/verify-database/` - Standalone database verification tool
 - `tools/README.md` - Documentation for database tools
-- `test/e2e_test.sh` - Comprehensive end-to-end test suite (98 tests)
+- `test/e2e_test.sh` - Comprehensive end-to-end test suite (109 tests)
 - **Project Documentation:**
   - `/docs/move_db_refactor.md` - Algorithm database refactor design
   - `/docs/move_visualization.md` - Enhanced last-layer visualization

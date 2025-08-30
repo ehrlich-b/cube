@@ -203,3 +203,89 @@ func (c Color) MonoString() string {
 	}
 	return colors[c]
 }
+
+// AffectsOnlyLastLayers detects if changes are limited to the top two layers
+func AffectsOnlyLastLayers(beforeCube, afterCube *Cube) bool {
+	if beforeCube.Size != afterCube.Size {
+		return false
+	}
+	
+	size := beforeCube.Size
+	
+	// For each face, check if only the top two layers are affected
+	for face := 0; face < 6; face++ {
+		switch Face(face) {
+		case Up:
+			// Up face: all changes are considered last-layer
+			continue
+		case Down:
+			// Down face: no changes allowed for last-layer algorithms
+			for row := 0; row < size; row++ {
+				for col := 0; col < size; col++ {
+					if beforeCube.Faces[face][row][col] != afterCube.Faces[face][row][col] {
+						return false
+					}
+				}
+			}
+		case Front, Back, Left, Right:
+			// Side faces: only top two layers (rows 0 and 1) can change
+			for row := 2; row < size; row++ {
+				for col := 0; col < size; col++ {
+					if beforeCube.Faces[face][row][col] != afterCube.Faces[face][row][col] {
+						return false
+					}
+				}
+			}
+		}
+	}
+	
+	return true
+}
+
+// LastLayerString returns a 5x5 grid view focused on the last layer
+func (c *Cube) LastLayerString(useColor bool, useUnicode bool) string {
+	var sb strings.Builder
+	
+	if c.Size < 3 {
+		// For 2x2, just show the unfolded view
+		return c.UnfoldedString(useColor, useUnicode)
+	}
+	
+	// Layout for 3x3:
+	//     [back edge row]
+	// [left] [top face] [right] 
+	//     [front edge row]
+	
+	// Top row: back edge pieces (Back face, row 0)
+	sb.WriteString("  ")
+	for col := 0; col < c.Size; col++ {
+		sb.WriteString(c.FormatSticker(c.Faces[Back][0][col], useColor, useUnicode))
+	}
+	sb.WriteString("\n")
+	
+	// Middle rows: left edges, top face, right edges
+	for row := 0; row < c.Size; row++ {
+		// Left edge (Left face, column size-1)
+		sb.WriteString(c.FormatSticker(c.Faces[Left][row][c.Size-1], useColor, useUnicode))
+		sb.WriteString(" ")
+		
+		// Top face row
+		for col := 0; col < c.Size; col++ {
+			sb.WriteString(c.FormatSticker(c.Faces[Up][row][col], useColor, useUnicode))
+		}
+		sb.WriteString(" ")
+		
+		// Right edge (Right face, column 0)
+		sb.WriteString(c.FormatSticker(c.Faces[Right][row][0], useColor, useUnicode))
+		sb.WriteString("\n")
+	}
+	
+	// Bottom row: front edge pieces (Front face, row 0)
+	sb.WriteString("  ")
+	for col := 0; col < c.Size; col++ {
+		sb.WriteString(c.FormatSticker(c.Faces[Front][0][col], useColor, useUnicode))
+	}
+	sb.WriteString("\n")
+	
+	return sb.String()
+}
