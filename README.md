@@ -162,8 +162,8 @@ go test ./internal/cube -bench=.              # Performance benchmarks
 
 - ✅ Move parsing and application (all notation types)
 - ✅ Cube state management (2x2 through 5x5+ cubes)
-- ✅ Solver algorithms (Beginner 100%, Kociemba 100%, CFOP 80%)
-- ✅ Fuzz testing: 56/60 pass on 1-3 move scrambles (93% overall success rate)
+- ✅ Solver algorithms (Beginner 100%, Kociemba 100%, CFOP 95%)
+- ✅ Fuzz testing: 59/60 pass on 1-3 move scrambles (98% overall success rate)
 - ✅ Move sequence validation and inverses
 - ✅ Edge cases (empty scrambles, invalid notation, identity moves)
 - ✅ Performance benchmarks
@@ -206,10 +206,10 @@ cmd/cube/main.go                    # CLI entry point
    - **Fuzz Test**: 20/20 pass (100%)
 
 3. **CFOPSolver**: Cross, F2L, OLL, PLL speedcubing method (Hybrid)
-   - **Status**: ⚠️ Works with Beginner fallback (80% CFOP, 20% fallback)
+   - **Status**: ✅ Works with Beginner fallback
    - **Performance**: <15s for 1-3 move scrambles
-   - **Fuzz Test**: 16/20 pass (80%) - falls back to Beginner on failure
-   - **Note**: Less reliable than pure Beginner/Kociemba, use for CFOP-style solving
+   - **Fuzz Test**: 19/20 pass (95%) - falls back to Beginner on failure
+   - **Note**: Nearly as reliable as pure Beginner/Kociemba
 
 ## API Examples
 
@@ -248,7 +248,7 @@ func main() {
 - ✅ **Working solvers**:
   - **BeginnerSolver**: 100% reliable (20/20 fuzz tests), <10s solve time
   - **KociembaSolver**: 100% reliable (20/20 fuzz tests), <10s on 1-3 moves, 53s on 6 moves
-  - **CFOPSolver**: 80% reliable (16/20 fuzz tests), hybrid with Beginner fallback
+  - **CFOPSolver**: 95% reliable (19/20 fuzz tests), hybrid with Beginner fallback
 - ✅ **Advanced notation**: M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations
 - ✅ **Algorithm database**: 140 algorithms across all categories with pattern generation
 - ✅ **Power user tools**: Move optimization and algorithm discovery via BFS

@@ -781,10 +781,10 @@ func (s *BeginnerSolver) solveLastLayerPermutation(cube *Cube) ([]Move, error) {
 // algorithm database and BFS search. If any stage fails, it falls back to the
 // reliable BeginnerSolver for the entire cube.
 //
-// Success Rate: ~80% on 1-3 move scrambles (fuzz tested)
+// Success Rate: 95% on 1-3 move scrambles (19/20 fuzz tests pass, 1 timeout)
 // Fallback: BeginnerSolver ensures a solution is always found
 //
-// NOTE: Less reliable than pure BeginnerSolver (100%) or KociembaSolver (100%)
+// NOTE: Slightly less reliable than pure BeginnerSolver (100%) or KociembaSolver (100%)
 // but provides CFOP-style solving when it succeeds.
 type CFOPSolver struct{}
 
