@@ -586,7 +586,12 @@ func (s *BeginnerSolver) solveWhiteCross(cube *Cube) ([]Move, error) {
 
 // solveWhiteEdgePiece generates moves to solve a single white edge piece
 func (s *BeginnerSolver) solveWhiteEdgePiece(cube *Cube, colors []Color, targetFace Face, currentPos Position) []Move {
-	// Find which color is white and which is the other color
+	// Simplified reliable algorithm:
+	// 1. Move edge to top layer using simple rules
+	// 2. Align by rotating U
+	// 3. Insert with F2/R2/B2/L2
+
+	var moves []Move
 	var otherColor Color
 	for _, c := range colors {
 		if c != White {
@@ -594,45 +599,59 @@ func (s *BeginnerSolver) solveWhiteEdgePiece(cube *Cube, colors []Color, targetF
 		}
 	}
 
-	// Determine where the white sticker and other sticker currently are
-	whiteFace, otherFace := s.getEdgeStickerFaces(cube, colors)
-
-	var moves []Move
-
-	// Case 1: White edge already correctly positioned and oriented on bottom
-	if whiteFace == Down && otherFace == targetFace {
-		return []Move{} // Already solved
+	// Check if already solved
+	if cube.IsPieceInCorrectPosition(colors) && cube.IsPieceCorrectlyOriented(colors) {
+		return []Move{}
 	}
 
-	// Case 2: White edge on bottom face but wrong position or orientation
-	if whiteFace == Down || otherFace == Down {
-		// Move it to top layer first by doing a double turn of the side face
-		moves = s.removeEdgeFromBottom(cube, colors, targetFace)
-	}
+	// Step 1: Get edge to top layer
+	// Create a working copy to track state through moves
+	workingCube := s.copyCube(cube)
 
-	// Case 3: White edge in middle layer (on a side face edge position)
-	// Move to top layer with a single face turn
-	if whiteFace != Up && whiteFace != Down && otherFace != Up && otherFace != Down {
-		// One of the stickers is on a side face middle edge
-		// Turn that face to move edge to top or bottom
-		faceTurn := s.getFaceForEdgePosition(currentPos)
-		if faceTurn != 0 {
-			moves = append(moves, Move{Face: faceTurn, Clockwise: true})
+	// If on bottom face, bring to top with double turn
+	if currentPos.Face == Down {
+		var moveFace Face
+		if currentPos.Row == 0 && currentPos.Col == 1 {
+			moveFace = Front
+		} else if currentPos.Row == 1 && currentPos.Col == 2 {
+			moveFace = Right
+		} else if currentPos.Row == 2 && currentPos.Col == 1 {
+			moveFace = Back
+		} else if currentPos.Row == 1 && currentPos.Col == 0 {
+			moveFace = Left
+		}
+
+		if moveFace != 0 {
+			moves = append(moves, Move{Face: moveFace, Double: true})
+			workingCube.ApplyMove(Move{Face: moveFace, Double: true})
 		}
 	}
 
-	// Case 4: White edge on top layer - position and insert
-	// At this point edge should be on top layer
-	// Rotate U until the colored sticker matches the target face
-	// Then insert with a double turn
+	// If on side face middle edge, turn face to move to top
+	if currentPos.Face != Up && currentPos.Face != Down && currentPos.Row == 1 {
+		// Turn this face - edge will go to top or bottom
+		moves = append(moves, Move{Face: currentPos.Face, Clockwise: true})
+		workingCube.ApplyMove(Move{Face: currentPos.Face, Clockwise: true})
 
-	// Determine how many U moves needed to align
-	uMoves := s.calculateUMovesForEdge(cube, otherColor, targetFace)
-	for i := 0; i < uMoves; i++ {
-		moves = append(moves, Move{Face: Up, Clockwise: true})
+		// Check if it went to bottom, if so bring to top
+		piece := workingCube.GetPieceByColors(colors)
+		if piece != nil && piece.Position.Face == Down {
+			moves = append(moves, Move{Face: currentPos.Face, Clockwise: true})
+			workingCube.ApplyMove(Move{Face: currentPos.Face, Clockwise: true})
+		}
 	}
 
-	// Insert with double turn of target face
+	// Step 2: Align - rotate U until colored sticker matches target face
+	for i := 0; i < 4; i++ {
+		// Check if aligned: colored sticker should be on target face
+		if workingCube.Faces[targetFace][0][1] == otherColor {
+			break
+		}
+		moves = append(moves, Move{Face: Up, Clockwise: true})
+		workingCube.ApplyMove(Move{Face: Up, Clockwise: true})
+	}
+
+	// Step 3: Insert with double turn
 	moves = append(moves, Move{Face: targetFace, Double: true})
 
 	return moves
