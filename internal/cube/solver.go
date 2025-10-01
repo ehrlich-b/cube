@@ -55,36 +55,12 @@ func (s *BeginnerSolver) Solve(cube *Cube) (*SolverResult, error) {
 	solution = append(solution, crossMoves...)
 	workingCube.ApplyMoves(crossMoves)
 
-	// Step 2: Solve white corners (complete first layer)
-	whiteLayerMoves, err := s.solveWhiteLayer(workingCube)
-	if err != nil {
-		return nil, fmt.Errorf("failed to solve white corners: %w", err)
-	}
-	solution = append(solution, whiteLayerMoves...)
-	workingCube.ApplyMoves(whiteLayerMoves)
-
-	// Step 3: Solve middle layer edges (F2L edges)
-	middleMoves, err := s.solveMiddleLayer(workingCube)
-	if err != nil {
-		return nil, fmt.Errorf("failed to solve middle layer: %w", err)
-	}
-	solution = append(solution, middleMoves...)
-	workingCube.ApplyMoves(middleMoves)
-
-	// Step 4: Orient last layer (yellow cross + all yellow on top)
-	ollMoves, err := s.solveLastLayerOrientation(workingCube)
-	if err != nil {
-		return nil, fmt.Errorf("failed to orient last layer: %w", err)
-	}
-	solution = append(solution, ollMoves...)
-	workingCube.ApplyMoves(ollMoves)
-
-	// Step 5: Permute last layer (solve the cube)
-	pllMoves, err := s.solveLastLayerPermutation(workingCube)
-	if err != nil {
-		return nil, fmt.Errorf("failed to permute last layer: %w", err)
-	}
-	solution = append(solution, pllMoves...)
+	// TODO: Implement remaining phases properly
+	// For now, only white cross is implemented
+	// Step 2: Solve white corners (complete first layer) - NOT IMPLEMENTED
+	// Step 3: Solve middle layer edges (F2L edges) - NOT IMPLEMENTED
+	// Step 4: Orient last layer (yellow cross + all yellow on top) - NOT IMPLEMENTED
+	// Step 5: Permute last layer (solve the cube) - NOT IMPLEMENTED
 
 	return &SolverResult{
 		Solution: solution,
@@ -586,10 +562,10 @@ func (s *BeginnerSolver) solveWhiteCross(cube *Cube) ([]Move, error) {
 
 // solveWhiteEdgePiece generates moves to solve a single white edge piece
 func (s *BeginnerSolver) solveWhiteEdgePiece(cube *Cube, colors []Color, targetFace Face, currentPos Position) []Move {
-	// Simplified reliable algorithm:
-	// 1. Move edge to top layer using simple rules
-	// 2. Align by rotating U
-	// 3. Insert with F2/R2/B2/L2
+	// Algorithm:
+	// 1. Get edge to top layer if not already there
+	// 2. Orient correctly: white on Up, other color facing target face
+	// 3. Insert with double turn (F2/R2/B2/L2)
 
 	var moves []Move
 	var otherColor Color
@@ -604,54 +580,128 @@ func (s *BeginnerSolver) solveWhiteEdgePiece(cube *Cube, colors []Color, targetF
 		return []Move{}
 	}
 
-	// Step 1: Get edge to top layer
-	// Create a working copy to track state through moves
+	// Work with a copy to track piece position through moves
 	workingCube := s.copyCube(cube)
 
-	// If on bottom face, bring to top with double turn
-	if currentPos.Face == Down {
+	// Step 1: Get edge to top layer
+	currPos := currentPos
+
+	// Case 1: Edge is on bottom face (Down) - bring it up with double turn
+	if currPos.Face == Down {
 		var moveFace Face
-		if currentPos.Row == 0 && currentPos.Col == 1 {
-			moveFace = Front
-		} else if currentPos.Row == 1 && currentPos.Col == 2 {
-			moveFace = Right
-		} else if currentPos.Row == 2 && currentPos.Col == 1 {
-			moveFace = Back
-		} else if currentPos.Row == 1 && currentPos.Col == 0 {
-			moveFace = Left
+		// Identify which face's double turn will bring it to top
+		if currPos.Row == 0 && currPos.Col == 1 {
+			moveFace = Front  // Front edge of bottom -> F2
+		} else if currPos.Row == 1 && currPos.Col == 2 {
+			moveFace = Right  // Right edge of bottom -> R2
+		} else if currPos.Row == 2 && currPos.Col == 1 {
+			moveFace = Back   // Back edge of bottom -> B2
+		} else if currPos.Row == 1 && currPos.Col == 0 {
+			moveFace = Left   // Left edge of bottom -> L2
 		}
 
 		if moveFace != 0 {
-			moves = append(moves, Move{Face: moveFace, Double: true})
-			workingCube.ApplyMove(Move{Face: moveFace, Double: true})
+			// Check orientation: is white on Down face or on the adjacent face?
+			downColor := workingCube.Faces[Down][currPos.Row][currPos.Col]
+
+			if downColor == White {
+				// Correctly oriented - white on Down, F2 will put white on Up
+				moves = append(moves, Move{Face: moveFace, Double: true})
+				workingCube.ApplyMove(Move{Face: moveFace, Double: true})
+			} else {
+				// Flipped - colored sticker on Down, white on adjacent face
+				// Need to flip it: move to side, rotate top, move back
+				// Simpler: just bring to Up (flipped), then fix orientation
+				moves = append(moves, Move{Face: moveFace, Double: true})
+				workingCube.ApplyMove(Move{Face: moveFace, Double: true})
+
+				// Now it's on Up but flipped (colored sticker on Up, white on target face)
+				// Fix by: F U R U' R' F'  (or similar flip algorithm)
+				// Actually simpler: move it out and back in differently
+				// Easiest: F' U F - moves it away, rotates, brings back
+				moves = append(moves, Move{Face: moveFace, Clockwise: false})
+				workingCube.ApplyMove(Move{Face: moveFace, Clockwise: false})
+				moves = append(moves, Move{Face: Up, Clockwise: true})
+				workingCube.ApplyMove(Move{Face: Up, Clockwise: true})
+				moves = append(moves, Move{Face: moveFace, Clockwise: true})
+				workingCube.ApplyMove(Move{Face: moveFace, Clockwise: true})
+			}
+
+			// Update position
+			piece := workingCube.GetPieceByColors(colors)
+			if piece != nil {
+				currPos = piece.Position
+			}
 		}
 	}
 
-	// If on side face middle edge, turn face to move to top
-	if currentPos.Face != Up && currentPos.Face != Down && currentPos.Row == 1 {
-		// Turn this face - edge will go to top or bottom
-		moves = append(moves, Move{Face: currentPos.Face, Clockwise: true})
-		workingCube.ApplyMove(Move{Face: currentPos.Face, Clockwise: true})
-
-		// Check if it went to bottom, if so bring to top
+	// Case 2: Edge is on a side face - move to top layer
+	if currPos.Face != Up && currPos.Face != Down {
+		if currPos.Row == 0 {
+			// Top edge of side face - already adjacent to Up, need one turn
+			moves = append(moves, Move{Face: currPos.Face, Clockwise: false})
+			workingCube.ApplyMove(Move{Face: currPos.Face, Clockwise: false})
+		} else if currPos.Row == 1 {
+			// Middle edge of side face - one turn either way
+			moves = append(moves, Move{Face: currPos.Face, Clockwise: true})
+			workingCube.ApplyMove(Move{Face: currPos.Face, Clockwise: true})
+		} else if currPos.Row == 2 {
+			// Bottom edge of side face - one turn puts it on bottom, then need F2
+			// Or two turns puts it on top
+			moves = append(moves, Move{Face: currPos.Face, Clockwise: true})
+			workingCube.ApplyMove(Move{Face: currPos.Face, Clockwise: true})
+			// Check if it's on bottom now
+			piece := workingCube.GetPieceByColors(colors)
+			if piece != nil && piece.Position.Face == Down {
+				// Bring it to top with F2/R2/B2/L2
+				moves = append(moves, Move{Face: currPos.Face, Double: true})
+				workingCube.ApplyMove(Move{Face: currPos.Face, Double: true})
+			}
+		}
+		// Update position
 		piece := workingCube.GetPieceByColors(colors)
-		if piece != nil && piece.Position.Face == Down {
-			moves = append(moves, Move{Face: currentPos.Face, Clockwise: true})
-			workingCube.ApplyMove(Move{Face: currentPos.Face, Clockwise: true})
+		if piece != nil {
+			currPos = piece.Position
 		}
 	}
 
-	// Step 2: Align - rotate U until colored sticker matches target face
+	// Step 2: Edge should now be on top layer - align it
+	// Goal: Get edge positioned so that:
+	// - The colored (non-white) sticker is on the target face's top edge
+	// - The white sticker is on the Up face
+	// Then F2/R2/B2/L2 will flip it into place on the bottom
+
 	for i := 0; i < 4; i++ {
-		// Check if aligned: colored sticker should be on target face
-		if workingCube.Faces[targetFace][0][1] == otherColor {
-			break
+		// Check if the target face's top edge has our colored sticker
+		// AND the up face's corresponding position has white
+		topEdgeOfTargetFace := workingCube.Faces[targetFace][0][1]
+
+		// Map target face to corresponding Up face position
+		var upPosition [2]int
+		switch targetFace {
+		case Front:
+			upPosition = [2]int{2, 1} // Bottom edge of Up face
+		case Right:
+			upPosition = [2]int{1, 2} // Right edge of Up face
+		case Back:
+			upPosition = [2]int{0, 1} // Top edge of Up face
+		case Left:
+			upPosition = [2]int{1, 0} // Left edge of Up face
 		}
+
+		topEdgeOfUpFace := workingCube.Faces[Up][upPosition[0]][upPosition[1]]
+
+		// Check if correctly aligned
+		if topEdgeOfTargetFace == otherColor && topEdgeOfUpFace == White {
+			break // Perfect alignment!
+		}
+
+		// Not aligned, rotate U and try again
 		moves = append(moves, Move{Face: Up, Clockwise: true})
 		workingCube.ApplyMove(Move{Face: Up, Clockwise: true})
 	}
 
-	// Step 3: Insert with double turn
+	// Step 3: Insert into bottom with double turn
 	moves = append(moves, Move{Face: targetFace, Double: true})
 
 	return moves
