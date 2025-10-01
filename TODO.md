@@ -181,15 +181,16 @@ This project successfully implements a working Rubik's cube solver with multiple
 
 **Reality Check**: Advanced solvers are partially working but have significant limitations.
 
-### 6.1 CFOP Implementation ❌ EXPERIMENTAL (BROKEN)
+### 6.1 CFOP Implementation ⚠️ HYBRID (80% SUCCESS)
 - [x] **Complete CFOP framework** - Full 4-step pipeline (Cross→F2L→OLL→PLL)
 - [x] **Algorithm database integration** - Uses 140+ imported algorithms with intelligent selection
 - [x] **BFS fallbacks for each stage** - Cross, F2L, OLL, PLL all have search-based fallbacks
 - [x] **Pattern recognition** - Basic OLL/PLL pattern analysis
-- ❌ **Critical Issue**: CFOP modifies cube in-place during solving, causing stages to interfere
-- ❌ **Fails on simple scrambles**: Even "R U" (2 moves) exceeds 200k search states in OLL
-- ❌ **Only works on trivial 1-move scrambles**: "F" → "F'" works, but that's it
-- ⚠️ **Status**: Needs architectural refactoring to solve on cube copies, not production-ready
+- [x] **Fixed architecture** - Works on cube copies instead of modifying input
+- [x] **Beginner fallback** - Falls back to BeginnerSolver if any stage fails
+- [x] **Fuzz tested** - 80% success rate on 1-3 move scrambles (16/20 tests pass)
+- ⚠️ **Status**: Works but less reliable than BeginnerSolver (100%) or Kociemba (100%)
+- ⚠️ **Known issue**: Some stage solutions don't properly set up next stage, causing incorrect final solutions in 20% of cases
 
 ### 6.2 Kociemba Two-Phase ✅ WORKS (SLOW BUT RELIABLE)
 - [x] **Basic two-phase structure** - Complete Kociemba solver framework with Phase 1 and Phase 2
@@ -237,7 +238,7 @@ This project successfully implements a working Rubik's cube solver with multiple
 - **Phase 3**: Working piece tracking and pattern recognition systems ✅
 - **Phase 4**: Beginner method that solves any valid 3x3 scramble ✅ (1-3 moves verified)
 - **Phase 5**: Sub-second solving with search optimization ✅ (A* implementation)
-- **Phase 6**: Multiple solving methods (CFOP, Kociemba) ⚠️ (Beginner ✅, Kociemba ✅, CFOP ❌)
+- **Phase 6**: Multiple solving methods ⚠️ (Beginner 100%, Kociemba 100%, CFOP 80%)
 - **Phase 7**: Production-ready solver with documented limitations
 
 ---

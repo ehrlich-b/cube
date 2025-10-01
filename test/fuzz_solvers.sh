@@ -26,7 +26,7 @@ declare -A solver_pass_count
 declare -A solver_fail_count
 declare -A solver_timeout_count
 
-solvers=("beginner" "kociemba")  # Skip cfop - it's broken
+solvers=("beginner" "kociemba" "cfop")
 
 # Initialize counters
 for solver in "${solvers[@]}"; do

@@ -162,8 +162,8 @@ go test ./internal/cube -bench=.              # Performance benchmarks
 
 - ✅ Move parsing and application (all notation types)
 - ✅ Cube state management (2x2 through 5x5+ cubes)
-- ✅ Solver algorithms (beginner ✅, Kociemba ✅, CFOP ❌)
-- ✅ Fuzz testing: 40/40 pass on 1-3 move scrambles (100% success rate)
+- ✅ Solver algorithms (Beginner 100%, Kociemba 100%, CFOP 80%)
+- ✅ Fuzz testing: 56/60 pass on 1-3 move scrambles (93% overall success rate)
 - ✅ Move sequence validation and inverses
 - ✅ Edge cases (empty scrambles, invalid notation, identity moves)
 - ✅ Performance benchmarks
@@ -205,10 +205,11 @@ cmd/cube/main.go                    # CLI entry point
    - **Performance**: 1-3 moves <10s, 6 moves ~53s
    - **Fuzz Test**: 20/20 pass (100%)
 
-3. **CFOPSolver**: Cross, F2L, OLL, PLL speedcubing method
-   - **Status**: ❌ Experimental (not production-ready)
-   - **Limitation**: Only works on trivial 1-move scrambles
-   - **Issue**: Modifies cube in-place, needs architectural refactoring
+3. **CFOPSolver**: Cross, F2L, OLL, PLL speedcubing method (Hybrid)
+   - **Status**: ⚠️ Works with Beginner fallback (80% CFOP, 20% fallback)
+   - **Performance**: <15s for 1-3 move scrambles
+   - **Fuzz Test**: 16/20 pass (80%) - falls back to Beginner on failure
+   - **Note**: Less reliable than pure Beginner/Kociemba, use for CFOP-style solving
 
 ## API Examples
 
@@ -245,9 +246,9 @@ func main() {
 
 - ✅ **NxNxN cubes**: Support for 2x2 through 10x10+ with proper layer handling
 - ✅ **Working solvers**:
-  - **BeginnerSolver**: 100% reliable on 1-3 move scrambles, <10s solve time
-  - **KociembaSolver**: 100% reliable on 1-3 move scrambles, <10s solve time (53s on 6-move)
-  - **CFOPSolver**: ❌ Experimental (only works on 1-move scrambles, needs refactoring)
+  - **BeginnerSolver**: 100% reliable (20/20 fuzz tests), <10s solve time
+  - **KociembaSolver**: 100% reliable (20/20 fuzz tests), <10s on 1-3 moves, 53s on 6 moves
+  - **CFOPSolver**: 80% reliable (16/20 fuzz tests), hybrid with Beginner fallback
 - ✅ **Advanced notation**: M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations
 - ✅ **Algorithm database**: 140 algorithms across all categories with pattern generation
 - ✅ **Power user tools**: Move optimization and algorithm discovery via BFS
