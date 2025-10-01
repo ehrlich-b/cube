@@ -3,8 +3,8 @@
 
 CUBE_BIN="./dist/cube"
 NUM_TESTS=20
-MAX_SCRAMBLE_LENGTH=3  # Reduced from 5 - solvers struggle with longer scrambles
-TIMEOUT=10  # seconds per solve
+MAX_SCRAMBLE_LENGTH=25  # Realistic scramble length for actual solving
+TIMEOUT=120  # seconds per solve (2 minutes for complex scrambles)
 
 # Colors for output
 RED='\033[0;31m'
@@ -39,7 +39,7 @@ echo "=========================================="
 echo "Rubik's Cube Solver Fuzz Testing"
 echo "=========================================="
 echo "Tests: $NUM_TESTS scrambles per solver"
-echo "Scramble length: 1-$MAX_SCRAMBLE_LENGTH moves"
+echo "Scramble length: 20-25 moves (realistic difficulty)"
 echo "Timeout: ${TIMEOUT}s per solve"
 echo "Solvers: ${solvers[*]}"
 echo "=========================================="
@@ -49,8 +49,8 @@ for solver in "${solvers[@]}"; do
     echo -e "${YELLOW}Testing $solver solver...${NC}"
 
     for i in $(seq 1 $NUM_TESTS); do
-        # Generate random scramble
-        scramble_length=$((1 + RANDOM % MAX_SCRAMBLE_LENGTH))
+        # Generate random scramble (20-25 moves for realistic difficulty)
+        scramble_length=$((20 + RANDOM % 6))  # 20 to 25 moves
         scramble=""
         for j in $(seq 1 $scramble_length); do
             move_idx=$((RANDOM % ${#MOVES[@]}))

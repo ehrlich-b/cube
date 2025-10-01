@@ -162,11 +162,11 @@ go test ./internal/cube -bench=.              # Performance benchmarks
 
 - ✅ Move parsing and application (all notation types)
 - ✅ Cube state management (2x2 through 5x5+ cubes)
-- ✅ Solver algorithms (Beginner 100%, Kociemba 100%, CFOP 95%)
-- ✅ Fuzz testing: 59/60 pass on 1-3 move scrambles (98% overall success rate)
+- ✅ Piece tracking and pattern recognition
 - ✅ Move sequence validation and inverses
 - ✅ Edge cases (empty scrambles, invalid notation, identity moves)
-- ✅ Performance benchmarks
+- ✅ 109 comprehensive end-to-end tests
+- ⚠️ Solver testing: Currently limited to simple scrambles, expanding to 25-move scrambles
 
 ## Architecture
 
@@ -195,21 +195,20 @@ cmd/cube/main.go                    # CLI entry point
 
 ### Solving Algorithms
 
-1. **BeginnerSolver**: Layer-by-layer method using A* search
-   - **Status**: ✅ Works reliably on 1-3 move scrambles
-   - **Performance**: <10s for most simple scrambles
-   - **Fuzz Test**: 20/20 pass (100%)
+⚠️ **Current Status**: All solvers use exhaustive search and only work on simple scrambles. **Under active development** to rebuild with proper layer-by-layer approach.
 
-2. **KociembaSolver**: Two-phase algorithm (3x3 only)
-   - **Status**: ✅ Works reliably, slower than Beginner
-   - **Performance**: 1-3 moves <10s, 6 moves ~53s
-   - **Fuzz Test**: 20/20 pass (100%)
+1. **BeginnerSolver**: A* search (TEMPORARY - being replaced)
+   - **Status**: ⚠️ Only works on 1-8 move scrambles (search depth limit)
+   - **Issue**: Uses exhaustive search instead of piece tracking + algorithms
+   - **Rebuild Target**: Layer-by-layer with <100ms solve time for any scramble
 
-3. **CFOPSolver**: Cross, F2L, OLL, PLL speedcubing method (Hybrid)
-   - **Status**: ✅ Works with Beginner fallback
-   - **Performance**: <15s for 1-3 move scrambles
-   - **Fuzz Test**: 19/20 pass (95%) - falls back to Beginner on failure
-   - **Note**: Nearly as reliable as pure Beginner/Kociemba
+2. **KociembaSolver**: Iterative deepening search
+   - **Status**: ⚠️ Works but extremely slow (53s for 6-move scramble)
+   - **Issue**: Needs coordinate systems and pruning tables
+
+3. **CFOPSolver**: Hybrid with search fallbacks
+   - **Status**: ❌ Timeouts on complex scrambles
+   - **Issue**: Uses BFS/A* search instead of proper F2L algorithms
 
 ## API Examples
 
@@ -245,14 +244,13 @@ func main() {
 ### Current Implementation Status
 
 - ✅ **NxNxN cubes**: Support for 2x2 through 10x10+ with proper layer handling
-- ✅ **Working solvers**:
-  - **BeginnerSolver**: 100% reliable (20/20 fuzz tests), <10s solve time
-  - **KociembaSolver**: 100% reliable (20/20 fuzz tests), <10s on 1-3 moves, 53s on 6 moves
-  - **CFOPSolver**: 95% reliable (19/20 fuzz tests), hybrid with Beginner fallback
 - ✅ **Advanced notation**: M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations
 - ✅ **Algorithm database**: 140 algorithms across all categories with pattern generation
-- ✅ **Power user tools**: Move optimization and algorithm discovery via BFS
-- ✅ **Comprehensive testing**: 109 e2e tests + fuzz testing (40/40 pass on 1-3 move scrambles)
+- ✅ **Piece tracking system**: Complete 3D piece identification and location mapping
+- ✅ **Pattern recognition**: White cross, F2L, OLL, PLL detection with completion percentages
+- ✅ **Power user tools**: Move optimization and algorithm discovery
+- ✅ **Comprehensive testing**: 109 e2e tests + fuzz testing infrastructure
+- ⚠️ **Solvers**: Currently use exhaustive search - being rebuilt with proper algorithms
 
 ### 🚧 Future Enhancements
 

@@ -176,33 +176,33 @@ This project successfully implements a working Rubik's cube solver with multiple
 
 ---
 
-## 🎓 Phase 6: Advanced Methods ⚠️ PARTIAL
-*Goal: Implement CFOP and Kociemba solvers*
+## 🎓 Phase 6: Advanced Methods 🚧 IN PROGRESS
+*Goal: Implement working solvers using piece tracking + algorithms*
 
-**Reality Check**: Advanced solvers are partially working but have significant limitations.
+**Reality Check**: Current "solvers" use exhaustive search instead of proper algorithms. They only work on simple scrambles (1-10 moves). Need to rebuild with proper layer-by-layer approach.
 
-### 6.1 CFOP Implementation ✅ HYBRID (95% SUCCESS)
-- [x] **Complete CFOP framework** - Full 4-step pipeline (Cross→F2L→OLL→PLL)
-- [x] **Algorithm database integration** - Uses 140+ imported algorithms with intelligent selection
-- [x] **BFS fallbacks for each stage** - Cross, F2L, OLL, PLL all have search-based fallbacks
-- [x] **Pattern recognition** - Basic OLL/PLL pattern analysis with cross verification
-- [x] **Fixed architecture** - Works on cube copies instead of modifying input
-- [x] **Beginner fallback** - Falls back to BeginnerSolver if any stage fails
-- [x] **Fuzz tested** - 95% success rate on 1-3 move scrambles (19/20 tests pass, 1 timeout)
-- ✅ **Status**: Production-ready with fallback, nearly as reliable as Beginner/Kociemba
+### 6.1 Current Status - What's Broken
+- ❌ **BeginnerSolver**: Uses A* search (8 moves deep max) - fails on 25-move scrambles
+- ❌ **CFOP**: Uses A*/BFS search for fallbacks - timeouts on complex scrambles
+- ❌ **Kociemba**: Uses iterative deepening (10 moves deep max) - slow (53s for 6-move scramble)
+- ⚠️ **Root Cause**: All solvers try to find OPTIMAL solutions via exhaustive search
+- ⚠️ **Real Issue**: 25-move scramble needs 50-100 move solution, but we only search 8-10 moves deep
 
-### 6.2 Kociemba Two-Phase ✅ WORKS (SLOW BUT RELIABLE)
-- [x] **Basic two-phase structure** - Complete Kociemba solver framework with Phase 1 and Phase 2
-- [x] **Phase 2 optimization** - Attempts solution with Phase 2 moves (U,D,R2,L2,F2,B2) first
-- [x] **Fallback search** - Iterative deepening search with all moves when Phase 2 insufficient
-- [x] **Comprehensive testing** - Added 4 test suites + fuzz testing
-- [x] **100% correctness verified** - Fuzz test (20 random 1-3 move scrambles): **20/20 PASS**
-- [x] **Working solutions** - Successfully solves: "R" → "R'", "R U" → "U' R'", "R U F' D L B" → "B' L' D' F U' R'", identity scrambles
-- ⚠️ **Performance Limitations**:
-  - 1-3 moves: <10s (reliable)
-  - 6 moves: ~53s (works but slow)
-  - 8+ moves: May timeout
-- [ ] Advanced coordinate systems and pruning tables (would reduce to <1s)
+### 6.2 What We Need to Build
+- [ ] **Proper BeginnerSolver** - Layer-by-layer using piece tracking + algorithms (no search)
+  - [ ] White cross: Locate each white edge, generate moves to position it
+  - [ ] White corners: Find corners, apply R U R' U' insertion algorithm
+  - [ ] Middle layer: Locate middle edges, apply left/right insertion algorithms
+  - [ ] OLL: Pattern recognition + database lookup (F R U R' U' F', Sune, etc.)
+  - [ ] PLL: Pattern recognition + T-Perm/U-Perm algorithms
+  - [ ] Target: Solve ANY scramble in 80-150 moves, <100ms runtime
+- [ ] **CFOP Improvements** - Use proper F2L pair insertion instead of search
+- [ ] **Kociemba Improvements** - Implement coordinate systems and pruning tables
+
+### 6.3 Testing Requirements
+- [ ] Fuzz test with 20-25 move scrambles (realistic difficulty)
+- [ ] All solvers must complete in <100ms (ideally <50ms)
+- [ ] 100% success rate on any valid scramble
 
 ### 6.3 Big Cube Support
 - [ ] 4x4 reduction method (centers, edges, parity)
@@ -265,9 +265,6 @@ This project successfully implements a working Rubik's cube solver with multiple
 ## 📊 Final Project Summary
 
 **What Works:**
-- ✅ Beginner Solver: 100% correct on 1-3 move scrambles (20/20 fuzz tests)
-- ✅ Kociemba Solver: 100% correct on 1-3 move scrambles (20/20 fuzz tests)
-- ✅ CFOP Solver: 95% correct on 1-3 move scrambles (19/20 fuzz tests, 1 timeout)
 - ✅ 140-algorithm database with pattern generation and relationship mapping
 - ✅ NxNxN cube support (2x2 through 6x6+) with all WCA notation
 - ✅ Advanced visualization (last-layer view, pattern highlighting)
@@ -275,15 +272,16 @@ This project successfully implements a working Rubik's cube solver with multiple
 - ✅ 109 end-to-end tests + fuzz testing infrastructure
 - ✅ Power user tools (optimize, find, analyze, lookup)
 
-**Known Limitations:**
-- ⚠️ Performance: Solvers work but are slow on 4+ move scrambles
-- ⚠️ CFOP: Experimental, only works on 1-move scrambles (needs refactoring)
-- ⚠️ Scalability: 6-move scrambles take ~53s (Kociemba), may timeout beyond that
+**What's Broken:**
+- ❌ **All solvers use exhaustive search instead of algorithms**
+- ❌ Beginner Solver: Only works on 1-8 move scrambles (A* search depth limit)
+- ❌ Kociemba Solver: Works but extremely slow (53s for 6 moves)
+- ❌ CFOP Solver: Timeouts on complex scrambles (uses BFS/A* instead of algorithms)
 
-**Production Readiness:**
-- **For 1-3 move scrambles**: Production ready with 100% verified correctness
-- **For 4-6 move scrambles**: Works but slow (~10-60s)
-- **For 7+ move scrambles**: May timeout, not recommended
+**Current Development:**
+- 🚧 **Rebuilding BeginnerSolver** with proper layer-by-layer approach
+- 🚧 Using piece tracking + algorithms (no exhaustive search)
+- 🚧 Target: <100ms solve time for any scramble (including 25-move scrambles)
 
 **Recommended Use:**
 - Educational: Learning cube algorithms and patterns ✅
