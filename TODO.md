@@ -188,21 +188,58 @@ This project successfully implements a working Rubik's cube solver with multiple
 - ⚠️ **Root Cause**: All solvers try to find OPTIMAL solutions via exhaustive search
 - ⚠️ **Real Issue**: 25-move scramble needs 50-100 move solution, but we only search 8-10 moves deep
 
-### 6.2 What We Need to Build
-- [ ] **Proper BeginnerSolver** - Layer-by-layer using piece tracking + algorithms (no search)
-  - [ ] White cross: Locate each white edge, generate moves to position it
-  - [ ] White corners: Find corners, apply R U R' U' insertion algorithm
-  - [ ] Middle layer: Locate middle edges, apply left/right insertion algorithms
-  - [ ] OLL: Pattern recognition + database lookup (F R U R' U' F', Sune, etc.)
-  - [ ] PLL: Pattern recognition + T-Perm/U-Perm algorithms
-  - [ ] Target: Solve ANY scramble in 80-150 moves, <100ms runtime
-- [ ] **CFOP Improvements** - Use proper F2L pair insertion instead of search
-- [ ] **Kociemba Improvements** - Implement coordinate systems and pruning tables
+### 6.2 Engineering Plan - BeginnerSolver Rebuild
 
-### 6.3 Testing Requirements
-- [ ] Fuzz test with 20-25 move scrambles (realistic difficulty)
-- [ ] All solvers must complete in <100ms (ideally <50ms)
-- [ ] 100% success rate on any valid scramble
+**Phase A: White Cross (4 edges)**
+- [x] Framework: Loop through 4 white edges, check if solved, call solver function
+- [ ] Edge location detection: Map each edge to its current Face/Row/Col position
+- [ ] Move generation based on position:
+  - [ ] Case 1: Edge on top layer → rotate U until aligned, then F2/R2/B2/L2 to insert
+  - [ ] Case 2: Edge on bottom layer → F2/R2/B2/L2 to move to top, then insert
+  - [ ] Case 3: Edge in middle layer → F/R/B/L to move to top or bottom, then insert
+  - [ ] Case 4: Edge on bottom but wrong orientation → remove and reinsert correctly
+- [ ] Orientation handling: Check if white is on correct face (Down) vs side face
+
+**Phase B: White Corners (4 corners)**
+- [ ] Corner location detection for each of 4 white corners
+- [ ] Algorithm: Position corner in top layer above target slot
+- [ ] Apply R U R' U' (sexy move) 1-5 times until corner slots in correctly
+- [ ] Handle 3 orientation cases: white on top, white on right, white on front
+
+**Phase C: Middle Layer (4 edges)**
+- [ ] Locate each middle edge (edges without yellow/white)
+- [ ] Move edge to top layer if not already there
+- [ ] Identify left vs right insertion based on edge orientation
+- [ ] Apply algorithms:
+  - Right: U R U' R' U' F' U F
+  - Left: U' L' U L U F U' F'
+
+**Phase D: Yellow Cross (OLL Part 1)**
+- [ ] Check current cross pattern (dot/L/line/cross)
+- [ ] Apply F R U R' U' F' algorithm 1-3 times until cross formed
+- [ ] No search needed - guaranteed to work within 3 applications
+
+**Phase E: Orient Yellow Corners (OLL Part 2)**
+- [ ] Count incorrectly oriented corners
+- [ ] Position one wrong corner in top-right
+- [ ] Apply Sune (R U R' U R U2 R') or Anti-Sune
+- [ ] Rotate U and repeat until all yellow on top
+
+**Phase F: Permute Corners (PLL Part 1)**
+- [ ] Check if corners are in correct positions
+- [ ] Find a solved corner (or pick any if none)
+- [ ] Apply corner permutation algorithm (T-Perm or similar)
+- [ ] Rotate U and check again, max 4 tries
+
+**Phase G: Permute Edges (PLL Part 2)**
+- [ ] Check if edges are in correct positions
+- [ ] Apply U-perm or similar edge permutation
+- [ ] If not solved, rotate U and try again (max 4 times)
+
+**Success Criteria:**
+- [ ] Solves ANY scramble (including 25-move) in 80-200 moves
+- [ ] Runtime <100ms (no search, just algorithm application)
+- [ ] 100% correctness on fuzz tests
 
 ### 6.3 Big Cube Support
 - [ ] 4x4 reduction method (centers, edges, parity)
