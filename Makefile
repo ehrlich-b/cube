@@ -79,3 +79,8 @@ e2e-test: build
 # Run all tests (unit + e2e)
 test-all: test e2e-test
 	@echo "All tests completed!"
+
+# Fuzz test solvers with random scrambles
+fuzz-solvers: build
+	@echo "Running solver fuzz tests..."
+	@bash test/fuzz_solvers.sh

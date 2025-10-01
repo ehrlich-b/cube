@@ -776,6 +776,14 @@ func (s *BeginnerSolver) solveLastLayerPermutation(cube *Cube) ([]Move, error) {
 // TODO: All solver helper methods will be implemented with the new design
 
 // CFOPSolver implements CFOP method (Cross, F2L, OLL, PLL)
+//
+// WARNING: This implementation is EXPERIMENTAL and has critical issues:
+// - Modifies cube in-place during solving, causing stages to interfere with each other
+// - Only works on trivial 1-move scrambles (e.g., "F" → "F'")
+// - Fails on 2+ move scrambles by exhausting search space (200k+ states)
+// - Needs architectural refactoring to solve on cube copies
+//
+// For production use, prefer BeginnerSolver (fast, reliable) or KociembaSolver (slow but works).
 type CFOPSolver struct{}
 
 func (s *CFOPSolver) Name() string {
@@ -1505,7 +1513,7 @@ func (s *CFOPSolver) findF2LSlotSolution(cube *Cube, slot int, maxMoves int) ([]
 	}
 	
 	statesExamined := 0
-	maxStates := 20000 // Smaller limit for F2L slot search
+	maxStates := 100000 // Increased limit for complex F2L cases
 	
 	for depth := 0; depth <= maxMoves; depth++ {
 		if len(queue) == 0 {
@@ -1739,34 +1747,51 @@ func (s *CFOPSolver) findOLLSolution(cube *Cube, maxMoves int) ([]Move, error) {
 	}
 	
 	statesExamined := 0
-	maxStates := 30000 // Reasonable limit for OLL search
-	
+	maxStates := 200000 // Increased limit for complex OLL cases
+
 	for depth := 0; depth <= maxMoves; depth++ {
 		if len(queue) == 0 {
 			break
 		}
-		
+
 		levelSize := len(queue)
 		for i := 0; i < levelSize; i++ {
 			current := queue[0]
 			queue = queue[1:]
-			
+
 			statesExamined++
 			if statesExamined > maxStates {
 				return nil, fmt.Errorf("OLL search exceeded maximum states (%d)", maxStates)
 			}
-			
+
 			// Try each move
 			for _, move := range ollMoves {
+				// Skip redundant moves (don't apply same move twice in a row)
+				if len(current.moves) > 0 {
+					lastMove := current.moves[len(current.moves)-1]
+					// Skip if same face (R followed by R, R', or R2)
+					if lastMove.Face == move.Face {
+						continue
+					}
+					// Skip opposite faces that commute (R L or L R, F B or B F, U D or D U)
+					if s.areOppositeFaces(lastMove.Face, move.Face) && depth > 1 && len(current.moves) >= 2 {
+						// Check if previous two moves were already this pair
+						prevMove := current.moves[len(current.moves)-2]
+						if prevMove.Face == move.Face {
+							continue
+						}
+					}
+				}
+
 				newCube := s.copyCube(current.cube)
 				newCube.ApplyMove(move)
-				
+
 				// Check if OLL is solved
 				if ollPattern.Matches(newCube) {
 					solution := append(current.moves, move)
 					return solution, nil
 				}
-				
+
 				// Add to queue if not visited
 				stateStr := s.cubeStateString(newCube)
 				if !visited[stateStr] && depth < maxMoves {
@@ -2014,7 +2039,7 @@ func (s *CFOPSolver) findPLLSolution(cube *Cube, maxMoves int) ([]Move, error) {
 	}
 	
 	statesExamined := 0
-	maxStates := 40000 // Higher limit for PLL search since it's the final step
+	maxStates := 150000 // Increased limit for complex PLL cases
 	
 	for depth := 0; depth <= maxMoves; depth++ {
 		if len(queue) == 0 {
@@ -2081,6 +2106,19 @@ func (s *CFOPSolver) cubeStateString(cube *Cube) string {
 		}
 	}
 	return result
+}
+
+// areOppositeFaces checks if two faces are opposite on the cube
+func (s *CFOPSolver) areOppositeFaces(f1, f2 Face) bool {
+	opposites := map[Face]Face{
+		Front: Back,
+		Back:  Front,
+		Left:  Right,
+		Right: Left,
+		Up:    Down,
+		Down:  Up,
+	}
+	return opposites[f1] == f2
 }
 
 // GetSolver returns a solver by name

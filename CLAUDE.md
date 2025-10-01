@@ -43,8 +43,11 @@ make build-all-local    # Everything locally
 ./dist/cube solve "R U R' U'" --algorithm beginner
 ./dist/cube solve "Rw Uw Fw" --dimension 4 --color
 
-# Run comprehensive test suite 
+# Run comprehensive test suite
 make test-all
+
+# Fuzz test solvers with random scrambles
+make fuzz-solvers   # 40 tests (20 per solver) with 1-3 move scrambles
 ```
 
 ## Cube Orientation

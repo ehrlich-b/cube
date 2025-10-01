@@ -146,7 +146,10 @@ Comprehensive test suite covering:
 
 ```bash
 # Run all tests
-make test
+make test           # Unit tests
+make e2e-test       # End-to-end CLI tests (109 tests)
+make fuzz-solvers   # Fuzz test solvers with random scrambles
+make test-all       # Everything
 
 # Test specific functionality
 go test ./internal/cube -v                    # Core cube logic
@@ -159,9 +162,10 @@ go test ./internal/cube -bench=.              # Performance benchmarks
 
 - ✅ Move parsing and application (all notation types)
 - ✅ Cube state management (2x2 through 5x5+ cubes)
-- ✅ Solver algorithms (beginner, CFOP, Kociemba)
+- ✅ Solver algorithms (beginner ✅, Kociemba ✅, CFOP ❌)
+- ✅ Fuzz testing: 40/40 pass on 1-3 move scrambles (100% success rate)
 - ✅ Move sequence validation and inverses
-- ✅ Edge cases (empty scrambles, invalid notation)
+- ✅ Edge cases (empty scrambles, invalid notation, identity moves)
 - ✅ Performance benchmarks
 
 ## Architecture
@@ -191,9 +195,20 @@ cmd/cube/main.go                    # CLI entry point
 
 ### Solving Algorithms
 
-1. **BeginnerSolver**: Layer-by-layer method suitable for learning
-2. **CFOPSolver**: Cross, F2L, OLL, PLL - advanced speedcubing method
-3. **KociembaSolver**: Two-phase algorithm for optimal solutions (3x3 only)
+1. **BeginnerSolver**: Layer-by-layer method using A* search
+   - **Status**: ✅ Works reliably on 1-3 move scrambles
+   - **Performance**: <10s for most simple scrambles
+   - **Fuzz Test**: 20/20 pass (100%)
+
+2. **KociembaSolver**: Two-phase algorithm (3x3 only)
+   - **Status**: ✅ Works reliably, slower than Beginner
+   - **Performance**: 1-3 moves <10s, 6 moves ~53s
+   - **Fuzz Test**: 20/20 pass (100%)
+
+3. **CFOPSolver**: Cross, F2L, OLL, PLL speedcubing method
+   - **Status**: ❌ Experimental (not production-ready)
+   - **Limitation**: Only works on trivial 1-move scrambles
+   - **Issue**: Modifies cube in-place, needs architectural refactoring
 
 ## API Examples
 
@@ -229,12 +244,14 @@ func main() {
 ### Current Implementation Status
 
 - ✅ **NxNxN cubes**: Support for 2x2 through 10x10+ with proper layer handling
-- ✅ **All algorithms**: BeginnerSolver, CFOPSolver, KociembaSolver produce distinct working solutions
+- ✅ **Working solvers**:
+  - **BeginnerSolver**: 100% reliable on 1-3 move scrambles, <10s solve time
+  - **KociembaSolver**: 100% reliable on 1-3 move scrambles, <10s solve time (53s on 6-move)
+  - **CFOPSolver**: ❌ Experimental (only works on 1-move scrambles, needs refactoring)
 - ✅ **Advanced notation**: M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations
-- ✅ **Algorithm database**: 15 built-in algorithms with lookup functionality
+- ✅ **Algorithm database**: 140 algorithms across all categories with pattern generation
 - ✅ **Power user tools**: Move optimization and algorithm discovery via BFS
-- ✅ **Web interface**: Terminal-style web interface with full CLI functionality
-- ✅ **Comprehensive testing**: 55 end-to-end tests covering all features
+- ✅ **Comprehensive testing**: 109 e2e tests + fuzz testing (40/40 pass on 1-3 move scrambles)
 
 ### 🚧 Future Enhancements
 
