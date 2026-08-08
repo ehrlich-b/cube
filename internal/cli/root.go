@@ -22,6 +22,6 @@ func init() {
 	rootCmd.AddCommand(verifyCmd)
 	rootCmd.AddCommand(showCmd)
 	rootCmd.AddCommand(lookupCmd)
-	rootCmd.AddCommand(optimizeCmd)
-	rootCmd.AddCommand(findCmd)
+	// optimizeCmd and findCmd register themselves in their own init() functions
+	// (optimize.go, find.go); registering them here too would duplicate them.
 }

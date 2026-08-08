@@ -1,6 +1,6 @@
 # Cube Solver Implementation Analysis
 
-## Current Reality (December 2024)
+## Current Reality (updated 2026-06-01)
 
 This document provides an honest assessment of the cube solver implementation, identifying what exists versus what's claimed, and proposing a realistic path forward.
 
@@ -11,8 +11,9 @@ This document provides an honest assessment of the cube solver implementation, i
 - **Move system**: Complete implementation of all standard notation (R, U', F2, M, E, S, x, y, z, wide moves, layer moves)
 - **CFEN system**: Full parsing, generation, and wildcard matching
 - **CLI infrastructure**: Clean Cobra-based commands with good separation of concerns
-- **Test suite**: 98 comprehensive e2e tests (not 79 as claimed in CLAUDE.md)
-- **Algorithm database**: 60+ algorithms defined, but only 6 verified (not 3 as claimed)
+- **Test suite**: 98 e2e tests + Go unit tests (incl. a load-bearing invariant suite), all green
+- **Algorithm database**: 63 algorithms defined, only **5** with verification patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move)
+- **Search & optimization**: BFS algorithm search (`cube find`) and move optimization (`cube optimize`) both work
 
 ### 2. Placeholder Solvers ⚠️
 All three solvers (`BeginnerSolver`, `CFOPSolver`, `KociembaSolver`) are **empty stubs**:
@@ -34,15 +35,13 @@ The `cube solve` command exists but returns empty solutions for all scrambles ex
 - Pattern recognition system (`cube identify`)
 - Algorithm visualization (`cube show-alg`)
 
-### 4. Documentation Discrepancies 🚨
+### 4. Documentation Discrepancies (reconciled 2026-06-01)
 
-**CLAUDE.md claims:**
-- "3 verified algorithms" → Actually 6 verified (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move, A-Perm)
-- "79 end-to-end tests" → Actually 98 tests
-- "CFOP and Kociemba solvers have basic placeholder implementations" → They're completely empty
-
-**TODO.md claims:**
-- Phase 5 is marked complete, but it was implemented after the summary period
+The anchor docs (CLAUDE.md, README.md, TODO.md, this file) were re-reconciled against the code:
+- Algorithm count corrected to **63 defined / 5 with patterns** (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move). Earlier docs variously claimed 67 / 60+ / 15 and "3" or "6" verified — all wrong (there is no A-Perm pattern).
+- Test count is **98 e2e** (README previously said 55).
+- Solvers are **empty stubs** — earlier "distinct working solutions" / "placeholder implementations" claims removed.
+- README documented a `serve` / web interface that was deleted; removed.
 
 ## What's Missing: The Solver Gap
 
@@ -63,11 +62,10 @@ The `cube solve` command exists but returns empty solutions for all scrambles ex
    - No pattern → algorithm mapping
    - No move sequence generation
 
-4. **Search Algorithms**
-   - No breadth-first search
-   - No A* with heuristics
-   - No pruning tables
-   - No move optimization
+4. **Search Algorithms** (partially present)
+   - BFS exists (`cube find`) but is exponential — only practical for short sequences (~6 moves)
+   - Move optimization exists (`cube optimize`)
+   - Still missing: A* / IDA* with heuristics, pruning / pattern databases
 
 ## Why Solvers Are Hard
 

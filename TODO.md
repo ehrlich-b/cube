@@ -2,7 +2,21 @@
 
 ## 🔍 Project Status: Reality Check
 
-This project has built excellent infrastructure for cube manipulation and algorithm verification, but **the actual solving functionality is completely unimplemented**. This TODO represents an honest assessment and a pragmatic path forward.
+This project has built a correct, well-tested engine for cube manipulation, verification,
+optimization, and search — but **the actual solving functionality is completely unimplemented**
+(`cube solve` returns an empty solution). This TODO is an honest assessment and a pragmatic path forward.
+
+**Verified reality (current):**
+- Move engine: correct, NxN, covered by fuzz + invariant tests ✅
+- CFEN verify / optimize / find (BFS): working ✅ (find is exponential — short sequences only, not a scramble solver)
+- Algorithm DB: 63 entries, **5** with verification patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move) ✅
+- Solvers: **all three are empty stubs** ❌ — this is the headline gap
+- `solving_db.go`: a 4-look pattern-matcher that is **dead code** (unwired) ⚠️
+- Tests: 98 e2e + Go unit tests, all green; a load-bearing invariant suite now guards the engine/solver/CFEN
+
+**Guardrails (do not let these go red):** `internal/cube/invariants_test.go`,
+`internal/cfen/cfen_test.go`, `internal/cli/commands_test.go`. The solver-contract test is the
+acceptance gate for Phase 4 — a non-empty solution must actually solve the cube, or it fails.
 
 ---
 
@@ -25,6 +39,14 @@ This project has built excellent infrastructure for cube manipulation and algori
 - [x] Add comments to `solver.go` clarifying unimplemented status
 - [x] Document `solving_db.go` experimental pattern-matching approach
 
+### Guardrails & Truth Pass (done 2026-06-01)
+- [x] Add load-bearing invariant suite: engine (sticker conservation, scramble+inverse, determinism), solver contract, CFEN round-trip/wildcards, no-duplicate-commands
+- [x] Fix WG CFEN reverse-mapping bug (round-trip was broken for the WG orientation)
+- [x] Fix duplicate command registration (`find`, `optimize` were registered twice)
+- [x] Fix stale e2e assertion (`verify-algorithm --list` now emits "HAS PATTERN", not "VERIFIED")
+- [x] `go mod tidy` — drop `gorilla/mux` left over from the removed web interface
+- [x] Deep-update anchor docs (CLAUDE.md, README.md, docs/solvers.md, this file) to match reality
+
 ---
 
 ## 🗃️ Phase 1: Algorithm Database Modernization
@@ -32,7 +54,7 @@ This project has built excellent infrastructure for cube manipulation and algori
 
 ### 1.1 Refactor Core Structure ✅ COMPLETE
 - [x] Implement new Algorithm struct per `/docs/move_db_refactor.md`:
-  - [x] Remove `Verified`, `TestedOn`, `StartCFEN`, `TargetCFEN` fields
+  - [~] Remove `Verified`, `TestedOn`, `StartCFEN`, `TargetCFEN` fields — PARTIAL: `Verified` bool + `MarkVerified`/`GetVerifiedAlgorithms` still present in algorithms.go
   - [x] Add `CaseID`, `Pattern`, `Recognition`, `Inverse`, `Mirror` fields
   - [x] Update all existing code references
 - [x] Build pattern generation tool:

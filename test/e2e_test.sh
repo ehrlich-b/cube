@@ -690,7 +690,7 @@ echo -e "\n${YELLOW}Database Verification Tests:${NC}"
 
 # Test verify-algorithm tool exists and works
 if [ -f "./dist/tools/verify-algorithm" ]; then
-    run_test "verify-algorithm tool listing" "./dist/tools/verify-algorithm --list" "Sune.*VERIFIED"
+    run_test "verify-algorithm tool listing" "./dist/tools/verify-algorithm --list" "Sune.*HAS PATTERN"
     run_test "verify-algorithm single test" "./dist/tools/verify-algorithm 'Sune'" "✅ PASS"
     run_test "verify-algorithm verbose mode" "./dist/tools/verify-algorithm 'T-Perm' --verbose" "✅ PASS"
     run_test "verify-algorithm nonexistent algorithm" "./dist/tools/verify-algorithm 'NonExistent'" "" true

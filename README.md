@@ -1,274 +1,160 @@
-# Cube - Rubik's Cube Solver
+# Cube — a CLI Rubik's Cube Toolkit
 
-A comprehensive Rubik's cube solver written in Go supporting NxNxN cubes (2x2 through 10x10+), multiple solving algorithms, advanced move notation, and both CLI/web interfaces.
+A Go command-line toolkit for Rubik's cubes: a correct NxNxN move engine, full WCA
+move notation, a CFEN state/pattern language with verification, move optimization,
+and a breadth-first algorithm search.
 
-## ⚡ Quick Start
+> **Honest status:** the move engine, verification, optimization, and search all work
+> and are covered by tests. **Solving does not yet work** — `cube solve` is a stub that
+> returns an empty solution. See [where things stand](#status) and [TODO.md](./TODO.md).
+
+## Status
+
+**Works today**
+- NxNxN move engine (2x2 through large N), all WCA notation, whole-cube rotations
+- `cube twist` — apply moves, render the cube (ASCII / colored / Unicode)
+- `cube verify` — check an algorithm against CFEN start/target states (wildcards supported)
+- `cube optimize` — cancel/merge moves (`R R R` → `R'`)
+- `cube find` — BFS search for move sequences that reach a target pattern
+- `cube lookup`, `cube show`, the CFEN utility commands, and the `verify-*` database tools
+
+**Not implemented yet**
+- `cube solve` — **all three solvers (beginner, CFOP, Kociemba) are empty stubs.** Scramble → solution is the next big piece of work.
+- Algorithm database has only 5 entries with verification patterns (of 63 defined)
+- `cube find` is correct but exponential — practical only to ~6 moves; it is not a general scramble solver
+
+## Quick Start
 
 ```bash
 git clone https://github.com/ehrlich-b/cube
 cd cube
-make build
+make build            # builds dist/cube
+make build-tools      # builds dist/tools/verify-algorithm and verify-database
 
-# Start by exploring moves and patterns
+# Apply moves and see the result
 ./dist/cube twist "R U R' U'" --color
 
-# Then try solving scrambled cubes
-./dist/cube solve "R U R' U'" --color
+# Verify an algorithm against CFEN states (sexy move x6 = identity → solved)
+./dist/cube verify "R U R' U' R U R' U' R U R' U' R U R' U' R U R' U' R U R' U'" \
+    --start "YB|Y9/R9/B9/W9/O9/G9" --target "YB|Y9/R9/B9/W9/O9/G9"
+
+# Optimize a sequence
+./dist/cube optimize "R R R"            # → R'
+
+# Search for a short sequence that reaches a pattern
+./dist/cube find sequence "R U"         # → U' R'
 ```
 
-📖 **New to cubing?** Start with the [User Guide & Examples](./examples/) for step-by-step tutorials and spectacular demonstrations.
+See [examples/](./examples/) for tutorials and pattern walkthroughs.
 
-## 🔧 Core Features
+## Command Overview
 
-- **NxNxN Cube Support**: 2x2x2, 3x3x3, 4x4x4, 5x5x5, and larger dimensions
-- **Multiple Algorithms**: BeginnerSolver, CFOPSolver, KociembaSolver with distinct solutions
-- **Advanced Notation**: Full WCA notation including M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations
-- **Power User Tools**: Move optimization (`cube optimize`), algorithm discovery (`cube find`)
-- **Solution Verification**: Built-in solution checking with `cube verify`
-- **Pattern Recognition**: Algorithm database with lookup functionality
-- **Dual Interfaces**: CLI tool and web terminal interface
-- **Visual Output**: Unicode blocks and ANSI colored ASCII with clean unfolded cross layout
+| Command | Purpose | Status |
+|---------|---------|--------|
+| `twist` | Apply moves and render the cube | works |
+| `verify` | Check an algorithm vs. CFEN start/target (`--start`/`--target`) | works |
+| `show` | Render a cube with cross/OLL/PLL/F2L highlighting | works |
+| `lookup` | Search the algorithm database | works |
+| `optimize` | Cancel/merge a move sequence | works |
+| `find` | BFS search for sequences reaching a pattern | works (exponential) |
+| `parse-cfen` / `generate-cfen` / `verify-cfen` / `match-cfen` | CFEN utilities | works |
+| `identify` / `show-alg` | Pattern identify / algorithm display | partial |
+| `solve` | Solve a scrambled cube | **stub (returns nothing)** |
 
-## 🚀 Command Overview
+Note: `verify` takes a single positional argument — the algorithm — plus `--start`/`--target` flags.
 
-| Command | Purpose | Example |
-|---------|---------|---------|
-| **`twist`** | **Apply moves and see results** | **`cube twist "R U R' U'" --color`** |
-| `solve` | Solve scrambled cubes | `cube solve "R U R' U'" --algorithm cfop --color` |
-| `verify` | Check if solution works | `cube verify "R U" "U' R'" --verbose` |
-| `show` | Display cube state with pattern highlighting | `cube show "R U R' U'" --highlight-oll --color` |
-| `lookup` | Search algorithm database | `cube lookup sune --preview` |
-| `optimize` | Minimize move sequences | `cube optimize "R R R"` → `R'` |
-| `find` | Discover new algorithms | `cube find pattern solved --max-moves 4` |
-| `serve` | Start web interface | `cube serve --port 8080` |
+## Move Notation
 
-## 📖 Documentation
-
-- **[User Guide & Examples](./examples/)** - Complete learning path from basics to advanced techniques
-- **[CLAUDE.md](./CLAUDE.md)** - Development guidance and project instructions  
-- **[TODO.md](./TODO.md)** - Current development status and roadmap
-
-## 🔧 Installation & Development
-
-```bash
-# Basic setup
-make install && make build
-
-# Run comprehensive test suite (55 tests)
-make test-all
-
-# Code quality (always run before commits)
-make fmt && make vet
-
-# Start development server with hot reload
-make dev
-```
-
-## ⚡ Quick Examples
-
-```bash
-# Basic solving with different algorithms
-./dist/cube solve "R U R' U'" --algorithm beginner --color
-./dist/cube solve "R U R' U'" --algorithm cfop --color 
-./dist/cube solve "R U R' U'" --algorithm kociemba --color
-
-# Advanced notation on larger cubes
-./dist/cube solve "M E S" --dimension 3 --color        # Slice moves
-./dist/cube solve "Rw Fw Uw" --dimension 4 --color     # Wide moves
-./dist/cube solve "2R 3L 2F" --dimension 5 --color     # Layer moves
-
-# Power user tools
-./dist/cube optimize "R R R"                           # → R' (1 move)
-./dist/cube find pattern solved --max-moves 4          # Algorithm discovery
-./dist/cube verify "R U" "U' R'" --verbose            # Solution verification
-```
-
-**See [examples/](./examples/) for 400+ comprehensive examples, tutorials, and patterns.**
-
-## 🔤 Move Notation
-
-Full WCA (World Cube Association) standard notation support:
+Full WCA (World Cube Association) notation:
 
 | Type | Syntax | Description | Cube Sizes |
 |------|--------|-------------|------------|
-| **Basic** | `R`, `U'`, `F2` | Standard face moves (F/B/R/L/U/D) | Any |
-| **Slice** | `M`, `E'`, `S2` | Middle layer moves | Odd only (3x3, 5x5, 7x7...) |
-| **Wide** | `Rw`, `Fw'`, `Uw2` | Multiple outer layers | 4x4+ |
-| **Layer** | `2R`, `3L'`, `4U2` | Specific inner layers | 4x4+ |
-| **Rotation** | `x`, `y'`, `z2` | Whole cube rotations | Any |
+| Basic | `R`, `U'`, `F2` | Face moves (F/B/R/L/U/D) | Any |
+| Slice | `M`, `E'`, `S2` | Middle-layer moves | Odd only (3x3, 5x5, …) |
+| Wide | `Rw`, `Fw'`, `Uw2` | Multiple outer layers | 3x3+ |
+| Layer | `2R`, `3L'`, `4U2` | Specific inner layers | 4x4+ |
+| Rotation | `x`, `y'`, `z2` | Whole-cube rotations | Any |
 
-**Modifiers**: `'` (counter-clockwise), `2` (double turn)  
-**Examples**: `R U R' U'` (sexy move), `M E S` (all slice moves), `Rw Uw Fw` (4x4 wide moves)
+Modifiers: `'` (counter-clockwise), `2` (double turn).
 
-## Development
+## Cube Orientation (canonical)
 
-### Commands
+Yellow up, White down, Blue front, Green back, Orange left, Red right. The default CFEN
+orientation is `YB` (yellow-up, blue-front). Apply `x`/`y`/`z` rotations before a sequence
+to work from a different orientation.
 
-```bash
-# Build and run
-make build          # Compile binary to dist/cube
-make serve          # Start web server quickly
-make dev            # Hot reload development (requires Air)
-
-# Code quality
-make test           # Run comprehensive test suite
-make fmt            # Format code and clean whitespace
-make vet            # Static analysis
-make lint           # Lint with golangci-lint
-
-# Dependencies
-make install        # Download and tidy Go modules
-make install-tools  # Install Air and golangci-lint
-
-# Multi-platform builds
-make build-all      # Build for Linux, macOS, Windows
-```
-
-### Development Workflow
+## Testing & Invariants
 
 ```bash
-# 1. Install development tools
-make install-tools
-
-# 2. Start hot-reload development
-make dev
-
-# 3. Run tests frequently
-make test
-
-# 4. Format and lint before commits
-make fmt && make vet && make lint
+make test        # Go unit tests, including the invariant suite
+make e2e-test    # 98 end-to-end CLI tests
+make test-all    # both
+make fmt && make vet   # before committing
 ```
 
-## Testing
+The **invariant suite** is the project's safety net — it must stay green:
 
-Comprehensive test suite covering:
-
-```bash
-# Run all tests
-make test
-
-# Test specific functionality
-go test ./internal/cube -v                    # Core cube logic
-go test ./internal/cube -run TestMove         # Move system tests
-go test ./internal/cube -run TestSolver       # Solver tests
-go test ./internal/cube -bench=.              # Performance benchmarks
-```
-
-### Test Coverage
-
-- ✅ Move parsing and application (all notation types)
-- ✅ Cube state management (2x2 through 5x5+ cubes)
-- ✅ Solver algorithms (beginner, CFOP, Kociemba)
-- ✅ Move sequence validation and inverses
-- ✅ Edge cases (empty scrambles, invalid notation)
-- ✅ Performance benchmarks
+- `internal/cube/invariants_test.go` — sticker conservation, scramble+inverse = solved,
+  determinism, and the **solver contract** (any non-empty solution must actually solve the cube;
+  stubs SKIP rather than fake a pass).
+- `internal/cfen/cfen_test.go` — canonical solved CFEN, cube↔CFEN round-trip (all orientations),
+  wildcard matching, verify semantics.
+- `internal/cli/commands_test.go` — no command registered twice.
 
 ## Architecture
 
-### Core Components
-
 ```
-cmd/cube/main.go                    # CLI entry point
-├── internal/cli/                   # Cobra command definitions
-│   ├── solve.go                   # Solve command
-│   └── serve.go                   # Web server command
-├── internal/cube/                  # Core cube logic
-│   ├── cube.go                    # Cube representation
-│   ├── moves.go                   # Move parsing and application
-│   └── solver.go                  # Solving algorithms
-└── internal/web/                   # Web interface
-    ├── server.go                  # HTTP server
-    └── handlers.go                # API endpoints
+cmd/cube/main.go                 # CLI entry point
+internal/cli/                    # Cobra commands (twist, verify, solve, find, optimize, ...)
+internal/cube/                   # Core engine
+  cube.go                        # NxNxN representation, IsSolved, rendering
+  moves.go / move_parser.go      # move parsing + application
+  ring_generators.go / permutations.go  # the permutation engine
+  algorithms.go                  # algorithm database
+  solver.go                      # solver interface + (stub) implementations
+  solving_db.go                  # experimental 4-look pattern matcher (currently unwired)
+  cubie.go                       # piece-addressing scaffold for future piece tracking (unused)
+internal/cfen/                   # CFEN parsing, generation, conversion, matching
+tools/                           # verify-algorithm, verify-database, generate-patterns
 ```
 
-### Cube Representation
-
-- **NxNxN Support**: `[6][][]Color` structure supports any cube dimension
-- **Standard Colors**: White, Yellow, Red, Orange, Blue, Green faces
-- **Efficient Storage**: Minimal memory footprint with direct array access
-- **Fast Operations**: Optimized face rotations and edge movements
-
-### Solving Algorithms
-
-1. **BeginnerSolver**: Layer-by-layer method suitable for learning
-2. **CFOPSolver**: Cross, F2L, OLL, PLL - advanced speedcubing method
-3. **KociembaSolver**: Two-phase algorithm for optimal solutions (3x3 only)
-
-## API Examples
-
-### Current Programmatic Usage
+## Programmatic Usage
 
 ```go
 package main
 
 import (
-    "fmt"
-    "github.com/ehrlich-b/cube/internal/cube"
+	"fmt"
+
+	"github.com/ehrlich-b/cube/internal/cfen"
+	"github.com/ehrlich-b/cube/internal/cube"
 )
 
 func main() {
-    // Create and manipulate cube
-    c := cube.NewCube(3)
-    moves, _ := cube.ParseScramble("R U R' U'")
-    c.ApplyMoves(moves)
+	c := cube.NewCube(3)
+	moves, _ := cube.ParseMoves("R U R' U'")
+	c.ApplyMoves(moves)
 
-    // Display cube state
-    fmt.Println(c.String())  // ASCII representation
-    fmt.Println(c.ColorString())  // With colors
+	fmt.Println(c.String())               // ASCII unfolded layout
+	fmt.Println(c.StringWithColor(true))  // colored
+	fmt.Println("solved:", c.IsSolved())
 
-    // Verify algorithms
-    alg := cube.GetAlgorithm("Sune")
-    verified := cube.VerifyAlgorithm(alg)
-    fmt.Printf("Algorithm verified: %v\n", verified)
+	cfenStr, _ := cfen.GenerateCFEN(c)    // YB|... state string
+	fmt.Println(cfenStr)
+
+	for _, alg := range cube.LookupAlgorithm("Sune") {
+		fmt.Printf("%s (%s): %s\n", alg.Name, alg.CaseID, alg.Moves)
+	}
 }
 ```
 
-## ⚙️ Technical Details
+## Roadmap
 
-### Current Implementation Status
-
-- ✅ **NxNxN cubes**: Support for 2x2 through 10x10+ with proper layer handling
-- ✅ **All algorithms**: BeginnerSolver, CFOPSolver, KociembaSolver produce distinct working solutions
-- ✅ **Advanced notation**: M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations
-- ✅ **Algorithm database**: 15 built-in algorithms with lookup functionality
-- ✅ **Power user tools**: Move optimization and algorithm discovery via BFS
-- ✅ **Web interface**: Terminal-style web interface with full CLI functionality
-- ✅ **Comprehensive testing**: 55 end-to-end tests covering all features
-
-### 🚧 Future Enhancements
-
-- **Optimal solving**: Implement true optimal solvers for each algorithm type
-- **Interactive mode**: Terminal-based live cube manipulation interface  
-- **3D visualization**: ASCII 3D cube rendering and step-by-step solving
-- **Custom patterns**: User-defined pattern recognition and generation
-- **Performance profiling**: Detailed timing analysis and optimization metrics
-
-## Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Make changes and add tests
-4. Format and test (`make fmt && make test`)
-5. Commit changes (`git commit -m 'Add amazing feature'`)
-6. Push to branch (`git push origin feature/amazing-feature`)
-7. Open Pull Request
-
-### Development Guidelines
-
-- Write tests for all new functionality
-- Follow existing code style and conventions
-- Run `make fmt` before committing
-- Ensure all tests pass with `make test`
-- Add examples to README for new features
+The near-term goal is a working **scramble → solution** path via a beginner layer-by-layer
+method (recognize a case, apply the known algorithm), confirmable with the existing `verify`
+machinery. See [TODO.md](./TODO.md) for the plan and [docs/solvers.md](./docs/solvers.md) for
+the solver analysis.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- **Singmaster Notation**: Standard cube move notation system
-- **Kociemba Algorithm**: Herbert Kociemba's two-phase solving method
-- **CFOP Method**: Cross, F2L, OLL, PLL speedcubing approach
-- **Go Community**: Excellent tooling and library ecosystem
+MIT License — see [LICENSE](LICENSE).

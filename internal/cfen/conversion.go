@@ -163,9 +163,9 @@ func getReverseOrientationMapping(orientation CFENOrientation) [6]cube.Face {
 		return [6]cube.Face{cube.Up, cube.Right, cube.Front, cube.Down, cube.Left, cube.Back}
 	}
 
-	// WG orientation - reverse of getOrientationMapping
+	// WG orientation - must match the forward mapping so ToCube/FromCube round-trip
 	if orientation.Up == cube.White && orientation.Front == cube.Green {
-		return [6]cube.Face{cube.Back, cube.Left, cube.Down, cube.Front, cube.Right, cube.Up}
+		return [6]cube.Face{cube.Down, cube.Left, cube.Back, cube.Up, cube.Right, cube.Front}
 	}
 
 	// WB orientation

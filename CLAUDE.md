@@ -16,7 +16,7 @@ make build-all-local    # Everything locally
 
 # Test basic cube functionality
 ./dist/cube twist "R U R' U'" --color
-./dist/cube solve "R U R' U'" --color
+./dist/cube solve "R U R' U'" --color   # NOTE: solve is a STUB — prints the cube but an EMPTY solution
 
 # Test enhanced verification system
 ./dist/cube verify "R U R' U'" --start "YB|Y9/R9/B9/W9/O9/G9" --target "YB|Y9/R9/B9/W9/O9/G9" --verbose
@@ -27,13 +27,27 @@ make build-all-local    # Everything locally
 ./dist/tools/verify-algorithm "T-Perm" --verbose
 ./dist/tools/verify-database --category OLL
 
-# Test different algorithms and cube sizes
-./dist/cube solve "R U R' U'" --algorithm beginner
-./dist/cube solve "Rw Uw Fw" --dimension 4 --color
+# Cube sizes / notation (solve still emits no solution — these just show the scrambled state)
+./dist/cube twist "R U R' U'" --dimension 3
+./dist/cube twist "Rw Uw Fw" --dimension 4 --color
 
 # Run comprehensive test suite 
 make test-all
 ```
+
+## 🛡️ Invariants & Guardrails (read before touching engine/CFEN code)
+
+These are the load-bearing tests. **If any go red, stop and fix that first** — a red invariant means the move engine is corrupting state, the CFEN backbone is lying, or a "solver" is emitting solutions that don't actually solve. They are designed to stay green and trustworthy while everything else changes.
+
+- `internal/cube/invariants_test.go`
+  - **Sticker conservation** — every move is a permutation; each color stays at exactly N² across sizes 2–6.
+  - **Scramble + inverse = solved** — the core "moves are consistent permutations" check.
+  - **Determinism** — same sequence ⇒ same state.
+  - **Solver contract (the big one)** — *if a solver returns a non-empty solution, applying it MUST solve the cube.* Stubs return empty, so the test SKIPs (never a false pass); the moment a solver emits real moves it is held to actually solving. **Never weaken this test to make a solver "pass."**
+- `internal/cfen/cfen_test.go` — canonical solved CFEN, cube<->CFEN round-trip (all 4 orientations), wildcard matching, verify semantics.
+- `internal/cli/commands_test.go` — no command is registered twice.
+
+Run with `make test` (Go unit tests) or `make test-all` (adds the 98 e2e tests). All must be green before committing.
 
 ## Cube Orientation
 
@@ -106,29 +120,35 @@ tools/ (Database utilities) ────────────┘
 - Uses `[6][][]Color` for six faces with dynamic sizing
 - Standard Singmaster notation parsing (R, U', F2, etc.)
 
-**Enhanced Algorithm Database (`internal/cube/algorithms.go`):**
-- `Algorithm` struct with verification fields (`StartCFEN`, `TargetCFEN`, `Verified`)
-- 67 algorithms including OLL, PLL, F2L, and triggers
-- 6 verified algorithms with real CFEN patterns
-- Move count calculation and verification status tracking
+**Algorithm Database (`internal/cube/algorithms.go`):**
+- `Algorithm` struct: `Name`, `CaseID`, `Category`, `Moves`, `Pattern` (masked CFEN), `Recognition`, `Inverse`, `Mirror`
+- 63 algorithms defined (OLL, PLL, F2L, triggers)
+- **Only 5 carry a verification `Pattern`:** Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move
+- A legacy `Verified` bool still lingers on a few entries — the db refactor was only partial
 
 **CFEN Verification System (`internal/cfen/`):**
-- Complete CFEN parsing and generation with wildcard support
-- Cube-to-CFEN and CFEN-to-cube conversion
-- Orientation mapping for different cube views
-- Robust pattern matching with `MatchesCube()` function
+- CFEN parsing and generation with wildcard (`?`) support
+- Cube<->CFEN conversion; round-trip is verified for all 4 supported orientations (YB/WB/YG/WG)
+- `MatchesCube()` wildcard pattern matching — this is the engine behind `cube verify`
+- **The canonical orientation is YB (yellow-up, blue-front) and is by far the most exercised path.** Non-YB orientations round-trip but their rotation semantics are not otherwise tested.
 
 **Solver System (`internal/cube/solver.go`):**
-- Interface-driven design: `type Solver interface { Solve(*Cube) (*SolverResult, error) }`
-- Three algorithms: BeginnerSolver, CFOPSolver, KociembaSolver
-- All solvers are currently unimplemented (interface stubs only)
+- Interface-driven design: `type Solver interface { Solve(*Cube) (*SolverResult, error); Name() string }`
+- Three registered solvers: BeginnerSolver, CFOPSolver, KociembaSolver
+- **All three are empty stubs that return an empty solution for any unsolved cube.** This is the project's central gap.
+- `internal/cube/solving_db.go` sketches a 4-look pattern-match solver but is **dead code** (unwired to any command)
 
-**Main CLI Commands (`internal/cli/`):**
-- `cube solve` - CLI solving with `--algorithm` and `--dimension` flags
-- `cube verify` - Enhanced algorithm verification with CFEN start/target support
-- `cube show` - Cube display with pattern highlighting
-- `cube lookup` - Algorithm database lookup
-- Built with Cobra framework (clean, focused interface)
+**Main CLI Commands (`internal/cli/`):** (with honest status)
+- `cube twist` - apply moves, display result (+ `--cfen`) — **works**
+- `cube solve` - `--algorithm`/`--dimension` — **STUB: prints the scramble then an EMPTY solution**
+- `cube verify <alg> --start <cfen> --target <cfen>` - CFEN verification — **works** (YB). Note: takes ONE positional arg (the algorithm), not two.
+- `cube show` - display with cross/OLL/PLL/F2L highlighting — **works**
+- `cube lookup` - algorithm database lookup — **works**
+- `cube optimize` - move cancellation (`R R R`->`R'`) — **works**
+- `cube find` - BFS search for sequences reaching a pattern — **works, but exponential (practical to ~6 moves; deeper times out)**
+- `cube identify` / `show-alg` - **partial** (recognition logic is a TODO)
+- `cube parse-cfen` / `generate-cfen` / `verify-cfen` / `match-cfen` - CFEN utilities — **work**
+- Built with Cobra framework
 
 **Database Tools (`tools/`):**
 - `verify-algorithm` - Single algorithm verification using cube package as library
@@ -142,7 +162,7 @@ tools/ (Database utilities) ────────────┘
 2. Create `Cube` with specified dimension
 3. Apply scramble moves to cube
 4. Get solver by algorithm name from factory
-5. Execute `solver.Solve(cube)` → `SolverResult`
+5. Execute `solver.Solve(cube)` → `SolverResult` (**currently returns an empty solution — solvers are stubs**)
 6. Format output for CLI display
 
 ### Current Implementation Status
@@ -154,16 +174,19 @@ tools/ (Database utilities) ────────────┘
 - **Enhanced verification system** - `cube verify` command with flexible CFEN start/target support
 - **CFEN infrastructure** - Complete parsing, generation, and wildcard matching
 - **Pattern highlighting system** - `cube show` with cross/OLL/PLL/F2L highlighting
-- **Enhanced algorithm database** - 60+ algorithms with verification capabilities
-- **Verified algorithm collection** - 3 algorithms with real CFEN patterns (Sune, Anti-Sune, T-Perm)
+- **Algorithm database** - 63 algorithms defined; 5 carry verification patterns
+- **Verified algorithm collection** - 5 algorithms with real CFEN patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move) — all pass `verify-database`
 - **Clean architecture** - Separate database tools from main CLI
 - **Database verification tools** - Standalone utilities for algorithm curation
-- **Comprehensive test suite** - 98 end-to-end tests covering all CLI features
+- **Comprehensive test suite** - 98 end-to-end tests + Go unit tests, all green
+- **Invariant guardrail suite** - load-bearing engine/solver/CFEN invariants (see "Invariants & Guardrails" near the top)
 - Cross-platform build system (macOS/Linux compatible)
 
-**⚠️ Current Issues:**
-- All solvers are completely unimplemented (only interface stubs exist)
-- Algorithm database needs expansion (currently only 6 verified algorithms)
+**⚠️ Current Issues / Known Gaps:**
+- **All solvers are unimplemented stubs** — `cube solve` emits nothing. This is the headline gap.
+- Algorithm database has only 5 verification patterns (of 63 entries)
+- `internal/cube/solving_db.go` is a dead-code 4-look pattern-matcher — wire it up or delete it
+- `internal/cube/cubie.go` is an unused piece-addressing stub reserved for future piece tracking
 - CSV algorithm dumps ready for import in `/alg_dumps/` (9 files, 100+ algorithms)
 
 **📍 Key Files to Know:**
@@ -171,7 +194,7 @@ tools/ (Database utilities) ────────────┘
 - `internal/cube/cube.go` - Core cube representation, color output methods
 - `internal/cube/moves.go` - Move parsing and application logic
 - `internal/cube/solver.go` - Solver implementations (currently unimplemented stubs)
-- `internal/cube/algorithms.go` - Enhanced algorithm database with 67 algorithms and verification fields
+- `internal/cube/algorithms.go` - Algorithm database (63 entries, 5 with CFEN patterns)
 - `internal/cfen/` - Complete CFEN parsing, generation, and verification system
 - `internal/cli/verify.go` - Enhanced verification command with CFEN support
 - `internal/cli/solve.go` - CLI solve command with algorithm selection
@@ -245,9 +268,12 @@ RRR WWW BOO YYY
     🟩🟩🟩
 ```
 
-### Testing Algorithm Differences
+### Solver status (IMPORTANT)
+The `solve` command is a **stub**. All three algorithms (`beginner`, `cfop`, `kociemba`)
+return an empty solution for any unsolved cube, so the loop below currently prints three
+empty `Solution:` lines — it does NOT demonstrate working solvers.
 ```bash
-# Quick test to see all three algorithms produce different solutions
+# All three currently emit an EMPTY solution (no solver implemented yet):
 for algo in beginner cfop kociemba; do
     echo "=== $algo ==="
     ./dist/cube solve "R U R' U'" --algorithm $algo | grep "Solution:"
@@ -270,14 +296,14 @@ done
 
 **Testing move notation:**
 ```bash
-# Test advanced moves on different cube sizes
-./dist/cube solve "M E S" --dimension 3 --color        # Slice moves
-./dist/cube solve "Rw Fw' Uw2" --dimension 4 --color    # Wide moves  
-./dist/cube solve "2R 3L'" --dimension 5 --color       # Layer moves
+# Test advanced moves on different cube sizes (use twist; solve is a stub)
+./dist/cube twist "M E S" --dimension 3 --color        # Slice moves
+./dist/cube twist "Rw Fw' Uw2" --dimension 4 --color    # Wide moves  
+./dist/cube twist "2R 3L'" --dimension 5 --color       # Layer moves
 
-# Use verify to test solutions
-./dist/cube verify "R U R' U'" "U R U' R'"             # Should pass
-./dist/cube verify "R U R' U'" "F U F' U'"             # Should fail
+# Use verify to test an algorithm against CFEN start/target states (ONE positional arg + flags)
+./dist/cube verify "R U R' U'" --start "YB|Y9/R9/B9/W9/O9/G9" --target "YB|Y9/R9/B9/W9/O9/G9"  # fails (sexy move is not the identity)
+./dist/cube verify "R U R' U' R U R' U' R U R' U' R U R' U' R U R' U' R U R' U'" --start "YB|Y9/R9/B9/W9/O9/G9" --target "YB|Y9/R9/B9/W9/O9/G9"  # passes (sexy x6 = identity)
 
 # Use show to visualize patterns
 ./dist/cube show "R U R' U'" --highlight-oll --color   # Highlight top layer

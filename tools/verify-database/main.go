@@ -66,7 +66,7 @@ func main() {
 
 		// Set up start and target CFENs
 		startCFEN := "YB|Y9/R9/B9/W9/O9/G9" // Always start from solved cube
-		targetCFEN := alg.Pattern // Expected pattern after applying algorithm
+		targetCFEN := alg.Pattern           // Expected pattern after applying algorithm
 
 		// Perform verification
 		err := verifyAlgorithm(alg, startCFEN, targetCFEN, false)
