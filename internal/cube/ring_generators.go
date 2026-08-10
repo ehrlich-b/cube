@@ -35,8 +35,8 @@ func ringL(N, k int) []Coord {
 	for r := 0; r < N; r++ {
 		ring = append(ring, Coord{Front, r, k})
 	}
-	// Down face: column k, rows N-1 to 0 (reversed)
-	for r := N - 1; r >= 0; r-- {
+	// Down face: column k, rows 0 to N-1 (same direction as Up/Front, matching ringR)
+	for r := 0; r < N; r++ {
 		ring = append(ring, Coord{Down, r, k})
 	}
 	// Back face: column N-1-k, rows N-1 to 0 (reversed)
@@ -115,16 +115,16 @@ func ringF(N, k int) []Coord {
 // ringB generates ring coordinates for B move at layer k
 func ringB(N, k int) []Coord {
 	var ring []Coord
-	// Up face: row k, columns N-1 to 0 (reversed)
-	for c := N - 1; c >= 0; c-- {
+	// Up face: row k, columns 0 to N-1
+	for c := 0; c < N; c++ {
 		ring = append(ring, Coord{Up, k, c})
 	}
 	// Left face: column k, rows N-1 to 0 (reversed)
 	for r := N - 1; r >= 0; r-- {
 		ring = append(ring, Coord{Left, r, k})
 	}
-	// Down face: row N-1-k, columns 0 to N-1
-	for c := 0; c < N; c++ {
+	// Down face: row N-1-k, columns N-1 to 0 (reversed)
+	for c := N - 1; c >= 0; c-- {
 		ring = append(ring, Coord{Down, N - 1 - k, c})
 	}
 	// Right face: column N-1-k, rows 0 to N-1
