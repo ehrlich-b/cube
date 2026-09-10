@@ -1,5 +1,11 @@
 package cube
 
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
 // CUBIE ADDRESSING SYSTEM - CURRENTLY UNUSED
 //
 // This file implements a linear addressing system for cube positions that could be useful
@@ -115,14 +121,66 @@ func (c *Cube) SetCubieColor(address CubieAddress, color Color) {
 // ParseCubieSpec parses cubie specification strings like "1,2,3" or "1-9" or "TL,ML,BC"
 // For 3x3 cubes only initially - can be extended later
 func ParseCubieSpec(spec string, size int) ([]CubieAddress, error) {
-	// TODO: Implement parsing of cubie specifications
-	// Should handle:
-	// - Individual addresses: "1,2,3"
-	// - Ranges: "1-9", "46-54"
-	// - Aliases: "TL" (top layer), "WC" (white cross), etc.
-
 	var result []CubieAddress
+	maxAddr := 6 * size * size
 
-	// For now, return empty slice - will implement parsing logic
+	if strings.TrimSpace(spec) == "" {
+		return result, nil
+	}
+
+	aliases := Get3x3SpecificPositions()
+
+	for _, rawToken := range strings.Split(spec, ",") {
+		token := strings.TrimSpace(rawToken)
+		if token == "" {
+			return nil, fmt.Errorf("invalid cubie spec token %q", rawToken)
+		}
+
+		if positions, ok := aliases[token]; ok {
+			if size != 3 {
+				return nil, fmt.Errorf("alias %q is only valid for a 3x3 cube (size %d)", token, size)
+			}
+			result = append(result, positions...)
+			continue
+		}
+
+		if strings.Contains(token, "-") {
+			parts := strings.Split(token, "-")
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid range token %q", token)
+			}
+			start, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+			if err != nil {
+				return nil, fmt.Errorf("invalid range token %q", token)
+			}
+			end, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+			if err != nil {
+				return nil, fmt.Errorf("invalid range token %q", token)
+			}
+			if start < 1 || start > maxAddr {
+				return nil, fmt.Errorf("cubie address %d out of range for size %d (1-%d)", start, size, maxAddr)
+			}
+			if end < 1 || end > maxAddr {
+				return nil, fmt.Errorf("cubie address %d out of range for size %d (1-%d)", end, size, maxAddr)
+			}
+			if start > end {
+				return nil, fmt.Errorf("range %q has start %d greater than end %d", token, start, end)
+			}
+			for addr := start; addr <= end; addr++ {
+				result = append(result, CubieAddress(addr))
+			}
+			continue
+		}
+
+		addr, err := strconv.Atoi(token)
+		if err != nil {
+			return nil, fmt.Errorf("invalid cubie spec token %q", token)
+		}
+		if addr < 1 || addr > maxAddr {
+			return nil, fmt.Errorf("cubie address %d out of range for size %d (1-%d)", addr, size, maxAddr)
+		}
+		result = append(result, CubieAddress(addr))
+	}
+
 	return result, nil
 }
