@@ -103,11 +103,11 @@ echo -e "\n${YELLOW}Solve Command Tests:${NC}"
 run_test "Basic solve" "$CUBE_BIN solve \"R U R' U'\"" "Solution:"
 run_test "Solve with color" "$CUBE_BIN solve \"R U R' U'\" --color" "🟦"
 run_test "Solve with beginner algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm beginner" "Using algorithm: beginner"
-run_test "Solve with CFOP algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm cfop" "Using algorithm: cfop"
-run_test "Solve with Kociemba algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm kociemba" "Using algorithm: kociemba"
-run_test "Solve 2x2 cube" "$CUBE_BIN solve \"R U R' U'\" --dimension 2" "Solving 2x2x2 cube"
-run_test "Solve 4x4 cube" "$CUBE_BIN solve \"Rw Uw Fw\" --dimension 4" "Solving 4x4x4 cube"
-run_test "Solve 5x5 cube" "$CUBE_BIN solve \"2R 3L\" --dimension 5" "Solving 5x5x5 cube"
+run_test "Solve with CFOP algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm cfop" "" true
+run_test "Solve with Kociemba algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm kociemba" "" true
+run_test "Solve 2x2 cube" "$CUBE_BIN solve \"R U R' U'\" --dimension 2" "" true
+run_test "Solve 4x4 cube" "$CUBE_BIN solve \"Rw Uw Fw\" --dimension 4" "" true
+run_test "Solve 5x5 cube" "$CUBE_BIN solve \"2R 3L\" --dimension 5" "" true
 run_test "Empty scramble" "$CUBE_BIN solve ''" "Solving 3x3x3 cube"
 run_test "Invalid algorithm" "$CUBE_BIN solve 'R U' --algorithm invalid" "Error getting solver" true
 
@@ -128,10 +128,10 @@ run_test "Twist help" "$CUBE_BIN twist --help" "Apply a sequence of moves to a c
 # Advanced Notation Tests
 echo -e "\n${YELLOW}Advanced Notation Tests:${NC}"
 run_test "Slice moves (M E S)" "$CUBE_BIN solve \"M E S\" --dimension 3" "Solution:"
-run_test "Wide moves" "$CUBE_BIN solve \"Rw Fw Uw\" --dimension 4" "Solution:"
-run_test "Layer moves" "$CUBE_BIN solve \"2R 3L 2F\" --dimension 5" "Solution:"
+run_test "Wide moves" "$CUBE_BIN twist \"Rw Fw Uw\" --dimension 4" "Moves applied:"
+run_test "Layer moves" "$CUBE_BIN twist \"2R 3L 2F\" --dimension 5" "Moves applied:"
 run_test "Rotations" "$CUBE_BIN solve \"x y z\" --dimension 3" "Solution:"
-run_test "Mixed notation" "$CUBE_BIN solve \"R M U' 2R Fw x y\" --dimension 5" "Solution:"
+run_test "Mixed notation" "$CUBE_BIN twist \"R M U' 2R Fw x y\" --dimension 5" "Moves applied:"
 
 # Verify Command Tests
 echo -e "\n${YELLOW}Verify Command Tests:${NC}"
@@ -216,9 +216,8 @@ run_test "Lookup no args" "$CUBE_BIN lookup" "Please provide a query"
 
 # Headless Mode Tests
 echo -e "\n${YELLOW}Headless Mode Tests:${NC}"
-# Headless solve test skipped - placeholder solvers return empty solutions
-echo -n "Testing headless solve output format... "
-echo -e "${YELLOW}SKIP${NC} (placeholder solvers)"
+headless_solution=$($CUBE_BIN solve "R U F2 L' B" --headless)
+run_test "Headless full-solution notation" "$CUBE_BIN optimize \"$headless_solution\""
 
 echo -n "Testing headless verify success (correct algorithm)... "
 scrambled_cfen=$($CUBE_BIN generate-cfen "R U R' U'" 2>/dev/null)
@@ -258,8 +257,8 @@ TESTS_TOTAL=$((TESTS_TOTAL + 1))
 # Edge Cases and Error Handling
 echo -e "\n${YELLOW}Edge Cases and Error Handling:${NC}"
 run_test "Invalid move notation" "$CUBE_BIN solve \"R X Q\"" "Error parsing scramble" true
-run_test "Huge cube dimension" "$CUBE_BIN solve \"R\" --dimension 20" "Solving 20x20x20 cube"
-run_test "Multiple flags" "$CUBE_BIN solve \"R U R' U'\" --color --dimension 4 --algorithm cfop" "Solving 4x4x4"
+run_test "Huge cube dimension" "$CUBE_BIN twist \"R\" --dimension 20" "Applying moves to 20x20x20 cube"
+run_test "Multiple flags" "$CUBE_BIN solve \"R U R' U'\" --color --dimension 4 --algorithm cfop" "" true
 
 # Complex Integration Tests
 echo -e "\n${YELLOW}Complex Integration Tests:${NC}"
@@ -291,23 +290,18 @@ else
 fi
 TESTS_TOTAL=$((TESTS_TOTAL + 1))
 
-# Test that all algorithms work for simple cases
-# Solver integration tests skipped - placeholder solvers return empty solutions
-for algo in beginner cfop kociemba; do
-    echo -n "Testing $algo solver works on simple cases... "
-    echo -e "${YELLOW}SKIP${NC} (placeholder solver)"
-done
-
-# Algorithm differences test skipped - placeholder solvers return empty solutions
-echo -n "Testing algorithm differences... "
-echo -e "${YELLOW}SKIP${NC} (placeholder solvers)"
+# Verify a real full beginner solution against an independently specified solved state.
+full_scramble="x R U F2 L' B"
+full_start=$($CUBE_BIN generate-cfen "$full_scramble")
+full_moves=$($CUBE_BIN solve "$full_scramble" --headless)
+run_test "Full beginner solution replay" "$CUBE_BIN verify \"$full_moves\" --start '$full_start' --target '$solved_cfen' --headless"
 
 # Performance Tests
 echo -e "\n${YELLOW}Performance Tests:${NC}"
 echo -n "Testing large scramble performance... "
 start_time=$(date +%s%N 2>/dev/null || date +%s)
 large_scramble="R U R' U' F B L R D U R U R' U' F B L R D U R U R' U' F B L R D U"
-if $CUBE_BIN solve "$large_scramble" --dimension 6 >/dev/null 2>&1; then
+if $CUBE_BIN twist "$large_scramble" --dimension 6 >/dev/null 2>&1; then
     end_time=$(date +%s%N 2>/dev/null || date +%s)
     echo -e "${GREEN}PASS${NC} (completed large scramble)"
     TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -356,8 +350,8 @@ fuzz_test_solver() {
             continue
         fi
         
-        # Skip solution verification for now - solvers return empty solutions
-        if false; then
+        scrambled_cfen=$($CUBE_BIN generate-cfen "$scramble")
+        if ! $CUBE_BIN verify "$solution" --start "$scrambled_cfen" --target 'YB|Y9/R9/B9/W9/O9/G9' --headless; then
             failed_count=$((failed_count + 1))
             
             # Re-run in non-headless mode for debugging
@@ -370,8 +364,8 @@ fuzz_test_solver() {
             echo "=== SOLVE ==="
             $CUBE_BIN solve "$scramble" --algorithm "$algorithm" --color
             echo ""
-            echo "=== VERIFY (old style - skipped) ==="
-            # $CUBE_BIN verify "$scramble" "$solution" --verbose --color
+            echo "=== VERIFY ==="
+            $CUBE_BIN verify "$solution" --start "$scrambled_cfen" --target 'YB|Y9/R9/B9/W9/O9/G9' --verbose --color
             echo ""
             echo "Halting fuzzing due to failure."
             return 1
@@ -774,19 +768,19 @@ run_test "identify invalid CFEN" "$CUBE_BIN identify 'INVALID'" "" true
 
 # Working first-layer goal and beginner interaction
 echo -e "\n${YELLOW}First-Layer Lesson Tests:${NC}"
-run_test "Learn a first layer" "$CUBE_BIN learn \"R U F2 L' B\"" "First layer complete:"
-run_test "Learn a rotated scramble" "$CUBE_BIN learn \"x y' R U F2 L' B\"" "Hold white down and blue front"
-run_test "Learn with color" "$CUBE_BIN learn R --color" "🟦"
+run_test "Learn a first layer" "$CUBE_BIN learn --goal first-layer \"R U F2 L' B\"" "First layer complete:"
+run_test "Learn a rotated scramble" "$CUBE_BIN learn --goal first-layer \"x y' R U F2 L' B\"" "Hold white down and blue front"
+run_test "Learn with color" "$CUBE_BIN learn --goal first-layer R --color" "🟦"
 run_test "Learn rejects bad dimensions" "$CUBE_BIN learn R --dimension 2" "" true
 run_test "Learn rejects malformed moves" "$CUBE_BIN learn R3" "" true
 run_test "Learn rejects wildcard input" "$CUBE_BIN learn --start 'YB|Y9/?9/B9/W9/O9/G9'" "" true
 run_test "Learn rejects huge CFEN runs" "$CUBE_BIN learn --start 'YB|Y999999999/R9/B9/W9/O9/G9'" "" true
 run_test "Interactive actual moves recover" "printf 'moves x R U\nundo\nreset\nquit\n' | $CUBE_BIN learn R --interactive" "Resume: cube learn"
-run_test "Completed next is a no-op" "printf 'next\nnext\nquit\n' | $CUBE_BIN learn U --interactive" "no moves applied"
+run_test "Completed next is a no-op" "printf 'next\nnext\nquit\n' | $CUBE_BIN learn --goal first-layer U --interactive" "no moves applied"
 run_test "Solve first-layer explicit goal" "$CUBE_BIN solve \"R U F2 L' B\" --goal first-layer" "Middle and last layers still need solving"
 run_test "Solve first-layer incompatible algorithm" "$CUBE_BIN solve R --goal first-layer --algorithm cfop" "" true
 run_test "Solve rejects unknown goal" "$CUBE_BIN solve R --goal unknown" "" true
-run_test "Full solver explains limitation" "$CUBE_BIN solve R" "Full-cube solver is not implemented"
+run_test "Full beginner solver finishes" "$CUBE_BIN solve R" "Cube complete:"
 
 # Headless moves are replayed through verify against an independent sticker-row
 # pattern. An empty placeholder answer cannot satisfy this scrambled fixture.
@@ -797,7 +791,15 @@ first_layer_target='YB|?9/??????RRR/??????BBB/W9/??????OOO/??????GGG'
 run_test "First-layer headless replay" "$CUBE_BIN verify \"$first_layer_moves\" --start \"$first_layer_start\" --target '$first_layer_target' --headless"
 first_layer_final=$($CUBE_BIN solve "$first_layer_scramble" --goal first-layer --cfen --headless)
 run_test "First-layer saved CFEN replay" "$CUBE_BIN verify '' --start '$first_layer_final' --target '$first_layer_target' --headless"
-run_test "Resume completed first layer" "$CUBE_BIN learn --start '$first_layer_final'" "First layer complete:"
+run_test "Resume completed first layer" "$CUBE_BIN learn --goal first-layer --start '$first_layer_final'" "First layer complete:"
+
+# The default lesson now finishes all six faces; first-layer remains explicit.
+run_test "Default lesson fully solves" "$CUBE_BIN learn \"R U F2 L' B\"" "Cube complete:"
+run_test "Default lesson teaches middle edges" "$CUBE_BIN learn \"R U F2 L' B\"" "middle edge"
+run_test "Default lesson teaches atomic corner sweep" "$CUBE_BIN learn \"R U F2 L' B\"" "finish the entire four-corner sweep"
+run_test "Full solve saved-state result" "$CUBE_BIN solve --start '$full_start' --cfen --headless" 'YB|Y9/R9/B9/W9/O9/G9'
+run_test "Solved full session next is a no-op" "printf 'next\nnext\nquit\n' | $CUBE_BIN learn '' --interactive" "Cube already complete; no moves applied"
+run_test "Resume command preserves partial goal" "printf 'quit\n' | $CUBE_BIN learn R --goal first-layer --interactive" "goal first-layer"
 
 # Summary
 echo -e "\n${YELLOW}=== Test Summary ===${NC}"

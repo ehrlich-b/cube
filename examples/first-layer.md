@@ -8,7 +8,7 @@ Build from the repository root:
 
 ```sh
 make build
-./dist/cube learn "R U F2 L' B" --interactive --color
+./dist/cube learn --goal first-layer "R U F2 L' B" --interactive --color
 ```
 
 For this example, hold a **solved** physical cube white down, yellow up,
@@ -65,7 +65,7 @@ Invalid commands or moves leave the state unchanged. `help` lists commands.
 `state` prints CFEN. `quit` and end of input print an exact resume command:
 
 ```sh
-./dist/cube learn --start 'YB|Y9/R9/B9/W9/O9/G9' --interactive
+./dist/cube learn --goal first-layer --start 'YB|Y9/R9/B9/W9/O9/G9' --interactive
 ```
 
 Replace the example with your saved state. Keep the physical orientation of
@@ -92,7 +92,7 @@ usually mean a sticker was recorded incorrectly or a physical piece was twisted.
 
 ```sh
 # All checkpoints and their resulting states, without waiting for input
-./dist/cube learn "R U F2 L' B"
+./dist/cube learn --goal first-layer "R U F2 L' B"
 
 # Moves only, with an explicit partial goal
 ./dist/cube solve "R U F2 L' B" --goal first-layer --headless
@@ -103,9 +103,9 @@ usually mean a sticker was recorded incorrectly or a physical piece was twisted.
 
 The solver uses bounded search for each cross edge and simple repeated triggers
 for corners. It favors teachable checkpoints over a short move count. It
-supports 3×3 only, with this project's standard color scheme. Full-cube
-`solve` algorithms remain unimplemented; their existing contract still requires
-that any nonempty full solution actually solve every layer.
+supports 3×3 only, with this project's standard color scheme. For the complete beginner path, omit `--goal first-layer`; see
+[the full lesson](./beginner.md). Full results are held to the existing contract:
+any nonempty full solution must actually solve every layer.
 
 Tests include independent physical-state and printed-move replay oracles.
 They establish state correctness; a human beginner trial with a physical cube

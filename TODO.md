@@ -3,10 +3,9 @@
 ## 🔍 Project Status: Reality Check
 
 This project has built a correct, well-tested engine for cube manipulation, verification,
-optimization, and search. **The 3×3 white first-layer solver and beginner lesson work
-as of 2026-10-03. Full-cube solving remains unimplemented.** The first-layer goal
-is explicit (`cube solve --goal first-layer`); `cube learn` provides explanations
-and recoverable playback. This TODO is a pragmatic path forward.
+optimization, and search. **The complete 3×3 beginner solver and lesson work as of 2026-10-03.**
+`cube solve` finishes all six faces; `cube learn` provides the full sequence with
+recoverable playback. The white-layer sublesson remains explicit via `--goal first-layer`. This TODO is a pragmatic path forward.
 
 **Verified reality (current):**
 - Move engine: correct, NxN, covered by fuzz + invariant tests ✅
@@ -14,10 +13,11 @@ and recoverable playback. This TODO is a pragmatic path forward.
 - Algorithm DB: 63 entries, **5** with verification patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move) ✅
 - White first layer: cross + four corners, rotations, saved CFEN and recovery ✅
 - Physical 3×3 input validation and independent cubie/geometry oracles ✅
-- Full-cube solvers: **all three remain empty stubs** ❌
+- Full beginner solve: middle edges, yellow cross/alignment, corner placement/orientation ✅
+- CFOP and Kociemba remain unimplemented; CLI rejects them ❌
 - `solving_db.go`: a 4-look pattern-matcher that is **dead code** (unwired) ⚠️
-- Tests: 98 legacy e2e cases (including full-solver skips), 16 new first-layer e2e
-  cases, Go tests and a separate independent physical-cubie/interaction oracle.
+- Tests: active full-solver contract, Go tests, binary E2E cases, and independent
+  physical-cubie/checkpoint/interaction oracles for full and partial goals.
 
 **Guardrails (do not let these go red):** `internal/cube/invariants_test.go`,
 `internal/cfen/cfen_test.go`, `internal/cli/commands_test.go`. The solver-contract test is the
@@ -146,20 +146,23 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 - [x] Independent physical geometry and cubie-state replay tests; bounded Mac performance measurements
 
 ### 4.2 First Two Layers (F2L)
+- [x] Beginner middle-layer insertion (four edges); preserve white and earlier belt edges
 - [ ] Implement intuitive F2L (not advanced algorithms)
 - [ ] Find corner-edge pairs and position above slots
 - [ ] Insert using basic algorithms and track completed slots
 
 ### 4.3 Last Layer
+- [x] Beginner yellow cross, edge alignment and corner placement via named algorithm groups
+- [x] Atomic four-corner orientation sweep restores all six solved faces
 - [ ] OLL recognition from pattern database and algorithm application
 - [ ] PLL recognition from piece positions and algorithm application
-- [ ] Verification that cube is fully solved
+- [x] Verification that cube is fully solved
 
 ### 4.4 Integration & Testing
-- [ ] Generate random scrambles and solve end-to-end
-- [ ] Verify all solutions actually solve the cube
-- [ ] Add solving tests to e2e suite
-- [ ] Benchmark solving performance
+- [x] Generate random scrambles and solve end-to-end
+- [x] Verify all solutions actually solve the cube, including independently generated cubie states
+- [x] Add real full solving tests to e2e suite; remove beginner placeholder skips
+- [x] Benchmark solving performance on the Mac
 
 ---
 
@@ -207,7 +210,8 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 
 ### 7.2 User Experience
 - [x] Add first-layer explanations and checkpoint playback (`cube learn`)
-- [ ] Extend explanation/playback to a full solver
+- [x] Extend explanation/playback to a full beginner solver
+- [ ] Human beginner physical-cube trial (simulated replay is not a human trial)
 - [ ] Create difficulty settings and solving statistics
 - [ ] Implement progress tracking and hints
 

@@ -2,163 +2,89 @@ package cli
 
 import (
 	"fmt"
-	"os"
-	"strings"
+	"time"
 
 	"github.com/ehrlich-b/cube/internal/cfen"
 	"github.com/ehrlich-b/cube/internal/cube"
 	"github.com/spf13/cobra"
 )
 
-var solveCmd = &cobra.Command{
-	Use:   "solve [scramble]",
-	Short: "Solve a scrambled cube",
-	Long: `Solve a scrambled cube using the specified algorithm.
-The scramble should be provided as a string of moves.
+var solveCmd = newSolveCommand()
 
-Use --goal first-layer for the working 3x3 beginner lesson goal.
-Full-cube algorithms remain unimplemented; use cube learn for explanations.
-Use --headless for programmatic output (space-separated moves only).`,
-	Args: cobra.ExactArgs(1), SilenceUsage: true, SilenceErrors: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		goal, _ := cmd.Flags().GetString("goal")
-		if goal == "first-layer" {
-			return runFirstLayerSolve(cmd, args)
-		}
-		if goal != "full" {
-			return fmt.Errorf("unknown goal %q; choose full or first-layer", goal)
-		}
-		scramble := args[0]
-		algorithm, _ := cmd.Flags().GetString("algorithm")
-		dimension, _ := cmd.Flags().GetInt("dimension")
-		headless, _ := cmd.Flags().GetBool("headless")
-		useCfenOutput, _ := cmd.Flags().GetBool("cfen")
-		startCfen, _ := cmd.Flags().GetString("start")
-
-		// Create cube from starting position
-		var c *cube.Cube
-		if startCfen != "" {
-			// Parse starting CFEN
-			cfenState, err := cfen.ParseCFEN(startCfen)
+func newSolveCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "solve [scramble]",
+		Short: "Solve a 3x3 cube with the beginner method",
+		Long: `Solve a physical 3x3 using the complete beginner layer-by-layer method.
+Use cube learn with the same input for checkpoints and instructions.
+Use --goal first-layer to stop after the white cross and corners.
+With --start, the optional scramble is applied after the saved CFEN state.
+Use --headless for space-separated solution moves, or --cfen for final state.`,
+		Args: cobra.MaximumNArgs(1), SilenceUsage: true, SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			goal, _ := cmd.Flags().GetString("goal")
+			if goal == "first-layer" {
+				return runFirstLayerSolve(cmd, args)
+			}
+			if goal != "full" {
+				return fmt.Errorf("unknown goal %q; choose full or first-layer", goal)
+			}
+			algorithm, _ := cmd.Flags().GetString("algorithm")
+			if _, err := cube.GetSolver(algorithm); err != nil {
+				return err
+			}
+			if algorithm != "beginner" {
+				return fmt.Errorf("%s full-cube solver is not implemented; use --algorithm beginner", algorithm)
+			}
+			c, err := firstLayerInput(cmd, args)
 			if err != nil {
-				if !headless {
-					fmt.Printf("Error parsing starting CFEN: %v\n", err)
-				}
-				os.Exit(1)
+				return err
 			}
-
-			// Validate dimension if specified
-			if dimension != 3 && cfenState.Dimension != dimension {
-				if !headless {
-					fmt.Printf("CFEN dimension %d doesn't match specified dimension %d\n",
-						cfenState.Dimension, dimension)
-				}
-				os.Exit(1)
-			}
-			dimension = cfenState.Dimension // Use CFEN dimension
-
-			c, err = cfenState.ToCube()
+			started := time.Now()
+			result, err := (&cube.BeginnerSolver{}).Solve(c)
 			if err != nil {
-				if !headless {
-					fmt.Printf("Error converting CFEN to cube: %v\n", err)
+				return err
+			}
+			c.ApplyMoves(result.Solution)
+			if !c.IsSolved() {
+				return fmt.Errorf("returned solution failed full-cube verification")
+			}
+			out := cmd.OutOrStdout()
+			stateOnly, _ := cmd.Flags().GetBool("cfen")
+			headless, _ := cmd.Flags().GetBool("headless")
+			if stateOnly {
+				state, err := cfen.GenerateCFEN(c)
+				if err != nil {
+					return err
 				}
-				os.Exit(1)
-			}
-		} else {
-			// Start with solved cube
-			c = cube.NewCube(dimension)
-		}
-
-		if !headless {
-			fmt.Printf("Solving %dx%dx%d cube with scramble: %s\n", dimension, dimension, dimension, scramble)
-			fmt.Printf("Using algorithm: %s\n", algorithm)
-			if startCfen != "" {
-				fmt.Printf("Starting from CFEN: %s\n", startCfen)
-			}
-		}
-
-		// Apply scramble to cube
-		if scramble != "" {
-			moves, err := cube.ParseScramble(scramble)
-			if err != nil {
-				if !headless {
-					fmt.Printf("Error parsing scramble: %v\n", err)
+				fmt.Fprint(out, state)
+			} else if headless {
+				fmt.Fprint(out, cube.FormatMoves(result.Solution))
+			} else {
+				scramble := ""
+				if len(args) > 0 {
+					scramble = args[0]
 				}
-				os.Exit(1)
+				fmt.Fprintln(out, "Solving 3x3x3 cube with scramble:", scramble)
+				fmt.Fprintln(out, "Using algorithm: beginner")
+				fmt.Fprintln(out, "Solution:", cube.FormatMoves(result.Solution))
+				fmt.Fprintln(out, "Steps:", result.Steps)
+				fmt.Fprintln(out, "Time:", time.Since(started))
+				color, _ := cmd.Flags().GetBool("color")
+				letters, _ := cmd.Flags().GetBool("letters")
+				printLessonState(out, c, color, color && !letters, "full")
+				fmt.Fprintln(out, "Use cube learn with the same input for the complete lesson.")
 			}
-			c.ApplyMoves(moves)
-		}
-
-		if !headless {
-			useColor, _ := cmd.Flags().GetBool("color")
-			useLetters, _ := cmd.Flags().GetBool("letters")
-			useUnicode := useColor && !useLetters
-
-			fmt.Printf("\nCube state after scramble:\n%s\n", c.UnfoldedString(useColor, useUnicode))
-		}
-
-		// Get solver and solve
-		solver, err := cube.GetSolver(algorithm)
-		if err != nil {
-			if !headless {
-				fmt.Printf("Error getting solver: %v\n", err)
-			}
-			os.Exit(1)
-		}
-
-		result, err := solver.Solve(c)
-		if err != nil {
-			if !headless {
-				fmt.Printf("Error solving cube: %v\n", err)
-			}
-			os.Exit(1)
-		}
-
-		// Apply solution to get final state
-		c.ApplyMoves(result.Solution)
-
-		// Format solution
-		var solutionStr strings.Builder
-		for i, move := range result.Solution {
-			if i > 0 {
-				solutionStr.WriteString(" ")
-			}
-			solutionStr.WriteString(move.String())
-		}
-
-		if useCfenOutput {
-			// CFEN output mode
-			cfenStr, err := cfen.GenerateCFEN(c)
-			if err != nil {
-				if !headless {
-					fmt.Printf("Error generating CFEN: %v\n", err)
-				}
-				os.Exit(1)
-			}
-			fmt.Print(cfenStr)
-		} else if headless {
-			// Headless mode: output only the space-separated move list
-			fmt.Print(solutionStr.String())
-		} else {
-			// Normal mode: full output
-			fmt.Printf("Solution: %s\n", solutionStr.String())
-			fmt.Printf("Steps: %d\n", result.Steps)
-			fmt.Printf("Time: %v\n", result.Duration)
-			if !c.IsSolved() && len(result.Solution) == 0 {
-				fmt.Println("Full-cube solver is not implemented. Use --goal first-layer or cube learn for the working beginner lesson.")
-			}
-		}
-		return nil
-	},
-}
-
-func init() {
-	solveCmd.Flags().String("goal", "full", "Solving goal: full (unimplemented) or first-layer (3x3 beginner)")
-	solveCmd.Flags().StringP("algorithm", "a", "beginner", "Solving algorithm to use (beginner, cfop, kociemba)")
-	solveCmd.Flags().IntP("dimension", "d", 3, "Cube dimension (2, 3, 4, etc.)")
-	solveCmd.Flags().BoolP("color", "c", false, "Use colored output (Unicode blocks by default)")
-	solveCmd.Flags().Bool("letters", false, "Use letters instead of Unicode blocks when using --color")
-	solveCmd.Flags().Bool("headless", false, "Output only space-separated moves for programmatic use")
-	solveCmd.Flags().Bool("cfen", false, "Output final cube state as CFEN string instead of moves")
-	solveCmd.Flags().String("start", "", "Starting cube state as CFEN string (default: solved)")
+			return nil
+		},
+	}
+	cmd.Flags().String("goal", "full", "Solving goal: full cube or first-layer (3x3 beginner)")
+	cmd.Flags().StringP("algorithm", "a", "beginner", "Solver: beginner (CFOP and Kociemba are not implemented)")
+	cmd.Flags().IntP("dimension", "d", 3, "Cube dimension (beginner solver supports 3 only)")
+	cmd.Flags().BoolP("color", "c", false, "Use colored output (Unicode blocks by default)")
+	cmd.Flags().Bool("letters", false, "Use letters instead of Unicode blocks with --color")
+	cmd.Flags().Bool("headless", false, "Output only solution moves")
+	cmd.Flags().Bool("cfen", false, "Output final cube state as CFEN")
+	cmd.Flags().String("start", "", "Starting cube state in concrete YB CFEN storage order")
+	return cmd
 }

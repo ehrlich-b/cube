@@ -2,81 +2,91 @@
 
 Updated 2026-10-03.
 
-## Working first-layer goal
+## Complete beginner goal
 
-`cube learn [scramble]` and `cube solve <scramble> --goal first-layer` solve
-the white cross and four corners on a valid 3×3 cube. The middle and last
-layers may remain scrambled. See [the user guide](../examples/first-layer.md).
+`cube solve [scramble]` and `cube learn [scramble]` now finish all six faces of
+a validated physical 3×3. `--start` accepts a complete YB-storage CFEN; its real
+centers determine the grip. `--goal first-layer` keeps the prior explicit
+white-layer sublesson. See [the beginner guide](../examples/beginner.md).
 
-The implementation follows this path:
+The complete planner follows this path:
 
-1. Validate the complete physical state: shape, colors, center frame, unique
-   cubies, edge flips, corner twists/handedness and permutation parity.
-2. Find a rigid rotation to white down and blue front by examining centers.
-   Include those rotations in the returned moves and lesson instructions.
-3. Solve four white edges with the existing incremental bounded search,
-   restoring earlier placed edges at each endpoint. This is a fixed order,
-   not a globally optimal cross.
-4. Lift an unsolved bottom corner through its own slot when necessary. Bring
-   its destination to bottom front-right, line it up with U, and repeat
-   `R U R' U'` until solved (at most six repetitions). Return to blue front.
-5. Verify the cross, new corner and previously solved corners at every corner
-   checkpoint, then verify the whole first layer before returning.
+1. Validate shape, colors, rigid center frame, unique cubies, edge flips,
+   corner twists/handedness and permutation parity. An already solved cube
+   needs no moves, including when held in a rotated grip.
+2. Normalize unsolved input to white down, blue front. Solve the white cross
+   using incremental bounded search, then four corners with setup turns and
+   repeated `R U R' U'`. Verify earlier pieces at each endpoint.
+3. Insert the four middle edges using left/right eight-turn insertions.
+   Eject misplaced edges first. Verify white and earlier middle edges.
+4. Make the yellow cross with U setups and `F R U R' U' F'`.
+5. Match yellow edges to their side centers with U setups and
+   `R U R' U R U2 R'`.
+6. Put yellow corners into their home slots using y-conjugated
+   `U R U' L' U R' U' L`, ignoring their twists at this stage.
+7. Orient all yellow corners in one checkpoint using counted `R' D' R D`
+   repetitions and U advances, including the final U. The lower layers are
+   temporarily mixed inside this sweep and restored at its endpoint.
+8. Verify all six faces are solved before returning.
 
-`FirstLayerLesson` has its own result type, checkpoint snapshots and flattened
-moves. It never implements the full-cube `Solver` interface. Planning does not
-mutate input. The lesson rejects results beyond 260 moves; observed counts
-are recorded in [the verification receipt](./verification-2026-10-03.md).
+Last-layer planning searches only named algorithm groups over tiny finite
+stage keys (8 cross patterns, 24 edge permutations, 12 corner permutations),
+with explicit depths and a 64-state limit. It does not search arbitrary face
+turns on a full scramble. The complete plan has a 600-move safety bound;
+[measured counts and timings](./verification-full-2026-10-03.md) are smaller,
+but are samples rather than a performance guarantee.
 
-`FirstLayerSession` replans from the current state after every checkpoint or
-actual-move batch. Undo history stores snapshots and exact inverse moves.
-Repeated next after success is a no-op; reset returns the initial state.
+`BeginnerLesson` reuses action groups and checkpoint snapshots from the partial
+lesson. Planning never mutates input. `BeginnerSolver` flattens only complete
+plans into the full-cube `Solver` interface. The unchanged full-solver contract
+now actively checks all five beginner cases, with no empty-result skips.
+The CLI also independently reapplies the returned full solution before output.
 
-## Engine corrections needed for the lesson
+## Recoverable interaction
 
-Existing scramble/inverse tests could pass even if a move and its inverse
-both used the same incorrect physical mapping. The new 3D oracle exposed:
+A `FirstLayerSession` supports both goals via `NewFirstLayerSession` and
+`NewBeginnerSession`. It replans after each checkpoint or recorded actual-move
+batch. Undo stores snapshots and exact physical inverses; reset returns the
+initial state. Repeated next after completion preserves both state and grip.
+Quit and EOF print executable resume commands retaining the selected goal.
+Input errors and bounded oversized lines leave the current state unchanged.
 
-- Whole-cube rotations copied grids without all required reversals/rotations.
-- The same whole-cube permutation ran once per layer, repeating N times.
-- x used the opposite direction to R; E used the opposite direction to D.
-- A turn at the far outer layer omitted rotation of the opposite face.
+The final corner sweep is atomic as a lesson checkpoint. A user who interrupts
+it can record the true prefix with `moves` and replan; intermediate lower-layer
+scrambling is a physical state, not an assumed completed checkpoint. The
+independent live oracle exercises this path, wrong turns and grip changes.
 
-These mappings now preserve physical cubie adjacency. Unique-label geometry
-tests cover rotations, faces, every valid wide width and numbered layer for
-sizes 2–6, slices for sizes 3 and 5, and standard rotation/slice identities.
-The legacy x-center expectation was corrected against this independent oracle;
-the load-bearing solver, conservation and inverse invariants were preserved.
+## Engine corrections retained from the first-layer milestone
 
-## Full-cube solving remains future work
+Scramble/inverse tests alone could pass when both used the same incorrect
+mapping. The independent 3D oracle exposed grid-orientation errors, repeated
+whole-cube rotations, reversed x/E directions and missing far-face turns.
+The first-layer commit repaired these mappings. Unique-label tests check
+rotations, faces, wide widths and numbered layers for sizes 2–6, slices for
+sizes 3 and 5, and standard rotation/slice identities. x/y/z follow R/U/F and
+E follows D. Load-bearing conservation and inverse invariants remain intact.
 
-`BeginnerSolver`, `CFOPSolver` and `KociembaSolver` still return empty results
-for unsolved inputs. `solve --goal full` remains the default for compatibility
-and explains the limitation in normal output. Legacy headless full solving can
-still emit an empty string. Callers must explicitly choose `--goal first-layer`
-to obtain the working partial solution.
+## Remaining work
 
-The full-solver invariant remains unchanged: any nonempty full solution must
-solve the entire cube. Empty stub results are skipped in the contract tests;
-they are not evidence of working full solvers.
-
-Next coherent milestones are beginner middle-layer edge insertion, then last
-layer orientation and permutation. `solving_db.go` remains experimental,
-unwired code; the algorithm database still has only five verification patterns.
-Generic NxN piece solving, globally optimal search, CFOP and Kociemba remain
-future work.
+CFOP and Kociemba remain empty API stubs; the CLI rejects them instead of
+emitting misleading empty solutions. The engine supports larger cubes, but
+beginner solving and lessons support 3×3 only. `solving_db.go` remains
+experimental unwired code; the algorithm database has five verification
+patterns. Optimal solutions, generic NxN solving and human usability work
+remain future milestones.
 
 ## Verification
 
 ```sh
-make build-all-local test-all
-make test-first-layer
+make build-all-local test-all test-first-layer test-beginner
 make fmt vet
-go test ./internal/cube -run '^$' -bench '^BenchmarkFirstLayer$' -benchmem
+go test ./internal/cube -run '^$' -bench '^BenchmarkBeginnerFull$' -benchmem
 ```
 
-Go tests cover 500 deterministic scrambles, 96 corner setup cases, recovery
-at every checkpoint, repeated steps and invalid physical states. The separate
-Python oracle generates legal cubies without the Go engine and replays the
-printed interactive instructions through its own geometry model. Human physical
-usability has not been tested.
+Go tests include 500 deterministic full-solve scrambles, checkpoint replay,
+recovery, repeated steps and illegal states. The separate Python oracle
+constructs legal physical cubies without the Go engine, then independently
+replays headless moves, printed checkpoints and interactive commands. Its
+last-layer cases cover every orientation/permutation class. A human holding a
+physical cube has not tested the lesson. Historical first-layer evidence is
+preserved in [the earlier receipt](./verification-2026-10-03.md).

@@ -18,41 +18,32 @@ type Solver interface {
 	Name() string
 }
 
-// BeginnerSolver implements layer-by-layer method (placeholder)
+// BeginnerSolver implements the complete 3x3 beginner lesson. Returned moves
+// must satisfy the existing full-solver contract, not just a partial layer goal.
 type BeginnerSolver struct{}
 
 func (s *BeginnerSolver) Name() string {
 	return "Beginner"
 }
 
-func (s *BeginnerSolver) Solve(cube *Cube) (*SolverResult, error) {
+func (s *BeginnerSolver) Solve(c *Cube) (*SolverResult, error) {
 	start := time.Now()
-
-	// Check if cube is already solved
-	if cube.IsSolved() {
-		return &SolverResult{
-			Solution: []Move{},
-			Steps:    0,
-			Duration: time.Since(start),
-		}, nil
+	lesson, err := PlanBeginner(c)
+	if err != nil {
+		return nil, err
 	}
-
-	// TODO: Implement real layer-by-layer solver
-	// For now, return empty solution
+	moves := lesson.Moves()
 	return &SolverResult{
-		Solution: []Move{},
-		Steps:    0,
+		Solution: moves,
+		Steps:    len(moves),
 		Duration: time.Since(start),
 	}, nil
 }
 
-// SOLVER IMPLEMENTATIONS - CURRENTLY UNIMPLEMENTED STUBS
+// CFOP and Kociemba remain unimplemented stubs. Beginner is complete for 3x3.
 //
-// Status: Interface framework is complete, but all solver implementations are empty stubs
-// Next steps: See TODO.md Phase 3-4 for piece tracking and beginner method implementation
-//
-// The current solvers return empty solutions regardless of cube state.
-// This is honest behavior - they don't claim to solve when they cannot.
+// The CLI rejects these unavailable algorithms rather than presenting an empty
+// result as success. Their legacy API behavior remains guarded by the invariant.
 
 // TODO: All solver helper methods will be implemented with the new design
 

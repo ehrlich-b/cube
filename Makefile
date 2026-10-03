@@ -1,4 +1,4 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner
 
 # Build the binary
 build:
@@ -80,3 +80,7 @@ test-all: test e2e-test
 # Independent physical-cubie and interactive replay oracle (Python stdlib only)
 test-first-layer: build
 	python3 test/first_layer_oracle.py
+
+# Independently replay full solutions, printed checkpoints and last-layer recovery
+test-beginner: build
+	python3 test/full_lesson_oracle.py

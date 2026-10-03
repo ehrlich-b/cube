@@ -36,3 +36,4 @@ Thumbs.db
 # Project specific
 dist/
 *.log
+__pycache__/

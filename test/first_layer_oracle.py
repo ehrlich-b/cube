@@ -190,6 +190,8 @@ def orientation_paths():
 
 
 def run(binary, args, text=None):
+    if args[0] == "learn" and "--goal" not in args:
+        args = args + ["--goal", "first-layer"]
     return subprocess.run([str(binary)] + args, input=text, text=True,
                           capture_output=True, timeout=3)
 
@@ -332,6 +334,7 @@ def check_live_sessions(binary):
     cases.append((["learn", "--start", cfen(state), "--interactive"], state))
     counts = []
     for args, initial in cases:
+        args = args + ["--goal", "first-layer"]
         process = subprocess.Popen([str(binary)] + args, stdin=subprocess.PIPE,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                    text=True)

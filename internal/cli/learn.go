@@ -48,7 +48,7 @@ func parseLessonState(text string) (*cube.Cube, error) {
 		return nil, err
 	}
 	if state.Dimension != 3 {
-		return nil, fmt.Errorf("first-layer lessons require a 3x3 cube")
+		return nil, fmt.Errorf("beginner lessons require a 3x3 cube")
 	}
 	c, err := state.ToCube()
 	if err != nil {
@@ -63,7 +63,7 @@ func parseLessonState(text string) (*cube.Cube, error) {
 func firstLayerInput(cmd *cobra.Command, args []string) (*cube.Cube, error) {
 	dimension, _ := cmd.Flags().GetInt("dimension")
 	if dimension != 3 {
-		return nil, fmt.Errorf("first-layer lessons require --dimension 3")
+		return nil, fmt.Errorf("beginner lessons require --dimension 3")
 	}
 	start, _ := cmd.Flags().GetString("start")
 	c := cube.NewCube(3)
@@ -84,11 +84,34 @@ func firstLayerInput(cmd *cobra.Command, args []string) (*cube.Cube, error) {
 	return c, nil
 }
 
+type lessonView struct {
+	Steps []cube.FirstLayerStep
+	Final *cube.Cube
+	Moves []cube.Move
+}
+
+func planLesson(c *cube.Cube, goal string) (*lessonView, error) {
+	if goal == "first-layer" {
+		lesson, err := cube.PlanFirstLayer(c)
+		if err != nil {
+			return nil, err
+		}
+		return &lessonView{lesson.Steps, lesson.Final, lesson.Moves()}, nil
+	}
+	lesson, err := cube.PlanBeginner(c)
+	if err != nil {
+		return nil, err
+	}
+	return &lessonView{lesson.Steps, lesson.Final, lesson.Moves()}, nil
+}
+
 func newLearnCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "learn [scramble]", Short: "Learn the white first layer on a 3x3 cube",
-		Long: `Plan a white cross and four corners from your current cube state.
-The goal is the first layer; the middle and last layers may remain scrambled.
+		Use: "learn [scramble]", Short: "Learn a complete beginner solve on a 3x3 cube",
+		Long: `Solve a 3x3 from your current cube state, one beginner checkpoint at a time:
+white cross, white corners, middle edges, yellow cross, matching yellow edges,
+placing yellow corners, and turning them upright. Use --goal first-layer for
+just the white layer. The default full goal finishes all six faces.
 
 To create a scramble, begin with a solved cube held white down, blue front.
 A rotation in your scramble is supported. With --start, keep the orientation
@@ -104,6 +127,10 @@ Examples:
   cube learn --start "YB|Y9/R9/B9/W9/O9/G9"`,
 		Args: cobra.MaximumNArgs(1), SilenceUsage: true, SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			goal, _ := cmd.Flags().GetString("goal")
+			if goal != "full" && goal != "first-layer" {
+				return fmt.Errorf("unknown goal %q; choose full or first-layer", goal)
+			}
 			c, err := firstLayerInput(cmd, args)
 			if err != nil {
 				return err
@@ -112,11 +139,11 @@ Examples:
 			color, _ := cmd.Flags().GetBool("color")
 			letters, _ := cmd.Flags().GetBool("letters")
 			out := cmd.OutOrStdout()
-			printLessonIntro(out)
+			printLessonIntro(out, goal)
 			if interactive {
-				return runLessonSession(cmd.InOrStdin(), out, c, color, color && !letters)
+				return runLessonSession(cmd.InOrStdin(), out, c, color, color && !letters, goal)
 			}
-			lesson, err := cube.PlanFirstLayer(c)
+			lesson, err := planLesson(c, goal)
 			if err != nil {
 				return err
 			}
@@ -128,12 +155,17 @@ Examples:
 				state, _ := cfen.GenerateCFEN(step.After)
 				fmt.Fprintf(out, "After this checkpoint: %s\n\n", state)
 			}
-			fmt.Fprintln(out, "First-layer moves:", cube.FormatMoves(lesson.Moves()))
-			printLessonState(out, lesson.Final, color, color && !letters)
+			label := "Solution:"
+			if goal == "first-layer" {
+				label = "First-layer moves:"
+			}
+			fmt.Fprintln(out, label, cube.FormatMoves(lesson.Moves))
+			printLessonState(out, lesson.Final, color, color && !letters, goal)
 			return nil
 		},
 	}
-	cmd.Flags().IntP("dimension", "d", 3, "Cube dimension (first-layer lessons support 3 only)")
+	cmd.Flags().String("goal", "full", "Lesson goal: full cube or first-layer")
+	cmd.Flags().IntP("dimension", "d", 3, "Cube dimension (beginner lessons support 3 only)")
 	cmd.Flags().String("start", "", "Concrete CFEN in YB storage order; resume from a saved state")
 	cmd.Flags().Bool("interactive", false, "Follow checkpoints with next, moves, undo, reset and state")
 	cmd.Flags().BoolP("color", "c", false, "Use colored Unicode blocks")
@@ -141,8 +173,12 @@ Examples:
 	return cmd
 }
 
-func printLessonIntro(out io.Writer) {
-	fmt.Fprintln(out, "White first-layer lesson: cross + four corners on a 3x3.")
+func printLessonIntro(out io.Writer, goal string) {
+	if goal == "first-layer" {
+		fmt.Fprintln(out, "White first-layer lesson: cross + four corners on a 3x3.")
+	} else {
+		fmt.Fprintln(out, "Complete beginner 3x3 lesson: white layer, middle layer, yellow cross, yellow corners.")
+	}
 	fmt.Fprintln(out, "Start in the orientation represented by the input state. Rotate only when instructed.")
 	fmt.Fprintln(out, "Target orientation: white down, yellow up, blue front, red right.")
 	fmt.Fprintln(out, "R/L/U/D/F/B turn the right/left/top/bottom/front/back face clockwise as viewed directly at that face.")
@@ -161,26 +197,37 @@ func printLessonStep(out io.Writer, step cube.FirstLayerStep) {
 	fmt.Fprintln(out, "Check:", step.Check)
 }
 
-func printLessonState(out io.Writer, c *cube.Cube, color, unicode bool) {
+func printLessonState(out io.Writer, c *cube.Cube, color, unicode bool, goal string) {
 	fmt.Fprintln(out, c.UnfoldedString(color, unicode))
 	state, _ := cfen.GenerateCFEN(c)
 	fmt.Fprintln(out, "Saved state:", state)
+	if c.IsSolved() && goal == "full" {
+		fmt.Fprintln(out, "Cube complete: all six faces are uniform and match their centers.")
+		return
+	}
 	if cube.FirstLayerSolved(c) {
 		if c.Faces[cube.Down][1][1] == cube.White {
 			fmt.Fprintln(out, "First layer complete: white face and all four side bottom rows match their centers.")
 		} else {
-			fmt.Fprintln(out, "The white layer pieces are already solved. Follow the orientation checkpoint to put white down.")
+			fmt.Fprintln(out, "The white layer pieces are already solved. Follow any orientation checkpoint to put white down.")
 		}
 		if c.IsSolved() {
 			fmt.Fprintln(out, "The whole cube is also solved.")
-		} else {
+		} else if goal == "first-layer" {
 			fmt.Fprintln(out, "Middle and last layers still need solving; this lesson stops at the first layer.")
+		} else if cube.TwoLayersSolved(c) {
+			fmt.Fprintln(out, "The first two layers are complete. Continue with the yellow layer.")
+		} else {
+			fmt.Fprintln(out, "Continue with the middle layer, then the yellow layer.")
 		}
 	}
 }
 
-func runLessonSession(in io.Reader, out io.Writer, c *cube.Cube, color, unicode bool) error {
+func runLessonSession(in io.Reader, out io.Writer, c *cube.Cube, color, unicode bool, goal string) error {
 	session, err := cube.NewFirstLayerSession(c)
+	if goal == "full" {
+		session, err = cube.NewBeginnerSession(c)
+	}
 	if err != nil {
 		return err
 	}
@@ -189,8 +236,8 @@ func runLessonSession(in io.Reader, out io.Writer, c *cube.Cube, color, unicode 
 	fmt.Fprintln(out, "If you made different moves, use moves <actual moves> instead of next; record everything since the current displayed state.")
 	show := func() error {
 		state := session.State()
-		printLessonState(out, state, color, unicode)
-		lesson, err := cube.PlanFirstLayer(state)
+		printLessonState(out, state, color, unicode, goal)
+		lesson, err := planLesson(state, goal)
 		if err == nil && len(lesson.Steps) > 0 {
 			fmt.Fprint(out, "Next checkpoint: ")
 			printLessonStep(out, lesson.Steps[0])
@@ -210,7 +257,7 @@ func runLessonSession(in io.Reader, out io.Writer, c *cube.Cube, color, unicode 
 		}
 		if errors.Is(err, io.EOF) {
 			state, _ := cfen.GenerateCFEN(session.State())
-			fmt.Fprintln(out, "Input ended. Resume: cube learn --start '"+state+"' --interactive")
+			fmt.Fprintln(out, "Input ended. Resume: cube learn --start '"+state+"' --goal "+goal+" --interactive")
 			return nil
 		}
 		if err != nil {
@@ -220,7 +267,7 @@ func runLessonSession(in io.Reader, out io.Writer, c *cube.Cube, color, unicode 
 		switch line {
 		case "quit", "exit":
 			state, _ := cfen.GenerateCFEN(session.State())
-			fmt.Fprintln(out, "Resume: cube learn --start '"+state+"' --interactive")
+			fmt.Fprintln(out, "Resume: cube learn --start '"+state+"' --goal "+goal+" --interactive")
 			return nil
 		case "help":
 			fmt.Fprintln(out, "next confirms the displayed group; moves <sequence> records what you actually did instead.")
@@ -239,7 +286,11 @@ func runLessonSession(in io.Reader, out io.Writer, c *cube.Cube, color, unicode 
 			if step != nil {
 				fmt.Fprintln(out, "Confirmed:", step.Title)
 			} else {
-				fmt.Fprintln(out, "First layer already complete; no moves applied.")
+				if goal == "full" {
+					fmt.Fprintln(out, "Cube already complete; no moves applied.")
+				} else {
+					fmt.Fprintln(out, "First layer already complete; no moves applied.")
+				}
 			}
 		case "undo":
 			moves, ok := session.Undo()
@@ -327,8 +378,8 @@ func runFirstLayerSolve(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(out, "First-layer moves:", cube.FormatMoves(lesson.Moves()))
 		color, _ := cmd.Flags().GetBool("color")
 		letters, _ := cmd.Flags().GetBool("letters")
-		printLessonState(out, lesson.Final, color, color && !letters)
-		fmt.Fprintln(out, "Use cube learn with the same input for piece-by-piece instructions.")
+		printLessonState(out, lesson.Final, color, color && !letters, "first-layer")
+		fmt.Fprintln(out, "Use cube learn --goal first-layer with the same input for piece-by-piece instructions.")
 	}
 	return nil
 }

@@ -1,9 +1,9 @@
 # 🎲 Basic Solving Guide
 
-Use [the working white first-layer lesson](./first-layer.md). The older examples
-below predate its implementation and describe full-cube solvers that remain stubs.
-Use `cube twist` to explore those move sequences; they do not demonstrate a
-working full-cube solution.
+Use [the complete beginner lesson](./beginner.md). The older examples below
+predate its implementation and may describe unsupported CFOP, Kociemba, larger
+size or web behavior. The current full solver supports beginner 3×3; use
+`cube twist` to explore other sizes and notation.
 
 Complete beginner's guide to using the Cube solver. Start here if you're new to Rubik's cubes or this solving tool.
 

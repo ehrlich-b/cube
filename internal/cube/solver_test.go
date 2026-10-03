@@ -1,6 +1,7 @@
 package cube
 
-// All solver tests commented out until real solvers are implemented
+// Active beginner solver tests are in full_lesson_test.go and invariants_test.go.
+// These commented legacy drafts are retained for future CFOP/Kociemba work.
 
 /*
 func TestGetSolver(t *testing.T) {

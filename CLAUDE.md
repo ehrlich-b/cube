@@ -2,19 +2,22 @@
 
 ## Current milestone (2026-10-03)
 
-Read TODO.md first. `cube learn [scramble]` and `cube solve <scramble> --goal
-first-layer` now solve the white cross and corners on a physical 3×3 state.
-`learn --interactive` supports actual moves, undo/reset and saved CFEN recovery.
-`first_layer.go` uses a separate partial-goal result; do not wire partial moves
-into the full `Solver` interface or weaken its invariant. Full-cube solvers below
-remain stubs. `pieces.go` supplies concrete 3×3 piece tracking.
+Read TODO.md first. `cube learn [scramble]` and `cube solve [scramble]` now
+complete a physical 3×3 using the beginner method. `--goal first-layer` retains
+the white cross/corners sublesson. Interactive lessons support actual moves,
+undo/reset, rotated grips and saved CFEN recovery. `full_lesson.go` extends the
+verified first-layer checkpoints; only complete solutions implement `Solver`.
+Do not weaken the full-solver invariant. CFOP and Kociemba API implementations
+remain stubs, and the CLI rejects them and unsupported dimensions.
 
-Run `make test-all`, `make test-first-layer` (independent Python stdlib oracle),
-and `make fmt && make vet` before committing. The E2E suite now includes 16
-first-layer cases in addition to 98 legacy cases; legacy full-solver skips remain.
+Run `make test-all`, `make test-first-layer`, `make test-beginner` (independent
+Python stdlib geometry/cubie oracles), and `make fmt && make vet` before
+committing. The E2E suite has 122 cases with active beginner full-solve checks.
 Rotation, slice and far-layer permutations are checked by an independent 3D
 sticker oracle. x/y/z follow R/U/F and E follows D. CFEN lesson input uses YB
 storage order; actual centers determine orientation, never the prefix alone.
+See examples/beginner.md and docs/verification-full-2026-10-03.md. Human physical
+usability is not yet verified.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -32,7 +35,7 @@ make build-all-local    # Everything locally
 
 # Test basic cube functionality
 ./dist/cube twist "R U R' U'" --color
-./dist/cube solve "R U R' U'" --color   # NOTE: solve is a STUB — prints the cube but an EMPTY solution
+./dist/cube solve "R U R' U'" --color   # Complete 3×3 beginner solution
 
 # Test enhanced verification system
 ./dist/cube verify "R U R' U'" --start "YB|Y9/R9/B9/W9/O9/G9" --target "YB|Y9/R9/B9/W9/O9/G9" --verbose
@@ -43,7 +46,7 @@ make build-all-local    # Everything locally
 ./dist/tools/verify-algorithm "T-Perm" --verbose
 ./dist/tools/verify-database --category OLL
 
-# Cube sizes / notation (solve still emits no solution — these just show the scrambled state)
+# Cube sizes / notation (twist supports larger dimensions; beginner solving supports 3×3)
 ./dist/cube twist "R U R' U'" --dimension 3
 ./dist/cube twist "Rw Uw Fw" --dimension 4 --color
 
@@ -63,7 +66,7 @@ These are the load-bearing tests. **If any go red, stop and fix that first** —
 - `internal/cfen/cfen_test.go` — canonical solved CFEN, cube<->CFEN round-trip (all 4 orientations), wildcard matching, verify semantics.
 - `internal/cli/commands_test.go` — no command is registered twice.
 
-Run with `make test` (Go unit tests) or `make test-all` (adds the 98 e2e tests). All must be green before committing.
+Run with `make test` (Go unit tests) or `make test-all` (adds the 122 e2e tests). All must be green before committing.
 
 ## Cube Orientation
 
@@ -103,7 +106,7 @@ Available rotations: `x`, `y`, `z` (with `'` for counter-clockwise, `2` for 180�
 
 **Code Quality (ALWAYS run before committing):**
 - `make test` - Run unit tests
-- `make e2e-test` - Run end-to-end test suite (98 comprehensive tests)
+- `make e2e-test` - Run end-to-end test suite (122 cases)
 - `make test-all` - Run both unit and e2e tests
 - `make fmt` - Format Go code (cross-platform compatible)
 - `make vet` - Static analysis
@@ -151,12 +154,13 @@ tools/ (Database utilities) ────────────┘
 **Solver System (`internal/cube/solver.go`):**
 - Interface-driven design: `type Solver interface { Solve(*Cube) (*SolverResult, error); Name() string }`
 - Three registered solvers: BeginnerSolver, CFOPSolver, KociembaSolver
-- **All three are empty stubs that return an empty solution for any unsolved cube.** This is the project's central gap.
+- BeginnerSolver completes a validated 3×3 via `PlanBeginner`; CFOP and Kociemba remain empty API stubs.
 - `internal/cube/solving_db.go` sketches a 4-look pattern-match solver but is **dead code** (unwired to any command)
 
 **Main CLI Commands (`internal/cli/`):** (with honest status)
 - `cube twist` - apply moves, display result (+ `--cfen`) — **works**
-- `cube solve` - `--algorithm`/`--dimension` — **STUB: prints the scramble then an EMPTY solution**
+- `cube solve` - complete 3×3 beginner solution; unavailable algorithms/dimensions error
+- `cube learn` - complete beginner checkpoints and recovery; explicit `--goal first-layer` supported
 - `cube verify <alg> --start <cfen> --target <cfen>` - CFEN verification — **works** (YB). Note: takes ONE positional arg (the algorithm), not two.
 - `cube show` - display with cross/OLL/PLL/F2L highlighting — **works**
 - `cube lookup` - algorithm database lookup — **works**
@@ -178,8 +182,8 @@ tools/ (Database utilities) ────────────┘
 2. Create `Cube` with specified dimension
 3. Apply scramble moves to cube
 4. Get solver by algorithm name from factory
-5. Execute `solver.Solve(cube)` → `SolverResult` (**currently returns an empty solution — solvers are stubs**)
-6. Format output for CLI display
+5. Execute `solver.Solve(cube)` → `SolverResult` (BeginnerSolver solves the complete 3×3 without mutating input)
+6. Replay and verify the full solution, then format output for CLI display
 
 ### Current Implementation Status
 
@@ -194,12 +198,13 @@ tools/ (Database utilities) ────────────┘
 - **Verified algorithm collection** - 5 algorithms with real CFEN patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move) — all pass `verify-database`
 - **Clean architecture** - Separate database tools from main CLI
 - **Database verification tools** - Standalone utilities for algorithm curation
-- **Comprehensive test suite** - 98 end-to-end tests + Go unit tests, all green
+- **Comprehensive test suite** - 122 end-to-end tests + Go unit tests and independent Python physical replay
 - **Invariant guardrail suite** - load-bearing engine/solver/CFEN invariants (see "Invariants & Guardrails" near the top)
 - Cross-platform build system (macOS/Linux compatible)
 
 **⚠️ Current Issues / Known Gaps:**
-- **All solvers are unimplemented stubs** — `cube solve` emits nothing. This is the headline gap.
+- CFOP/Kociemba and larger-cube solving remain unimplemented; CLI rejects those selections.
+- Beginner physical usability remains unverified by a human trial.
 - Algorithm database has only 5 verification patterns (of 63 entries)
 - `internal/cube/solving_db.go` is a dead-code 4-look pattern-matcher — wire it up or delete it
 - `internal/cube/cubie.go` is an unused piece-addressing stub reserved for future piece tracking
@@ -209,7 +214,7 @@ tools/ (Database utilities) ────────────┘
 - `TODO.md` - **ALWAYS READ FIRST** - Current development plan and progress
 - `internal/cube/cube.go` - Core cube representation, color output methods
 - `internal/cube/moves.go` - Move parsing and application logic
-- `internal/cube/solver.go` - Solver implementations (currently unimplemented stubs)
+- `internal/cube/solver.go` - Full beginner implementation and CFOP/Kociemba stubs
 - `internal/cube/algorithms.go` - Algorithm database (63 entries, 5 with CFEN patterns)
 - `internal/cfen/` - Complete CFEN parsing, generation, and verification system
 - `internal/cli/verify.go` - Enhanced verification command with CFEN support
@@ -219,7 +224,7 @@ tools/ (Database utilities) ────────────┘
 - `tools/verify-algorithm/` - Standalone algorithm verification tool
 - `tools/verify-database/` - Standalone database verification tool
 - `tools/README.md` - Documentation for database tools
-- `test/e2e_test.sh` - Comprehensive end-to-end test suite (98 tests)
+- `test/e2e_test.sh` - Comprehensive end-to-end test suite (122 cases)
 - **Project Documentation:**
   - `/docs/move_db_refactor.md` - Algorithm database refactor design
   - `/docs/move_visualization.md` - Enhanced last-layer visualization
@@ -285,15 +290,12 @@ RRR WWW BOO YYY
 ```
 
 ### Solver status (IMPORTANT)
-The `solve` command is a **stub**. All three algorithms (`beginner`, `cfop`, `kociemba`)
-return an empty solution for any unsolved cube, so the loop below currently prints three
-empty `Solution:` lines — it does NOT demonstrate working solvers.
+The default beginner solver completes a valid 3×3 and its returned moves are
+checked against all six faces. Use `--goal first-layer` for the partial goal.
+CFOP and Kociemba are unimplemented and rejected by the CLI.
 ```bash
-# All three currently emit an EMPTY solution (no solver implemented yet):
-for algo in beginner cfop kociemba; do
-    echo "=== $algo ==="
-    ./dist/cube solve "R U R' U'" --algorithm $algo | grep "Solution:"
-done
+./dist/cube solve "R U R' U'" --headless
+./dist/cube learn "R U F2 L' B" --interactive
 ```
 
 ### Common Development Patterns
@@ -312,7 +314,7 @@ done
 
 **Testing move notation:**
 ```bash
-# Test advanced moves on different cube sizes (use twist; solve is a stub)
+# Test advanced moves on different cube sizes (beginner solving supports 3×3 only)
 ./dist/cube twist "M E S" --dimension 3 --color        # Slice moves
 ./dist/cube twist "Rw Fw' Uw2" --dimension 4 --color    # Wide moves  
 ./dist/cube twist "2R 3L'" --dimension 5 --color       # Layer moves
@@ -363,12 +365,12 @@ make build-tools
 **Before starting any work:**
 1. Read TODO.md to understand current phase
 2. Run `make build-all-local` to build CLI + tools
-3. Check if tests pass with `make test-all` (runs all 98 e2e tests)
+3. Check if tests pass with `make test-all` (runs all 122 e2e tests)
 4. Test database tools with `./dist/tools/verify-database`
 5. Always run `make fmt && make vet` before committing
 
 **Test Suite Coverage:**
-- **Comprehensive end-to-end tests** covering every CLI command and feature (98 tests)
+- **Comprehensive end-to-end tests** covering every CLI command and feature (122 cases)
 - **All cube dimensions** (2x2 through 20x20) with proper multi-layer moves
 - **Advanced notation** (M/E/S slices, Rw/Fw wide moves, 2R/3L layer moves, x/y/z rotations)
 - **Enhanced verification system** (CFEN patterns, wildcard matching, database verification)
@@ -376,4 +378,4 @@ make build-tools
 - **Integration tests** (solve + verify workflows)
 - **Performance tests** (large scrambles, complex cubes)
 - **CFEN parsing and generation tests** (cube state conversion, pattern matching)
-- **Pure bash implementation** - no Python dependencies, fully cross-platform
+- **Bash E2E harness** plus optional independent Python stdlib physical replay oracles

@@ -14,6 +14,7 @@ type FirstLayerSession struct {
 	initial *Cube
 	current *Cube
 	history []lessonHistory
+	full    bool
 }
 
 func NewFirstLayerSession(c *Cube) (*FirstLayerSession, error) {
@@ -23,15 +24,39 @@ func NewFirstLayerSession(c *Cube) (*FirstLayerSession, error) {
 	return &FirstLayerSession{initial: c.clone(), current: c.clone()}, nil
 }
 
+// NewBeginnerSession uses the same atomic history/recovery mechanics, with a
+// full-cube goal. First-layer sessions remain available as an explicit sublesson.
+func NewBeginnerSession(c *Cube) (*FirstLayerSession, error) {
+	session, err := NewFirstLayerSession(c)
+	if err == nil {
+		session.full = true
+	}
+	return session, err
+}
+
 // State returns a snapshot that callers may safely inspect or change.
 func (s *FirstLayerSession) State() *Cube { return s.current.clone() }
 
 func (s *FirstLayerSession) Next() (*FirstLayerStep, error) {
-	lesson, err := PlanFirstLayer(s.current)
-	if err != nil || len(lesson.Steps) == 0 {
+	var steps []FirstLayerStep
+	var err error
+	if s.full {
+		var lesson *BeginnerLesson
+		lesson, err = PlanBeginner(s.current)
+		if err == nil {
+			steps = lesson.Steps
+		}
+	} else {
+		var lesson *FirstLayerLesson
+		lesson, err = PlanFirstLayer(s.current)
+		if err == nil {
+			steps = lesson.Steps
+		}
+	}
+	if err != nil || len(steps) == 0 {
 		return nil, err
 	}
-	step := lesson.Steps[0]
+	step := steps[0]
 	if err := s.Record(step.Moves()); err != nil {
 		return nil, err
 	}

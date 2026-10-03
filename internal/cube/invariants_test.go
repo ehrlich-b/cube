@@ -169,8 +169,8 @@ func TestInvariant_SolvedDetection(t *testing.T) {
 //	if a solver returns a non-empty solution, applying that solution to the
 //	scrambled cube MUST yield a solved cube.
 //
-// Today all solvers are unimplemented stubs that return an empty solution, so
-// every case below reports SKIP rather than fail — we never lock in the broken
+// The 3x3 beginner solver now returns real solutions and passes this guardrail.
+// CFOP and Kociemba remain empty stubs, so their cases report SKIP rather than fail — we never lock in the broken
 // "returns empty" behavior as correct. The moment a solver emits real moves,
 // this test holds it to actually solving the cube. A solver cannot pass by
 // faking output, and cannot hide an empty answer as success.

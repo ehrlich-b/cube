@@ -5,15 +5,16 @@ move notation, a CFEN state/pattern language with verification, move optimizatio
 and a breadth-first algorithm search.
 
 > **Honest status:** the move engine, verification, optimization, and search all work
-> and are covered by tests. **A 3×3 white first-layer solver and beginner lesson now
-> work.** Full-cube solving remains unimplemented. See [the beginner guide](./examples/first-layer.md).
+> and are covered by tests. **A complete 3×3 beginner solver and lesson now work.**
+> See [the beginner guide](./examples/beginner.md). CFOP and Kociemba remain unimplemented.
 
 ## Status
 
 **Works today**
-- `cube learn` — white cross and four corners, with piece checkpoints, orientation
+- `cube learn` — a complete layer-by-layer 3×3 solve, with checkpoints, orientation
   guidance and interactive recovery (`next`, `moves`, `undo`, `reset`, saved CFEN)
-- `cube solve --goal first-layer` — explicit 3×3 partial goal, including headless moves
+- `cube solve` — complete 3×3 beginner solution, including headless moves
+- `--goal first-layer` retains the explicit white-layer sublesson
 - Physical 3×3 state validation: color counts, centers, cubie identity, flips, twists, parity
 - NxNxN move engine (2x2 through large N), all WCA notation, whole-cube rotations
 - `cube twist` — apply moves, render the cube (ASCII / colored / Unicode)
@@ -23,7 +24,8 @@ and a breadth-first algorithm search.
 - `cube lookup`, `cube show`, the CFEN utility commands, and the `verify-*` database tools
 
 **Not implemented yet**
-- `cube solve --goal full` (the default) — **all three full-cube solvers remain empty stubs.** Middle- and last-layer solving is the next gap.
+- **CFOP and Kociemba remain empty API stubs**; the CLI rejects these unavailable algorithms.
+- Beginner solving supports 3×3 only; other dimensions are rejected, not reported as solved.
 - Algorithm database has only 5 entries with verification patterns (of 63 defined)
 - `cube find` is correct but exponential — practical only to ~6 moves; it is not a general scramble solver
 
@@ -38,8 +40,11 @@ make build-tools      # builds dist/tools/verify-algorithm and verify-database
 # Apply moves and see the result
 ./dist/cube twist "R U R' U'" --color
 
-# Learn a white first layer, one checkpoint at a time
+# Finish a scrambled 3x3, one beginner checkpoint at a time
 ./dist/cube learn "R U F2 L' B" --interactive --color
+
+# Return moves that solve all six faces
+./dist/cube solve "R U F2 L' B" --headless
 
 # Return moves that solve the first layer (other layers may remain scrambled)
 ./dist/cube solve "R U F2 L' B" --goal first-layer --headless
@@ -69,9 +74,9 @@ See [examples/](./examples/) for tutorials and pattern walkthroughs.
 | `find` | BFS search for sequences reaching a pattern | works (exponential) |
 | `parse-cfen` / `generate-cfen` / `verify-cfen` / `match-cfen` | CFEN utilities | works |
 | `identify` / `show-alg` | Pattern identify / algorithm display | partial |
-| `learn` | Teach the white first layer, with recovery and checkpoints | works (3×3) |
+| `learn` | Teach a complete beginner solve, with recovery and checkpoints | works (3×3) |
 | `solve --goal first-layer` | Solve the white first layer | works (3×3 beginner) |
-| `solve --goal full` | Solve all three layers | **stub** |
+| `solve` / `solve --goal full` | Solve all three layers with beginner method | works (3×3) |
 
 Note: `verify` takes a single positional argument — the algorithm — plus `--start`/`--target` flags.
 
@@ -99,9 +104,10 @@ to work from a different orientation.
 
 ```bash
 make test        # Go unit tests, including the invariant suite
-make e2e-test    # 98 end-to-end CLI tests
+make e2e-test    # 122 end-to-end CLI tests
 make test-all    # both
-make test-first-layer  # independent cubie-state and interactive replay oracle (Python 3)
+make test-first-layer  # independent partial-goal regression oracle (Python 3)
+make test-beginner     # independently replay full solutions and last-layer recovery
 make fmt && make vet   # before committing
 ```
 
@@ -124,8 +130,8 @@ internal/cube/                   # Core engine
   moves.go / move_parser.go      # move parsing + application
   ring_generators.go / permutations.go  # the permutation engine
   algorithms.go                  # algorithm database
-  solver.go                      # solver interface + (stub) implementations
-  first_layer.go / lesson_session.go  # partial-goal solver and recoverable lesson
+  solver.go                      # full beginner solver + CFOP/Kociemba stubs
+  first_layer.go / full_lesson.go / lesson_session.go  # beginner checkpoints and recovery
   state_validation.go            # physical 3x3 legality checks
   solving_db.go                  # experimental 4-look pattern matcher (currently unwired)
   cubie.go                       # piece-addressing scaffold for future piece tracking (unused)
@@ -165,9 +171,10 @@ func main() {
 
 ## Roadmap
 
-The white first layer is now complete. The next solver milestone is the middle
-layer, followed by the last layer. Partial results use their own result type and
-explicit goal, so the full-solver contract still requires a fully solved cube.
+The complete beginner path now finishes all six faces. The unchanged full-solver
+contract actively checks it. Partial first-layer results retain a separate result
+type and explicit goal. Next improvements should follow a human physical-cube
+trial; CFOP, Kociemba and larger-cube solving remain future work.
 See [TODO.md](./TODO.md) and [docs/solvers.md](./docs/solvers.md).
 
 ## License

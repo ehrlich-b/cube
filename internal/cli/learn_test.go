@@ -11,6 +11,7 @@ import (
 
 func executeLearn(input string, args ...string) (string, error) {
 	cmd := newLearnCommand()
+	cmd.Flags().Set("goal", "first-layer")
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
