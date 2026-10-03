@@ -772,6 +772,33 @@ run_test "identify with suggestions" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9' 
 run_test "identify with category filter" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9' --category OLL" "Category: OLL"
 run_test "identify invalid CFEN" "$CUBE_BIN identify 'INVALID'" "" true
 
+# Working first-layer goal and beginner interaction
+echo -e "\n${YELLOW}First-Layer Lesson Tests:${NC}"
+run_test "Learn a first layer" "$CUBE_BIN learn \"R U F2 L' B\"" "First layer complete:"
+run_test "Learn a rotated scramble" "$CUBE_BIN learn \"x y' R U F2 L' B\"" "Hold white down and blue front"
+run_test "Learn with color" "$CUBE_BIN learn R --color" "🟦"
+run_test "Learn rejects bad dimensions" "$CUBE_BIN learn R --dimension 2" "" true
+run_test "Learn rejects malformed moves" "$CUBE_BIN learn R3" "" true
+run_test "Learn rejects wildcard input" "$CUBE_BIN learn --start 'YB|Y9/?9/B9/W9/O9/G9'" "" true
+run_test "Learn rejects huge CFEN runs" "$CUBE_BIN learn --start 'YB|Y999999999/R9/B9/W9/O9/G9'" "" true
+run_test "Interactive actual moves recover" "printf 'moves x R U\nundo\nreset\nquit\n' | $CUBE_BIN learn R --interactive" "Resume: cube learn"
+run_test "Completed next is a no-op" "printf 'next\nnext\nquit\n' | $CUBE_BIN learn U --interactive" "no moves applied"
+run_test "Solve first-layer explicit goal" "$CUBE_BIN solve \"R U F2 L' B\" --goal first-layer" "Middle and last layers still need solving"
+run_test "Solve first-layer incompatible algorithm" "$CUBE_BIN solve R --goal first-layer --algorithm cfop" "" true
+run_test "Solve rejects unknown goal" "$CUBE_BIN solve R --goal unknown" "" true
+run_test "Full solver explains limitation" "$CUBE_BIN solve R" "Full-cube solver is not implemented"
+
+# Headless moves are replayed through verify against an independent sticker-row
+# pattern. An empty placeholder answer cannot satisfy this scrambled fixture.
+first_layer_scramble="x y' R U F2 L' B D R2 U'"
+first_layer_start=$($CUBE_BIN generate-cfen "$first_layer_scramble")
+first_layer_moves=$($CUBE_BIN solve "$first_layer_scramble" --goal first-layer --headless)
+first_layer_target='YB|?9/??????RRR/??????BBB/W9/??????OOO/??????GGG'
+run_test "First-layer headless replay" "$CUBE_BIN verify \"$first_layer_moves\" --start \"$first_layer_start\" --target '$first_layer_target' --headless"
+first_layer_final=$($CUBE_BIN solve "$first_layer_scramble" --goal first-layer --cfen --headless)
+run_test "First-layer saved CFEN replay" "$CUBE_BIN verify '' --start '$first_layer_final' --target '$first_layer_target' --headless"
+run_test "Resume completed first layer" "$CUBE_BIN learn --start '$first_layer_final'" "First layer complete:"
+
 # Summary
 echo -e "\n${YELLOW}=== Test Summary ===${NC}"
 echo -e "Total tests: $TESTS_TOTAL"

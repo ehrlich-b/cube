@@ -89,13 +89,10 @@ func getAffectedLayers(move Move, N int) []int {
 		return []int{N / 2} // Middle layer
 	}
 
-	// Handle cube rotations (affect all layers)
+	// A cube-rotation permutation already includes every layer. Apply it once,
+	// rather than once per layer (which changes the angle with cube size).
 	if move.Rotation != NoRotation {
-		layers := make([]int, N)
-		for i := 0; i < N; i++ {
-			layers[i] = i
-		}
-		return layers
+		return []int{0}
 	}
 
 	// Handle face moves

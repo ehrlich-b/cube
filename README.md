@@ -5,12 +5,16 @@ move notation, a CFEN state/pattern language with verification, move optimizatio
 and a breadth-first algorithm search.
 
 > **Honest status:** the move engine, verification, optimization, and search all work
-> and are covered by tests. **Solving does not yet work** — `cube solve` is a stub that
-> returns an empty solution. See [where things stand](#status) and [TODO.md](./TODO.md).
+> and are covered by tests. **A 3×3 white first-layer solver and beginner lesson now
+> work.** Full-cube solving remains unimplemented. See [the beginner guide](./examples/first-layer.md).
 
 ## Status
 
 **Works today**
+- `cube learn` — white cross and four corners, with piece checkpoints, orientation
+  guidance and interactive recovery (`next`, `moves`, `undo`, `reset`, saved CFEN)
+- `cube solve --goal first-layer` — explicit 3×3 partial goal, including headless moves
+- Physical 3×3 state validation: color counts, centers, cubie identity, flips, twists, parity
 - NxNxN move engine (2x2 through large N), all WCA notation, whole-cube rotations
 - `cube twist` — apply moves, render the cube (ASCII / colored / Unicode)
 - `cube verify` — check an algorithm against CFEN start/target states (wildcards supported)
@@ -19,7 +23,7 @@ and a breadth-first algorithm search.
 - `cube lookup`, `cube show`, the CFEN utility commands, and the `verify-*` database tools
 
 **Not implemented yet**
-- `cube solve` — **all three solvers (beginner, CFOP, Kociemba) are empty stubs.** Scramble → solution is the next big piece of work.
+- `cube solve --goal full` (the default) — **all three full-cube solvers remain empty stubs.** Middle- and last-layer solving is the next gap.
 - Algorithm database has only 5 entries with verification patterns (of 63 defined)
 - `cube find` is correct but exponential — practical only to ~6 moves; it is not a general scramble solver
 
@@ -33,6 +37,12 @@ make build-tools      # builds dist/tools/verify-algorithm and verify-database
 
 # Apply moves and see the result
 ./dist/cube twist "R U R' U'" --color
+
+# Learn a white first layer, one checkpoint at a time
+./dist/cube learn "R U F2 L' B" --interactive --color
+
+# Return moves that solve the first layer (other layers may remain scrambled)
+./dist/cube solve "R U F2 L' B" --goal first-layer --headless
 
 # Verify an algorithm against CFEN states (sexy move x6 = identity → solved)
 ./dist/cube verify "R U R' U' R U R' U' R U R' U' R U R' U' R U R' U' R U R' U'" \
@@ -59,7 +69,9 @@ See [examples/](./examples/) for tutorials and pattern walkthroughs.
 | `find` | BFS search for sequences reaching a pattern | works (exponential) |
 | `parse-cfen` / `generate-cfen` / `verify-cfen` / `match-cfen` | CFEN utilities | works |
 | `identify` / `show-alg` | Pattern identify / algorithm display | partial |
-| `solve` | Solve a scrambled cube | **stub (returns nothing)** |
+| `learn` | Teach the white first layer, with recovery and checkpoints | works (3×3) |
+| `solve --goal first-layer` | Solve the white first layer | works (3×3 beginner) |
+| `solve --goal full` | Solve all three layers | **stub** |
 
 Note: `verify` takes a single positional argument — the algorithm — plus `--start`/`--target` flags.
 
@@ -89,6 +101,7 @@ to work from a different orientation.
 make test        # Go unit tests, including the invariant suite
 make e2e-test    # 98 end-to-end CLI tests
 make test-all    # both
+make test-first-layer  # independent cubie-state and interactive replay oracle (Python 3)
 make fmt && make vet   # before committing
 ```
 
@@ -112,6 +125,8 @@ internal/cube/                   # Core engine
   ring_generators.go / permutations.go  # the permutation engine
   algorithms.go                  # algorithm database
   solver.go                      # solver interface + (stub) implementations
+  first_layer.go / lesson_session.go  # partial-goal solver and recoverable lesson
+  state_validation.go            # physical 3x3 legality checks
   solving_db.go                  # experimental 4-look pattern matcher (currently unwired)
   cubie.go                       # piece-addressing scaffold for future piece tracking (unused)
 internal/cfen/                   # CFEN parsing, generation, conversion, matching
@@ -150,10 +165,10 @@ func main() {
 
 ## Roadmap
 
-The near-term goal is a working **scramble → solution** path via a beginner layer-by-layer
-method (recognize a case, apply the known algorithm), confirmable with the existing `verify`
-machinery. See [TODO.md](./TODO.md) for the plan and [docs/solvers.md](./docs/solvers.md) for
-the solver analysis.
+The white first layer is now complete. The next solver milestone is the middle
+layer, followed by the last layer. Partial results use their own result type and
+explicit goal, so the full-solver contract still requires a fully solved cube.
+See [TODO.md](./TODO.md) and [docs/solvers.md](./docs/solvers.md).
 
 ## License
 

@@ -1,5 +1,21 @@
 # CLAUDE.md
 
+## Current milestone (2026-10-03)
+
+Read TODO.md first. `cube learn [scramble]` and `cube solve <scramble> --goal
+first-layer` now solve the white cross and corners on a physical 3×3 state.
+`learn --interactive` supports actual moves, undo/reset and saved CFEN recovery.
+`first_layer.go` uses a separate partial-goal result; do not wire partial moves
+into the full `Solver` interface or weaken its invariant. Full-cube solvers below
+remain stubs. `pieces.go` supplies concrete 3×3 piece tracking.
+
+Run `make test-all`, `make test-first-layer` (independent Python stdlib oracle),
+and `make fmt && make vet` before committing. The E2E suite now includes 16
+first-layer cases in addition to 98 legacy cases; legacy full-solver skips remain.
+Rotation, slice and far-layer permutations are checked by an independent 3D
+sticker oracle. x/y/z follow R/U/F and E follows D. CFEN lesson input uses YB
+storage order; actual centers determine orientation, never the prefix alone.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 🚀 Quick Start

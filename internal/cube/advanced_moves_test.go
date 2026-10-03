@@ -206,18 +206,18 @@ func TestCubeRotations(t *testing.T) {
 	xMove := Move{Rotation: X_Rotation, Clockwise: true}
 	cube.ApplyMove(xMove)
 
-	// After x rotation: F→D, U→F, B→U, D→B
-	if cube.Faces[Down][0][0] != originalFront {
-		t.Error("After x rotation, Down face should contain original Front")
+	// x turns the whole cube in the same direction as R: F→U→B→D→F.
+	if cube.Faces[Up][0][0] != originalFront {
+		t.Error("After x rotation, Up face should contain original Front")
 	}
-	if cube.Faces[Front][0][0] != originalUp {
-		t.Error("After x rotation, Front face should contain original Up")
+	if cube.Faces[Back][0][0] != originalUp {
+		t.Error("After x rotation, Back face should contain original Up")
 	}
-	if cube.Faces[Up][0][0] != originalBack {
-		t.Error("After x rotation, Up face should contain original Back")
+	if cube.Faces[Down][0][0] != originalBack {
+		t.Error("After x rotation, Down face should contain original Back")
 	}
-	if cube.Faces[Back][0][0] != originalDown {
-		t.Error("After x rotation, Back face should contain original Down")
+	if cube.Faces[Front][0][0] != originalDown {
+		t.Error("After x rotation, Front face should contain original Down")
 	}
 }
 

@@ -16,9 +16,18 @@ var solveCmd = &cobra.Command{
 	Long: `Solve a scrambled cube using the specified algorithm.
 The scramble should be provided as a string of moves.
 
+Use --goal first-layer for the working 3x3 beginner lesson goal.
+Full-cube algorithms remain unimplemented; use cube learn for explanations.
 Use --headless for programmatic output (space-separated moves only).`,
-	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Args: cobra.ExactArgs(1), SilenceUsage: true, SilenceErrors: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		goal, _ := cmd.Flags().GetString("goal")
+		if goal == "first-layer" {
+			return runFirstLayerSolve(cmd, args)
+		}
+		if goal != "full" {
+			return fmt.Errorf("unknown goal %q; choose full or first-layer", goal)
+		}
 		scramble := args[0]
 		algorithm, _ := cmd.Flags().GetString("algorithm")
 		dimension, _ := cmd.Flags().GetInt("dimension")
@@ -135,11 +144,16 @@ Use --headless for programmatic output (space-separated moves only).`,
 			fmt.Printf("Solution: %s\n", solutionStr.String())
 			fmt.Printf("Steps: %d\n", result.Steps)
 			fmt.Printf("Time: %v\n", result.Duration)
+			if !c.IsSolved() && len(result.Solution) == 0 {
+				fmt.Println("Full-cube solver is not implemented. Use --goal first-layer or cube learn for the working beginner lesson.")
+			}
 		}
+		return nil
 	},
 }
 
 func init() {
+	solveCmd.Flags().String("goal", "full", "Solving goal: full (unimplemented) or first-layer (3x3 beginner)")
 	solveCmd.Flags().StringP("algorithm", "a", "beginner", "Solving algorithm to use (beginner, cfop, kociemba)")
 	solveCmd.Flags().IntP("dimension", "d", 3, "Cube dimension (2, 3, 4, etc.)")
 	solveCmd.Flags().BoolP("color", "c", false, "Use colored output (Unicode blocks by default)")

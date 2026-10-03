@@ -3,16 +3,21 @@
 ## 🔍 Project Status: Reality Check
 
 This project has built a correct, well-tested engine for cube manipulation, verification,
-optimization, and search — but **the actual solving functionality is completely unimplemented**
-(`cube solve` returns an empty solution). This TODO is an honest assessment and a pragmatic path forward.
+optimization, and search. **The 3×3 white first-layer solver and beginner lesson work
+as of 2026-10-03. Full-cube solving remains unimplemented.** The first-layer goal
+is explicit (`cube solve --goal first-layer`); `cube learn` provides explanations
+and recoverable playback. This TODO is a pragmatic path forward.
 
 **Verified reality (current):**
 - Move engine: correct, NxN, covered by fuzz + invariant tests ✅
 - CFEN verify / optimize / find (BFS): working ✅ (find is exponential — short sequences only, not a scramble solver)
 - Algorithm DB: 63 entries, **5** with verification patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move) ✅
-- Solvers: **all three are empty stubs** ❌ — this is the headline gap
+- White first layer: cross + four corners, rotations, saved CFEN and recovery ✅
+- Physical 3×3 input validation and independent cubie/geometry oracles ✅
+- Full-cube solvers: **all three remain empty stubs** ❌
 - `solving_db.go`: a 4-look pattern-matcher that is **dead code** (unwired) ⚠️
-- Tests: 98 e2e + Go unit tests, all green; a load-bearing invariant suite now guards the engine/solver/CFEN
+- Tests: 98 legacy e2e cases (including full-solver skips), 16 new first-layer e2e
+  cases, Go tests and a separate independent physical-cubie/interaction oracle.
 
 **Guardrails (do not let these go red):** `internal/cube/invariants_test.go`,
 `internal/cfen/cfen_test.go`, `internal/cli/commands_test.go`. The solver-contract test is the
@@ -99,6 +104,8 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 *Goal: Build the foundation needed for ANY solving algorithm*
 
 ### 3.1 Piece Tracking System
+- [x] Concrete 3×3 edge/corner tracking in `pieces.go` (`FindEdge`, `FindCorner`,
+  center-relative solved predicates); generic NxN tracking below remains future work.
 - [ ] Implement piece identification:
   - [ ] Define PieceType (Corner, Edge, Center)
   - [ ] Track 8 corners (3 colors each)
@@ -113,8 +120,8 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 ### 3.2 Semantic Pattern Recognition
 - [ ] Define pattern interface for cube states
 - [ ] Implement concrete patterns:
-  - [ ] WhiteCrossPattern (4 white edges in correct positions)
-  - [ ] WhiteLayerPattern (cross + 4 corners)
+  - [x] White cross predicate (4 white edges in correct positions)
+  - [x] White first-layer predicate (cross + 4 corners)
   - [ ] F2LSlotPattern (corner-edge pair in position)
   - [ ] OLLSolvedPattern (all yellow stickers on top)
   - [ ] PLLSolvedPattern (last layer permuted correctly)
@@ -126,9 +133,17 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 *Goal: Implement beginner method solver that actually solves cubes*
 
 ### 4.1 White Cross Solver
-- [ ] Implement cross piece finding and optimal insertion order
-- [ ] Build move generation to position edges without disturbing placed pieces
-- [ ] Create solving logic with progress tracking
+- [x] Cross piece finding and fixed insertion order (not a globally optimal cross)
+- [x] Bounded move generation restores previously placed edges at checkpoints
+- [x] Connect cross solving to CLI with piece checkpoints
+
+### 4.1b White Corners / First-Layer Lesson (2026-10-03)
+- [x] Insert four white corners with U setups and repeated right-hand triggers
+- [x] Normalize all 24 rigid orientations and keep physical/model frames aligned
+- [x] Preserve the cross and earlier corners at each corner checkpoint
+- [x] Reject incomplete/unreachable sticker states before searching
+- [x] Interactive actual-move recovery, undo, reset, save/resume and repeated-step safety
+- [x] Independent physical geometry and cubie-state replay tests; bounded Mac performance measurements
 
 ### 4.2 First Two Layers (F2L)
 - [ ] Implement intuitive F2L (not advanced algorithms)
@@ -191,7 +206,8 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 - [ ] Add caching for common patterns
 
 ### 7.2 User Experience
-- [ ] Add solve explanation mode and step-by-step playback
+- [x] Add first-layer explanations and checkpoint playback (`cube learn`)
+- [ ] Extend explanation/playback to a full solver
 - [ ] Create difficulty settings and solving statistics
 - [ ] Implement progress tracking and hints
 

@@ -77,14 +77,16 @@ func generatePermutation(N int, moveType MoveType, layer int, quarterTurns int) 
 		ring = ringM(N, layer)
 	case MoveE:
 		ring = ringE(N, layer)
+		// E follows D; ringE is ordered in the U direction.
+		quarterTurns = (4 - quarterTurns) % 4
 	case MoveS:
 		ring = ringS(N, layer)
 	case MoveX:
-		return generateCubeRotationPermutation(N, MoveX, (4-quarterTurns)%4)
+		return generateCubeRotationPermutation(N, MoveX, quarterTurns)
 	case MoveY:
-		return generateCubeRotationPermutation(N, MoveY, (4-quarterTurns)%4)
+		return generateCubeRotationPermutation(N, MoveY, quarterTurns)
 	case MoveZ:
-		return generateCubeRotationPermutation(N, MoveZ, (4-quarterTurns)%4)
+		return generateCubeRotationPermutation(N, MoveZ, quarterTurns)
 	default:
 		return perm // Return identity for unsupported moves for now
 	}
@@ -116,172 +118,86 @@ func generatePermutation(N int, moveType MoveType, layer int, quarterTurns int) 
 		}
 	}
 
+	// The far layer is also an outer face, viewed from the opposite side.
+	// This matters for full-width moves and numbered turns through the cube.
+	if layer == N-1 {
+		opposite := map[MoveType]MoveType{
+			MoveR: MoveL, MoveL: MoveR, MoveU: MoveD,
+			MoveD: MoveU, MoveF: MoveB, MoveB: MoveF,
+		}
+		if other, ok := opposite[moveType]; ok {
+			faceRotationPerm := generateFaceRotationPermutation(N, other, (4-quarterTurns)%4)
+			for i, dst := range faceRotationPerm {
+				if dst != i {
+					perm[i] = dst
+				}
+			}
+		}
+	}
+
 	return perm
 }
 
-// generateCubeRotationPermutation creates permutation for cube rotations (x, y, z)
+// generateCubeRotationPermutation creates a rigid whole-cube permutation.
+// x/y/z follow R/U/F respectively. Moving a face also changes its grid's
+// orientation; copying row/column unchanged would split edges and corners.
 func generateCubeRotationPermutation(N int, rotationType MoveType, quarterTurns int) Permutation {
 	perm := make(Permutation, 6*N*N)
-	// Initialize identity permutation
-	for i := range perm {
-		perm[i] = i
+	quarterTurns = (quarterTurns%4 + 4) % 4
+	last := N - 1
+	for index := range perm {
+		face, row, col := indexToCoord(index, N)
+		for turn := 0; turn < quarterTurns; turn++ {
+			switch rotationType {
+			case MoveX:
+				switch face {
+				case Front:
+					face = Up
+				case Up:
+					face, row, col = Back, last-row, last-col
+				case Back:
+					face, row, col = Down, last-row, last-col
+				case Down:
+					face = Front
+				case Right:
+					row, col = col, last-row
+				case Left:
+					row, col = last-col, row
+				}
+			case MoveY:
+				switch face {
+				case Front:
+					face = Left
+				case Left:
+					face = Back
+				case Back:
+					face = Right
+				case Right:
+					face = Front
+				case Up:
+					row, col = col, last-row
+				case Down:
+					row, col = last-col, row
+				}
+			case MoveZ:
+				switch face {
+				case Up:
+					face, row, col = Right, col, last-row
+				case Right:
+					face, row, col = Down, col, last-row
+				case Down:
+					face, row, col = Left, col, last-row
+				case Left:
+					face, row, col = Up, col, last-row
+				case Front:
+					row, col = col, last-row
+				case Back:
+					row, col = last-col, row
+				}
+			}
+		}
+		perm[index] = stickerIndex(face, row, col, N)
 	}
-
-	// Define face mappings for each rotation type
-	var faceMappings [][]Face
-
-	switch rotationType {
-	case MoveX:
-		// X rotation: around R face axis
-		// Clockwise: F→D, D→B, B→U, U→F, L rotates CCW, R rotates CW
-		if quarterTurns == 1 {
-			faceMappings = [][]Face{
-				{Front, Down},
-				{Down, Back},
-				{Back, Up},
-				{Up, Front},
-			}
-		} else if quarterTurns == 2 {
-			faceMappings = [][]Face{
-				{Front, Back},
-				{Back, Front},
-				{Up, Down},
-				{Down, Up},
-			}
-		} else { // quarterTurns == 3 (CCW)
-			faceMappings = [][]Face{
-				{Front, Up},
-				{Up, Back},
-				{Back, Down},
-				{Down, Front},
-			}
-		}
-
-	case MoveY:
-		// Y rotation: around U face axis
-		// Clockwise: F→L, L→B, B→R, R→F, U rotates CW, D rotates CCW
-		if quarterTurns == 1 {
-			faceMappings = [][]Face{
-				{Front, Left},
-				{Left, Back},
-				{Back, Right},
-				{Right, Front},
-			}
-		} else if quarterTurns == 2 {
-			faceMappings = [][]Face{
-				{Front, Back},
-				{Back, Front},
-				{Left, Right},
-				{Right, Left},
-			}
-		} else { // quarterTurns == 3 (CCW)
-			faceMappings = [][]Face{
-				{Front, Right},
-				{Right, Back},
-				{Back, Left},
-				{Left, Front},
-			}
-		}
-
-	case MoveZ:
-		// Z rotation: around F face axis
-		// Clockwise: U→L, L→D, D→R, R→U, F rotates CW, B rotates CCW
-		if quarterTurns == 1 {
-			faceMappings = [][]Face{
-				{Up, Left},
-				{Left, Down},
-				{Down, Right},
-				{Right, Up},
-			}
-		} else if quarterTurns == 2 {
-			faceMappings = [][]Face{
-				{Up, Down},
-				{Down, Up},
-				{Left, Right},
-				{Right, Left},
-			}
-		} else { // quarterTurns == 3 (CCW)
-			faceMappings = [][]Face{
-				{Up, Right},
-				{Right, Down},
-				{Down, Left},
-				{Left, Up},
-			}
-		}
-
-	default:
-		return perm // Return identity for unknown rotations
-	}
-
-	// Apply face swaps
-	for _, mapping := range faceMappings {
-		srcFace := mapping[0]
-		dstFace := mapping[1]
-
-		// Copy entire face
-		for row := 0; row < N; row++ {
-			for col := 0; col < N; col++ {
-				srcIdx := stickerIndex(srcFace, row, col, N)
-				dstIdx := stickerIndex(dstFace, row, col, N)
-				perm[srcIdx] = dstIdx
-			}
-		}
-	}
-
-	// Handle face rotations for the axis faces
-	switch rotationType {
-	case MoveX:
-		// Left face rotates CCW, Right face rotates CW
-		leftRotPerm := generateFaceRotationPermutation(N, MoveL, 4-quarterTurns) // CCW
-		rightRotPerm := generateFaceRotationPermutation(N, MoveR, quarterTurns)  // CW
-
-		// Compose permutations
-		for i, dst := range leftRotPerm {
-			if dst != i {
-				perm[i] = dst
-			}
-		}
-		for i, dst := range rightRotPerm {
-			if dst != i {
-				perm[i] = dst
-			}
-		}
-
-	case MoveY:
-		// Up face rotates CW, Down face rotates CCW
-		upRotPerm := generateFaceRotationPermutation(N, MoveU, quarterTurns)     // CW
-		downRotPerm := generateFaceRotationPermutation(N, MoveD, 4-quarterTurns) // CCW
-
-		// Compose permutations
-		for i, dst := range upRotPerm {
-			if dst != i {
-				perm[i] = dst
-			}
-		}
-		for i, dst := range downRotPerm {
-			if dst != i {
-				perm[i] = dst
-			}
-		}
-
-	case MoveZ:
-		// Front face rotates CW, Back face rotates CCW
-		frontRotPerm := generateFaceRotationPermutation(N, MoveF, quarterTurns)  // CW
-		backRotPerm := generateFaceRotationPermutation(N, MoveB, 4-quarterTurns) // CCW
-
-		// Compose permutations
-		for i, dst := range frontRotPerm {
-			if dst != i {
-				perm[i] = dst
-			}
-		}
-		for i, dst := range backRotPerm {
-			if dst != i {
-				perm[i] = dst
-			}
-		}
-	}
-
 	return perm
 }
 

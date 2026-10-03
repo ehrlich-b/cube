@@ -1,4 +1,4 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer
 
 # Build the binary
 build:
@@ -76,3 +76,7 @@ e2e-test: build
 # Run all tests (unit + e2e)
 test-all: test e2e-test
 	@echo "All tests completed!"
+
+# Independent physical-cubie and interactive replay oracle (Python stdlib only)
+test-first-layer: build
+	python3 test/first_layer_oracle.py
