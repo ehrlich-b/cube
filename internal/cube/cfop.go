@@ -120,39 +120,48 @@ var cfopDB cfopDatabase
 // from adding needless rotations to every slot/last-layer algorithm.
 func fixedFrameMoves(moves []Move) []Move {
 	frame := NewCube(3)
-	var rotations, result []Move
+	home := NewCube(3)
+	var faceForColor [6]Face
+	for f := range home.Faces {
+		faceForColor[home.faceColor(Face(f))] = Face(f)
+	}
+	result := make([]Move, 0, len(moves))
 	for _, m := range moves {
 		if m.Rotation != NoRotation {
 			frame.ApplyMove(m)
-			rotations = append(rotations, m)
 			continue
 		}
-		probe := frame.clone()
-		probe.ApplyMove(m)
-		probe.ApplyMoves(inverseSequence(rotations))
-		found := false
-		for _, candidate := range cfopMoveAlphabet() {
-			test := NewCube(3)
-			test.ApplyMove(candidate)
-			if test.String() == probe.String() {
-				result = append(result, candidate)
-				found = true
-				break
-			}
-		}
-		if !found {
+		// Conjugation by a rigid grip changes only the move's axis. Centers
+		// identify the original face along that axis, without allocating and
+		// comparing 45 trial cubes for every turn.
+		if m.Layer != 0 || m.WideDepth > 2 {
 			return append([]Move(nil), moves...)
 		}
+		if m.Slice == NoSlice {
+			m.Face = faceForColor[frame.faceColor(m.Face)]
+		} else {
+			face := map[SliceType]Face{M_Slice: Left, E_Slice: Down, S_Slice: Front}[m.Slice]
+			axis := faceForColor[frame.faceColor(face)]
+			switch axis {
+			case Left, Right:
+				m.Slice = M_Slice
+			case Down, Up:
+				m.Slice = E_Slice
+			case Front, Back:
+				m.Slice = S_Slice
+			}
+			if axis == Right || axis == Up || axis == Back {
+				m.Clockwise = !m.Clockwise
+			}
+		}
+		if m.Double {
+			m.Clockwise = true
+		}
+		result = append(result, m)
 	}
 	_, restore, _ := canonical3x3(frame)
 	result = append(result, inverseSequence(restore)...)
 	return OptimizeMoves(result)
-}
-
-func cfopMoveAlphabet() []Move {
-	result := append([]Move(nil), coordinateMoves[:]...)
-	extra, _ := ParseMoves("M M2 M' E E2 E' S S2 S' Rw Rw2 Rw' Lw Lw2 Lw' Uw Uw2 Uw' Dw Dw2 Dw' Fw Fw2 Fw' Bw Bw2 Bw'")
-	return append(result, extra...)
 }
 
 func yawMoves(turns int) []Move {

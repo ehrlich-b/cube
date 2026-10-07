@@ -76,7 +76,11 @@ func searchEdgePatternsLimit(deadline time.Time) *edgePatterns {
 	}
 	defer func() { <-edgeLock }()
 	if edgeDB == nil {
-		const size = 190080
+		if cached := loadEdgePatterns(deadline); cached != nil {
+			edgeDB = cached
+			return edgeDB
+		}
+		const size = edgePatternSize
 		db := &edgePatterns{moves: make([]uint32, size*18)}
 		var dest [18][12]uint8
 		for m, state := range cubieMoves {
@@ -126,6 +130,9 @@ func searchEdgePatternsLimit(deadline time.Time) *edgePatterns {
 			return nil
 		}
 		edgeDB = db
+		if deadline.IsZero() {
+			saveEdgePatterns(db)
+		}
 	}
 	return edgeDB
 }
