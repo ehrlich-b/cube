@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -173,8 +174,25 @@ func loadCoordinateTables() *coordinateTables {
 }
 
 func loadCoordinateTablesLimit(deadline time.Time) *coordinateTables {
-	data, err := os.ReadFile(coordinateCachePath())
-	if err != nil || len(data) < 32 || len(data) > 16<<20 || tableDeadlineExceeded(deadline) {
+	if tableDeadlineExceeded(deadline) {
+		return nil
+	}
+	f, err := os.Open(coordinateCachePath())
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() < 32 || info.Size() > 16<<20 || tableDeadlineExceeded(deadline) {
+		return nil
+	}
+	// Allocate only the checked size, even if the file grows after Stat.
+	data := make([]byte, int(info.Size()))
+	if _, err := io.ReadFull(f, data); err != nil || tableDeadlineExceeded(deadline) {
+		return nil
+	}
+	var extra [1]byte
+	if n, err := f.Read(extra[:]); n != 0 || err != io.EOF {
 		return nil
 	}
 	sum := sha256.Sum256(data[32:])
