@@ -6,6 +6,7 @@ Run after building: python3 test/kociemba_oracle.py
 """
 
 import argparse
+from collections import Counter
 import os
 from pathlib import Path
 import random
@@ -34,7 +35,7 @@ def main():
     orientations = physical.orientation_paths()
     for index in range(args.cases):
         state = physical.legal_fixture(rng)
-        # Most cases use the canonical grip so the 22 face-turn bound is tested.
+        # Most cases use the canonical grip so solution lengths are face turns.
         # The remaining cases cover every rigid orientation; grip rotations
         # precede the face-turn solution and are counted separately.
         if index < 24:
@@ -47,16 +48,22 @@ def main():
         assert result.returncode == 0, (index, physical.cfen(state), result.stderr)
         tokens = result.stdout.split()
         turns = [token for token in tokens if token[0] not in "xyz"]
-        assert 0 < len(turns) <= 22, (index, result.stdout)
+        assert 0 < len(turns) <= 21, (index, result.stdout)
         replay = physical.physical_sequence(state, result.stdout)
         assert all(color == face[1][1] for face in replay for row in face for color in row), (
             index, physical.cfen(state), result.stdout, physical.cfen(replay))
         lengths.append(len(turns))
         durations.append(duration * 1000)
+    mean = statistics.mean(lengths)
+    at_target = sum(length <= 20 for length in lengths) / args.cases
+    assert mean <= 20, ("mean length regressed", mean, Counter(lengths))
+    assert at_target >= 0.95, ("<=20 share regressed", at_target, Counter(lengths))
     print(f"{args.cases} independent uniform physical states solved; "
           f"mean {statistics.mean(lengths):.3f}, max {max(lengths)} face turns; "
+          f"<=20 {at_target:.1%}; "
           f"process mean {statistics.mean(durations):.2f} ms, "
-          f"max {max(durations):.2f} ms")
+          f"max {max(durations):.2f} ms; "
+          f"histogram {dict(sorted(Counter(lengths).items()))}")
 
 
 if __name__ == "__main__":

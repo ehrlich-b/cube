@@ -39,19 +39,32 @@ and shortest-sequence pattern search.
 - Optimal search is exponential on deep states; wildcard heuristics are weaker
   than exact-state heuristics. Use Kociemba for general scramble solving.
 
-Measured on this Mac under background QoS (2026-10-07): fresh CLI searches of
+Earlier measurements on this Mac under background QoS (2026-10-07): CLI searches of
 exact depths 8/9/10 took **0.72/0.46/0.52 seconds**, including table setup.
 Ten seeded targets per depth averaged **0.29/1.58/9.40 ms** with tables loaded.
-The independent Python oracle solved **200 uniform physical states**, averaging
-**21.73 face turns**, maximum **22**, with mean/max process latency
-**71.5/365.7 ms**. A paired 30-scramble comparison averaged **21.70 moves** for
-Kociemba versus **209.57** for beginner. These samples are not worst-case bounds.
-Kociemba prefers at most 22 turns for one second, then permits up to 30 to retain
-completeness. Grip rotations are separate from face-turn length.
+The independent Python oracle replayed **200 uniform physical states**, including
+all 24 grips, with this before/after comparison:
+
+| Kociemba search | Mean turns | Max | ≤20 turns | Fresh CLI mean / max |
+|---|---:|---:|---:|---:|
+| First solution (before) | 21.730 | 22 | 2.5% | 68.51 / 256.60 ms |
+| Six views, improving solutions | **19.775** | **21** | **98.5%** | **162.53 / 1069.96 ms** |
+
+The seeded 200-uniform-state Go sample with loaded tables averaged **19.790**
+turns, maximum **21**, with mean/max solve time **89.47 / 1000.19 ms**
+(before: **21.675 / 22** turns, **18.47 / 267.90 ms**).
+These samples are not worst-case bounds; a 20-turn solution is a stopping goal,
+not a guarantee. Grip rotations are separate from face-turn length.
+The anytime search improves its incumbent across three axes and their inverses,
+tightens the total-length bound, and combines twist/slice, flip/slice and
+twist/flip pruning. It returns the best verified solution after one second, or
+stops early at 20 turns. If no solution was found, it reports a timeout.
 
 Kociemba tables are generated deterministically on first use and cached under
-the user's cache directory (`cube/coordinates-v1.gob`); `CUBE_CACHE_DIR` overrides
-the location. Generation measured **0.67 seconds** and warm loading **26 ms**.
+the user's cache directory (`cube/coordinates-v2.gob`); `CUBE_CACHE_DIR` overrides
+the location. The expanded tables took **1.83 seconds** to generate in native Go.
+One-time loading/generation is separate from Kociemba's search budget, including
+in browser workers; `--optimal` still includes setup in its time limit.
 Search's four-edge tables take about **0.49 seconds** to generate in memory.
 No generated tables are committed; a missing or invalid cache is rebuilt.
 
@@ -140,6 +153,7 @@ make build-tools      # builds dist/tools/verify-algorithm and verify-database
 
 # Return moves that solve all six faces
 ./dist/cube solve "R U F2 L' B" --headless
+./dist/cube solve "R U F2 L' B" --target-length 19 --time-limit 500ms --headless
 ./dist/cube solve "R U F2 L' B" --method beginner --headless
 ./dist/cube solve "R U F2 L' B" --method cfop --headless
 
@@ -182,6 +196,10 @@ The selector beside Solve defaults to Kociemba and also offers Beginner and
 CFOP. CFOP playback groups moves into Cross, F2L 1–4, OLL and PLL with case names,
 turn counts and skips; every move retains click, step and scrub playback.
 The solution heading identifies the method that ran.
+Kociemba uses the same 20-turn goal and one-second search budget as the CLI;
+each worker initializes its own tables before starting that budget. Hard states
+return the best solution found at the deadline. Browser smoke tests check that
+Solve finishes and animation frames keep running during a cold-worker solve.
 Lesson mode gives the beginner method's actual instructions and checks,
 replanning the next hint from your current state after your own turns.
 
@@ -215,7 +233,10 @@ node web/test/smoke.mjs --in-memory` runs the same browser assertions using
 local-file request routing. This alternate transport does not check Python
 serving; the normal smoke target continues to require the Python server. The
 2026-10-07 validation used this transport because the sandbox refused loopback
-bind; WASM API checks and the full desktop/mobile browser assertions passed.
+bind; WASM API checks and the full desktop/mobile browser assertions passed,
+including hard-state Solve completion and 55 animation frames during its cold
+worker's setup/search. Go tests, vet, all 133 CLI E2E cases and both 200-state
+independent Kociemba/CFOP oracles also passed under background QoS.
 
 To publish, run this **single command yourself** from the repository root:
 

@@ -155,6 +155,31 @@ try {
   }
   console.log("PASS browser: method selector, all solver headings and verified solution replay");
 
+  // Force the default anytime budget on a hard physical state in a fresh
+  // worker. Animation frames must continue throughout setup and synchronous
+  // WASM search, and Solve must return a sequence that completes playback.
+  await page.locator("#reset").click();
+  await page.locator("#cfen").fill("YB|YGYOYRYBY/RYRBRGRWR/BYBOBRBWB/WBWOWRWGW/OYOGOBOWO/GYGRGOGWG");
+  await page.locator("#import").click();
+  await idle(page);
+  await page.locator("#solve-method").selectOption("kociemba");
+  await page.evaluate(() => {
+    globalThis.solveFrames = 0;
+    globalThis.countSolveFrames = true;
+    const tick = () => { globalThis.solveFrames++; if (globalThis.countSolveFrames) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+  const budgetStarted = Date.now();
+  await page.locator("#solve").click();
+  await idle(page);
+  assert.ok(Date.now() - budgetStarted < 20000, "cold worker Solve must finish before the UI's 30-second timeout");
+  const frames = await page.evaluate(() => { globalThis.countSolveFrames = false; return globalThis.solveFrames; });
+  assert.ok(frames >= 5, `UI stalled while Solve ran: ${frames} animation frames`);
+  assert.ok((await page.locator("#sequence-moves button").count()) > 0);
+  await page.locator("#scrubber").fill(await page.locator("#scrubber").getAttribute("max"));
+  assert.equal(await page.locator("#cfen").inputValue(), solved);
+  console.log(`PASS browser: cold-worker budget solve and responsive UI (${frames} animation frames)`);
+
   await page.locator("#reset").click();
   await page.locator("#stage").focus();
   await page.keyboard.press("r");

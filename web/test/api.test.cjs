@@ -51,6 +51,14 @@ function rejects(request, pattern) {
     assert.equal(call({ op: "state", cfen: start.cfen }).state.cfen, start.cfen);
   }
   assert.equal(call({ op: "solve" }).state.solved, true);
+  // Superflip exercises the default search budget and the incumbent returned
+  // when a 20-turn target is not reached in time. Setup is separate from it.
+  const superflip = "YB|YGYOYRYBY/RYRBRGRWR/BYBOBRBWB/WBWOWRWGW/OYOGOBOWO/GYGRGOGWG";
+  const budgetStarted = performance.now();
+  const budgetSolution = call({ op: "solve", cfen: superflip });
+  assert.ok(performance.now() - budgetStarted < 3000, "warm WASM solve must finish near its one-second budget");
+  assert.ok(budgetSolution.moves.length > 0 && budgetSolution.moves.length <= 30);
+  assert.equal(call({ op: "twist", cfen: superflip, moves: budgetSolution.moves.join(" ") }).state.solved, true);
   for (const method of ["auto", "kociemba", "beginner", "cfop"]) {
     const start = call({ op: "twist", moves: "R U F2 L' B" }).state;
     const solution = call({ op: "solve", cfen: start.cfen, method });

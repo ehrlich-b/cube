@@ -18,30 +18,40 @@ from the corrected sticker engine, then tested against 6,000 sticker
 transitions. Phase one tracks corner twist (2187), edge flip (2048) and the slice
 edge subset (495). Phase two tracks corner permutation (40320), U/D edge
 permutation (40320) and slice permutation (24), using U/D turns and side-face
-half turns. Pairwise exact-distance tables supply admissible bounds; searches
-try multiple phase-one endpoints. They prefer at most 22 face turns for one
-second, then permit the complete 12+18 two-phase bound of 30 turns on hard cases.
-Kociemba does not promise a globally shortest sequence.
+half turns. Phase-one pruning takes the maximum of exact twist/slice, flip/slice
+and twist/flip distances. Three reduction axes and their inverses search with
+resumable DFS stacks, sharing a single budget without restarting at each switch.
+Phase-one depth increases up to 12; phase two uses at most 18 turns. Every new
+incumbent tightens the total bound to one less than its length.
+`--target-length` defaults to 20 face turns and `--time-limit` to one second.
+Search stops on reaching the target or returns its best verified solution when
+the budget expires; expiry before any solution is an explicit error. Setup is
+separate from this budget so cold WASM workers can finish initialization.
+`--optimal` retains its distinct timeout contract, including setup and rejecting
+unproved answers. Kociemba does not promise a globally shortest sequence or a
+20-turn answer for every state. These flags are rejected for beginner/CFOP and
+the partial first-layer goal rather than silently ignored.
 
 Tables are generated deterministically and cached in the user's cache directory
-under `cube/coordinates-v1.gob`; `CUBE_CACHE_DIR` overrides it. The cache has a
+under `cube/coordinates-v2.gob`; `CUBE_CACHE_DIR` overrides it. The cache has a
 versioned filename, checksum and shape checks. Missing, unreadable or corrupt
 caches rebuild in memory; a read-only filesystem does not prevent solving.
 Writes use a temporary file in the destination directory and atomic rename.
-The generated cache is about 7.6 MiB, with no generated table files committed.
+The expanded generated cache is about 12 MiB, with no generated table files committed.
 WASM can use the same public entry points and retain tables in memory when
 filesystem caching is unavailable.
 
 Two Go oracles check 200 seeded scrambles and 200 uniformly generated legal
-cubie states, rejecting answers longer than 22 face turns in those samples.
+cubie states, requiring mean length ≤20, maximum 21 and ≥95% at ≤20 turns.
 The separate Python oracle constructs 200 uniform physical states and replays
 every returned move through independent geometry, including all 24 grips.
-It measured mean/max **21.73/22 turns** and mean/max process latency
-**71.5/365.7 ms** on this Mac under background QoS. The Go scramble sample measured
-**21.68/22 turns**, **13.5/113.6 ms** with loaded tables. Generation measured
-**0.67 s**, and warm cache loading **26 ms**. Thirty paired scrambles averaged
-**21.70 Kociemba moves vs 209.57 beginner moves**. These are reproducible samples,
-not latency guarantees. Grip normalization uses rotation notation and its moves
+It measured mean/max **19.775/21 turns**, **98.5% at ≤20**, and mean/max process
+latency **162.53/1069.96 ms** on this Mac under background QoS (before:
+**21.730/22**, **2.5% at ≤20**, **68.51/256.60 ms**). The loaded-table Go uniform
+sample averaged **19.790 turns**, maximum **21**, at **89.47/1000.19 ms** mean/max
+(before: **21.675/22**, **18.47/267.90 ms**). Expanded table generation took
+**1.83 s**. These are reproducible samples, not latency guarantees.
+Grip normalization uses rotation notation and its moves
 are separate from face-turn distance.
 
 ## Shortest sequence and pattern search
@@ -69,7 +79,7 @@ Forty random cases match the retained BFS through depth four. Sixty random
 start/target pairs match two independent radius-three sticker BFS frontiers,
 which prove the same forward BFS distances through depth six without the huge
 forward frontier. Another 100 randomized wildcard cases match sticker BFS.
-Ten exact targets at each depth 8/9/10 averaged **0.29/1.58/9.40 ms** with tables
+Earlier measurements of ten exact targets at each depth 8/9/10 averaged **0.29/1.58/9.40 ms** with tables
 loaded; fresh CLI processes took **0.72/0.46/0.52 s**, including setup.
 
 `cube solve --optimal --time-limit 1s` uses the same admissible exact-state

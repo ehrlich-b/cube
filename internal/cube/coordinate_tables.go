@@ -13,9 +13,9 @@ import (
 // metric. No generated tables are repository artifacts. Cached bytes carry a
 // version and checksum; invalid/unavailable caches are rebuilt in memory.
 type coordinateTables struct {
-	Twist, Flip, Slice, Corner                                    []uint16
-	Edge2, Slice2                                                 []uint16
-	TwistSlice, FlipSlice, CornerSlice, EdgeSlice, CornerDistance []uint8
+	Twist, Flip, Slice, Corner                                               []uint16
+	Edge2, Slice2                                                            []uint16
+	TwistSlice, FlipSlice, TwistFlip, CornerSlice, EdgeSlice, CornerDistance []uint8
 }
 
 var tablesLock = make(chan struct{}, 1)
@@ -88,6 +88,7 @@ func solverTablesLimit(deadline time.Time) *coordinateTables {
 	}
 	t.TwistSlice = pairPruning(t.Twist, t.Slice, 495, false, deadline)
 	t.FlipSlice = pairPruning(t.Flip, t.Slice, 495, false, deadline)
+	t.TwistFlip = pairPruning(t.Twist, t.Flip, 2048, false, deadline)
 	t.CornerSlice = pairPruning(t.Corner, t.Slice2, 24, true, deadline)
 	t.EdgeSlice = pairPruning(t.Edge2, t.Slice2, 24, true, deadline)
 	t.CornerDistance = pairPruning(t.Corner, make([]uint16, 18), 1, false, deadline)
@@ -164,7 +165,7 @@ func coordinateCachePath() string {
 		}
 		dir = filepath.Join(base, "cube")
 	}
-	return filepath.Join(dir, "coordinates-v1.gob")
+	return filepath.Join(dir, "coordinates-v2.gob")
 }
 
 func loadCoordinateTables() *coordinateTables {
@@ -184,7 +185,7 @@ func loadCoordinateTablesLimit(deadline time.Time) *coordinateTables {
 	if gob.NewDecoder(bytes.NewReader(data[32:])).Decode(&t) != nil || tableDeadlineExceeded(deadline) {
 		return nil
 	}
-	if len(t.Twist) != 2187*18 || len(t.Flip) != 2048*18 || len(t.Slice) != 495*18 || len(t.Corner) != 40320*18 || len(t.Edge2) != 40320*18 || len(t.Slice2) != 24*18 || len(t.TwistSlice) != 2187*495 || len(t.FlipSlice) != 2048*495 || len(t.CornerSlice) != 40320*24 || len(t.EdgeSlice) != 40320*24 || len(t.CornerDistance) != 40320 {
+	if len(t.Twist) != 2187*18 || len(t.Flip) != 2048*18 || len(t.Slice) != 495*18 || len(t.Corner) != 40320*18 || len(t.Edge2) != 40320*18 || len(t.Slice2) != 24*18 || len(t.TwistSlice) != 2187*495 || len(t.FlipSlice) != 2048*495 || len(t.TwistFlip) != 2187*2048 || len(t.CornerSlice) != 40320*24 || len(t.EdgeSlice) != 40320*24 || len(t.CornerDistance) != 40320 {
 		return nil
 	}
 	return &t
@@ -218,7 +219,7 @@ func saveCoordinateTables(t *coordinateTables) {
 }
 
 func (t *coordinateTables) phase1Bound(co, eo, sl int) int {
-	return max(int(t.TwistSlice[co*495+sl]), int(t.FlipSlice[eo*495+sl]))
+	return max(int(t.TwistSlice[co*495+sl]), int(t.FlipSlice[eo*495+sl]), int(t.TwistFlip[co*2048+eo]))
 }
 
 func (t *coordinateTables) phase2Bound(cp, ep, sp int) int {

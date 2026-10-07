@@ -64,6 +64,8 @@ func TestKociembaOracle200(t *testing.T) {
 	t.Logf("table initialization: %v", time.Since(load))
 	r := rand.New(rand.NewSource(2026100701))
 	total, longest := 0, 0
+	atTarget := 0
+	histogram := make(map[int]int)
 	var sumTime, maxTime time.Duration
 	for n := 0; n < 200; n++ {
 		c := NewCube(3)
@@ -88,7 +90,7 @@ func TestKociembaOracle200(t *testing.T) {
 		if readCubie(c) != before {
 			t.Fatal("solver mutated input")
 		}
-		if len(result.Solution) == 0 || len(result.Solution) > 22 {
+		if len(result.Solution) == 0 || len(result.Solution) > 21 {
 			t.Fatalf("case %d: invalid length %d", n, len(result.Solution))
 		}
 		c.ApplyMoves(result.Solution)
@@ -97,10 +99,17 @@ func TestKociembaOracle200(t *testing.T) {
 		}
 		total += len(result.Solution)
 		longest = max(longest, len(result.Solution))
+		if len(result.Solution) <= 20 {
+			atTarget++
+		}
+		histogram[len(result.Solution)]++
 		sumTime += elapsed
 		maxTime = max(maxTime, elapsed)
 	}
-	t.Logf("200 scrambles: mean %.3f max %d face turns; mean %v max %v", float64(total)/200, longest, sumTime/200, maxTime)
+	if total > 200*20 || atTarget < 190 {
+		t.Fatalf("length distribution regressed: mean %.3f, <=20 %d/200", float64(total)/200, atTarget)
+	}
+	t.Logf("200 scrambles: mean %.3f max %d face turns; <=20 %.1f%%; mean %v max %v; histogram %v", float64(total)/200, longest, float64(atTarget)/2, sumTime/200, maxTime, histogram)
 }
 
 func cubeFromCoordinates(s cubie) *Cube {
@@ -119,8 +128,11 @@ func cubeFromCoordinates(s cubie) *Cube {
 }
 
 func TestKociembaUniformStates200(t *testing.T) {
+	solverTables() // Report search latency separately from first-use setup.
 	r := rand.New(rand.NewSource(2026100705))
 	total, longest := 0, 0
+	atTarget := 0
+	histogram := make(map[int]int)
 	var elapsed, maxTime time.Duration
 	for n := 0; n < 200; n++ {
 		s := identityCubie()
@@ -158,8 +170,8 @@ func TestKociembaUniformStates200(t *testing.T) {
 		if err != nil {
 			t.Fatalf("uniform state %d: %v", n, err)
 		}
-		if len(result.Solution) > 22 {
-			t.Fatal("uniform state exceeds 22 turns")
+		if len(result.Solution) == 0 || len(result.Solution) > 21 {
+			t.Fatal("uniform state has invalid length", len(result.Solution))
 		}
 		c.ApplyMoves(result.Solution)
 		if !c.IsSolved() {
@@ -167,10 +179,17 @@ func TestKociembaUniformStates200(t *testing.T) {
 		}
 		total += len(result.Solution)
 		longest = max(longest, len(result.Solution))
+		if len(result.Solution) <= 20 {
+			atTarget++
+		}
+		histogram[len(result.Solution)]++
 		elapsed += duration
 		maxTime = max(maxTime, duration)
 	}
-	t.Logf("200 uniform states: mean %.3f max %d face turns; mean %v max %v", float64(total)/200, longest, elapsed/200, maxTime)
+	if total > 200*20 || atTarget < 190 {
+		t.Fatalf("length distribution regressed: mean %.3f, <=20 %d/200", float64(total)/200, atTarget)
+	}
+	t.Logf("200 uniform states: mean %.3f max %d face turns; <=20 %.1f%%; mean %v max %v; histogram %v", float64(total)/200, longest, float64(atTarget)/2, elapsed/200, maxTime, histogram)
 }
 
 func TestKociembaFramesAndValidation(t *testing.T) {

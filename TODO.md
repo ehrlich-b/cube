@@ -25,13 +25,19 @@ recoverable playback. The white-layer sublesson remains explicit via `--goal fir
 - Tests: active full-solver contract, Go tests, binary E2E cases, and independent
   physical-cubie/checkpoint/interaction oracles for full and partial goals.
 
-**Measured 2026-10-07, Mac background QoS:** fresh depth 8/9/10 CLI searches
+**Measured 2026-10-07, Mac background QoS:** earlier depth 8/9/10 CLI searches
 0.72/0.46/0.52 s; loaded-table means across ten targets each 0.29/1.58/9.40 ms.
-200 independently constructed Python physical states: Kociemba mean 21.73,
-max 22 face turns; process mean 71.5 ms, max 365.7 ms. Thirty paired scrambles:
-Kociemba 21.70 vs beginner 209.57 moves. Table generation 0.67 s, cached load
-26 ms; search table generation 0.49 s. The 22-turn preference has a one-second
-budget; difficult cases can use the complete 30-turn two-phase bound.
+200 independently constructed Python physical states: Kociemba improved from
+**21.730 mean / 22 max / 2.5% at ≤20 turns** to **19.775 / 21 / 98.5%**.
+Fresh CLI process mean/max changed from **68.51 / 256.60 ms** to
+**162.53 / 1069.96 ms**. The 200-uniform-state Go sample improved from
+**21.675 / 22** turns at **18.47 / 267.90 ms** mean/max to **19.790 / 21**
+at **89.47 / 1000.19 ms** with loaded tables. Expanded table generation: **1.83 s**.
+Kociemba stops at `--target-length 20` or returns its best verified solution at
+`--time-limit 1s`; setup is separate, and no incumbent means an explicit timeout.
+Three axes and their inverses share the budget, with a tightening total bound
+and all three orientation/slice pair-pruning tables. These are samples, not
+worst-case guarantees. Search's four-edge tables take 0.49 s to generate.
 
 **Guardrails (do not let these go red):** `internal/cube/invariants_test.go`,
 `internal/cfen/cfen_test.go`, `internal/cli/commands_test.go`. The solver-contract test is the
@@ -243,6 +249,19 @@ No look-ahead, extended cross, or color neutrality is claimed.
 - [x] Default to Kociemba after measured paired length comparison
 - [x] 200 seeded scramble oracle, 200 uniform cubie-state oracle and 200 independent
   Python physical-state replays; unchanged full-solver/CFEN/command guardrails
+- [x] Continue after the first solution; tighten total length while increasing phase-one depth
+- [x] Three reduction axes and inverse search, with resumable DFS sharing one budget
+- [x] Combined twist/slice, flip/slice and twist/flip admissible pruning; version-2 cache
+- [x] CLI `--target-length` (20) and shared `--time-limit` (1s); best incumbent on expiry
+- [x] Oracle gates: mean ≤20, maximum 21 and ≥95% of sampled solutions at ≤20 turns
+- [x] WASM uses the same default budget; cold-worker completion and responsive UI regression
+- [ ] Reach 100% at ≤20 turns within one second (measured 98.5% on the Python sample)
+
+Final validation on 2026-10-07: `go test -p 2 ./...`, `go vet -p 2 ./...`,
+133 CLI E2E cases, both 200-state independent oracles and the WASM API passed.
+`make test-web-smoke` hit a sandbox loopback-bind denial; the requested
+`node web/test/smoke.mjs --in-memory` fallback passed all browser assertions,
+including hard-state worker completion and UI animation during the solve.
 
 ### 6.3 Big Cube Support
 - [ ] 4x4 reduction method (centers, edges, parity)
@@ -285,7 +304,7 @@ No look-ahead, extended cross, or color neutrality is claimed.
 - **Phase 4**: Beginner method that solves any valid 3x3 scramble
 - **Phase 5**: Sub-second solving with search optimization
 - **Phase 6**: Complete, independently verified CFOP and Kociemba; report measured
-  lengths honestly (CFOP ~57 turns; Kociemba ~22, neither promises &lt;20)
+  lengths honestly (CFOP ~57 turns; Kociemba ~20, with no 20-turn guarantee)
 - **Phase 7**: Production-ready solver with &lt;100ms response time
 
 ---
