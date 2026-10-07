@@ -8,13 +8,17 @@ import (
 
 // ToCube converts a CFENState to an internal Cube representation
 func (state *CFENState) ToCube() (*cube.Cube, error) {
+	rotations, err := orientationMoves(state.Orientation)
+	if err != nil {
+		return nil, err
+	}
 	// Create new cube with correct dimension
 	newCube := cube.NewCube(state.Dimension)
 
-	// Get face mapping based on CFEN orientation
-	faceMapping := getOrientationMapping(state.Orientation)
+	// CFEN stores the faces of its oriented frame in U/R/F/D/L/B order.
+	faceMapping := [...]cube.Face{cube.Up, cube.Right, cube.Front, cube.Down, cube.Left, cube.Back}
 
-	// Copy stickers using orientation-aware mapping
+	// Copy the grids before rotating them back into canonical coordinates.
 	for cfenFaceIdx, cfenFace := range state.Faces {
 		internalFace := faceMapping[cfenFaceIdx]
 
@@ -26,6 +30,12 @@ func (state *CFENState) ToCube() (*cube.Cube, error) {
 		}
 	}
 
+	// Restore the canonical coordinate frame, including each face's grid angle.
+	for i := len(rotations) - 1; i >= 0; i-- {
+		move := rotations[i]
+		move.Clockwise = !move.Clockwise
+		newCube.ApplyMove(move)
+	}
 	return newCube, nil
 }
 
@@ -35,8 +45,24 @@ func FromCube(c *cube.Cube, orientation CFENOrientation) (*CFENState, error) {
 		return nil, fmt.Errorf("cube cannot be nil")
 	}
 
-	// Get reverse face mapping based on desired CFEN orientation
-	reverseFaceMapping := getReverseOrientationMapping(orientation)
+	rotations, err := orientationMoves(orientation)
+	if err != nil {
+		return nil, err
+	}
+	oriented := c
+	if len(rotations) > 0 {
+		// Work on a copy; exporting an orientation must not mutate the source.
+		oriented = cube.NewCube(c.Size)
+		for face := range c.Faces {
+			for row := range c.Faces[face] {
+				copy(oriented.Faces[face][row], c.Faces[face][row])
+			}
+		}
+		if err := oriented.ApplyMoves(rotations); err != nil {
+			return nil, err
+		}
+	}
+	reverseFaceMapping := [...]cube.Face{cube.Up, cube.Right, cube.Front, cube.Down, cube.Left, cube.Back}
 
 	var faces [6]CFENFace
 
@@ -48,7 +74,7 @@ func FromCube(c *cube.Cube, orientation CFENOrientation) (*CFENState, error) {
 		for row := 0; row < c.Size; row++ {
 			for col := 0; col < c.Size; col++ {
 				stickerIdx := row*c.Size + col
-				stickers[stickerIdx] = c.Faces[internalFace][row][col]
+				stickers[stickerIdx] = oriented.Faces[internalFace][row][col]
 			}
 		}
 
@@ -127,57 +153,44 @@ func ValidateCFEN(cfenStr string) error {
 	return err
 }
 
-// getOrientationMapping returns face mapping from CFEN faces to internal cube faces
-func getOrientationMapping(orientation CFENOrientation) [6]cube.Face {
-	// Cube canonical: Yellow=Up, Blue=Front, Red=Right, White=Down, Orange=Left, Green=Back
-	// CFEN order: U/R/F/D/L/B
-
-	// Standard YB orientation (Yellow up, Blue front) - matches cube canonical
-	if orientation.Up == cube.Yellow && orientation.Front == cube.Blue {
-		return [6]cube.Face{cube.Up, cube.Right, cube.Front, cube.Down, cube.Left, cube.Back}
+// Each valid Up/Front color pair identifies one of the 24 rigid orientations.
+// Derive their transforms from physical rotations rather than face-only maps,
+// which can mirror centers or lose the rotation of the sticker grids.
+var orientationRotations = func() map[CFENOrientation][]cube.Move {
+	result := make(map[CFENOrientation][]cube.Move)
+	type frame struct {
+		c     *cube.Cube
+		moves []cube.Move
 	}
-
-	// WG orientation (White up, Green front) - cube rotated x' z
-	if orientation.Up == cube.White && orientation.Front == cube.Green {
-		return [6]cube.Face{cube.Down, cube.Left, cube.Back, cube.Up, cube.Right, cube.Front}
+	queue := []frame{{cube.NewCube(3), nil}}
+	axes, _ := cube.ParseMoves("x y z")
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		key := CFENOrientation{current.c.Faces[cube.Up][1][1], current.c.Faces[cube.Front][1][1]}
+		if _, ok := result[key]; ok {
+			continue
+		}
+		result[key] = current.moves
+		for _, move := range axes {
+			next := cube.NewCube(3)
+			for f := range next.Faces {
+				for r := range next.Faces[f] {
+					copy(next.Faces[f][r], current.c.Faces[f][r])
+				}
+			}
+			next.ApplyMove(move)
+			moves := append(append([]cube.Move(nil), current.moves...), move)
+			queue = append(queue, frame{next, moves})
+		}
 	}
+	return result
+}()
 
-	// WB orientation (White up, Blue front) - cube rotated x'
-	if orientation.Up == cube.White && orientation.Front == cube.Blue {
-		return [6]cube.Face{cube.Down, cube.Right, cube.Front, cube.Up, cube.Left, cube.Back}
+func orientationMoves(orientation CFENOrientation) ([]cube.Move, error) {
+	moves, ok := orientationRotations[orientation]
+	if !ok {
+		return nil, fmt.Errorf("orientation requires adjacent real Up and Front colors")
 	}
-
-	// YG orientation (Yellow up, Green front) - cube rotated z
-	if orientation.Up == cube.Yellow && orientation.Front == cube.Green {
-		return [6]cube.Face{cube.Up, cube.Left, cube.Back, cube.Down, cube.Right, cube.Front}
-	}
-
-	// Default fallback to YB
-	return [6]cube.Face{cube.Up, cube.Right, cube.Front, cube.Down, cube.Left, cube.Back}
-}
-
-// getReverseOrientationMapping returns face mapping from internal cube faces to CFEN faces
-func getReverseOrientationMapping(orientation CFENOrientation) [6]cube.Face {
-	// Standard YB orientation
-	if orientation.Up == cube.Yellow && orientation.Front == cube.Blue {
-		return [6]cube.Face{cube.Up, cube.Right, cube.Front, cube.Down, cube.Left, cube.Back}
-	}
-
-	// WG orientation - must match the forward mapping so ToCube/FromCube round-trip
-	if orientation.Up == cube.White && orientation.Front == cube.Green {
-		return [6]cube.Face{cube.Down, cube.Left, cube.Back, cube.Up, cube.Right, cube.Front}
-	}
-
-	// WB orientation
-	if orientation.Up == cube.White && orientation.Front == cube.Blue {
-		return [6]cube.Face{cube.Down, cube.Right, cube.Front, cube.Up, cube.Left, cube.Back}
-	}
-
-	// YG orientation
-	if orientation.Up == cube.Yellow && orientation.Front == cube.Green {
-		return [6]cube.Face{cube.Up, cube.Left, cube.Back, cube.Down, cube.Right, cube.Front}
-	}
-
-	// Default fallback
-	return [6]cube.Face{cube.Up, cube.Right, cube.Front, cube.Down, cube.Left, cube.Back}
+	return moves, nil
 }

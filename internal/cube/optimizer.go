@@ -18,7 +18,7 @@ func OptimizeMoves(moves []Move) []Move {
 	for i := 0; i < len(moves); i++ {
 		currentMove := moves[i]
 
-		// Skip moves that don't affect the cube (only cube rotations for now)
+		// Preserve rotations: subsequent turns are expressed in the rotated frame.
 		if currentMove.Rotation != NoRotation {
 			optimized = append(optimized, currentMove)
 			continue
@@ -30,7 +30,9 @@ func OptimizeMoves(moves []Move) []Move {
 
 			// Same face moves can be combined
 			if lastMove.Face == currentMove.Face &&
+				lastMove.Rotation == NoRotation &&
 				lastMove.Wide == currentMove.Wide &&
+				lastMove.WideDepth == currentMove.WideDepth &&
 				lastMove.Layer == currentMove.Layer &&
 				lastMove.Slice == NoSlice && currentMove.Slice == NoSlice {
 
@@ -68,7 +70,10 @@ func combineSameFaceMoves(first, second Move) *Move {
 	}
 
 	// Create optimized move from total quarter turns
-	return quarterTurnsToMove(first.Face, first.Wide, first.Layer, totalCount)
+	combined := first
+	combined.Clockwise = totalCount != 3
+	combined.Double = totalCount == 2
+	return &combined
 }
 
 // moveToQuarterTurns converts a move to number of quarter turns (1-3)

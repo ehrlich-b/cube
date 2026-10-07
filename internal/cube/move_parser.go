@@ -15,6 +15,7 @@ func ParseMove(notation string) (Move, error) {
 	}
 
 	move := Move{Clockwise: true} // Default to clockwise
+	numbered := false
 
 	// Parse modifiers at the end
 	for len(notation) > 0 {
@@ -50,9 +51,13 @@ func ParseMove(notation string) (Move, error) {
 			i++
 		}
 		if len(numStr) > 0 {
+			numbered = true
 			num, err := strconv.Atoi(numStr)
 			if err != nil {
 				return Move{}, fmt.Errorf("invalid number in move: %s", numStr)
+			}
+			if num < 1 {
+				return Move{}, fmt.Errorf("layer number must be positive: %s", numStr)
 			}
 			if move.Wide {
 				move.WideDepth = num
@@ -91,6 +96,9 @@ func ParseMove(notation string) (Move, error) {
 		move.Rotation = Z_Rotation
 	default:
 		return Move{}, fmt.Errorf("unknown move notation: %s", notation)
+	}
+	if (move.Slice != NoSlice || move.Rotation != NoRotation) && (move.Wide || numbered) {
+		return Move{}, fmt.Errorf("slice moves and rotations cannot have layer or wide modifiers")
 	}
 
 	return move, nil

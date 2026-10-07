@@ -1,8 +1,87 @@
 package cube
 
 import (
+	"fmt"
+	"math/rand"
+	"reflect"
 	"testing"
 )
+
+func TestOptimizePreservesFullNotation(t *testing.T) {
+	for _, text := range []string{"x F", "R x R", "3Rw 3Rw", "Rw 3Rw"} {
+		t.Run(text, func(t *testing.T) {
+			assertOptimizationPreservesState(t, 4, text)
+		})
+	}
+	rng := rand.New(rand.NewSource(20261007))
+	for _, size := range []int{3, 4, 5} {
+		var tokens []string
+		for _, face := range []string{"R", "L", "U", "D", "F", "B"} {
+			tokens = append(tokens, face, face+"w")
+			for depth := 2; depth <= size; depth++ {
+				tokens = append(tokens, fmt.Sprintf("%d%s", depth, face), fmt.Sprintf("%d%sw", depth, face))
+			}
+		}
+		tokens = append(tokens, "x", "y", "z")
+		// Even cubes have no single middle slice; those moves are rejected.
+		if size%2 == 1 {
+			tokens = append(tokens, "M", "E", "S")
+		}
+		for trial := 0; trial < 300; trial++ {
+			var moves []Move
+			for i := 0; i < 80; i++ {
+				token := tokens[rng.Intn(len(tokens))] + []string{"", "'", "2"}[rng.Intn(3)]
+				move, err := ParseMove(token)
+				if err != nil {
+					t.Fatal(err)
+				}
+				moves = append(moves, move)
+				if rng.Intn(3) == 0 {
+					moves = append(moves, move)
+				}
+			}
+			assertOptimizationPreservesState(t, size, FormatMoves(moves))
+		}
+	}
+}
+
+func assertOptimizationPreservesState(t *testing.T, size int, text string) {
+	t.Helper()
+	moves, err := ParseMoves(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	optimizedText, err := OptimizeScramble(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	optimized, err := ParseMoves(optimizedText)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(optimized) > len(moves) {
+		t.Fatalf("optimization grew %q to %q", text, optimizedText)
+	}
+	// Unique sticker labels also detect changes hidden by uniform face colors.
+	original := NewCube(size)
+	for face := range original.Faces {
+		for row := range original.Faces[face] {
+			for col := range original.Faces[face][row] {
+				original.Faces[face][row][col] = Color(face*size*size + row*size + col)
+			}
+		}
+	}
+	result := original.clone()
+	if err := original.ApplyMoves(moves); err != nil {
+		t.Fatal(err)
+	}
+	if err := result.ApplyMoves(optimized); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(original.Faces, result.Faces) {
+		t.Fatalf("%dx%d optimization changed state: %q -> %q", size, size, text, optimizedText)
+	}
+}
 
 func TestOptimizeMoves(t *testing.T) {
 	testCases := []struct {

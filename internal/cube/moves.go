@@ -1,7 +1,72 @@
 package cube
 
-// ApplyMove applies a single move to the cube
-func (c *Cube) ApplyMove(move Move) {
+import "fmt"
+
+// ValidateMoves checks a sequence before applying it, preventing partial changes
+// when a later move is invalid for the cube's dimension.
+func ValidateMoves(moves []Move, size int) error {
+	if size < 2 {
+		return fmt.Errorf("cube dimension must be at least 2 (got %d)", size)
+	}
+	for _, move := range moves {
+		if err := move.Validate(size); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Validate rejects moves that cannot be represented on a cube of this size.
+func (move Move) Validate(size int) error {
+	if size < 2 {
+		return fmt.Errorf("cube dimension must be at least 2 (got %d)", size)
+	}
+	if move.Slice != NoSlice {
+		if move.Slice < M_Slice || move.Slice > S_Slice || move.Rotation != NoRotation || move.Wide || move.Layer != 0 || move.WideDepth != 0 {
+			return fmt.Errorf("invalid slice move")
+		}
+		if size%2 == 0 {
+			return fmt.Errorf("slice move %s is unsupported on an even %dx%dx%d cube; use numbered layer turns", move, size, size, size)
+		}
+		return nil
+	}
+	if move.Rotation != NoRotation {
+		if move.Rotation < X_Rotation || move.Rotation > Z_Rotation || move.Wide || move.Layer != 0 || move.WideDepth != 0 {
+			return fmt.Errorf("invalid cube rotation")
+		}
+		return nil
+	}
+	if move.Face < Front || move.Face > Down {
+		return fmt.Errorf("invalid move face %d", move.Face)
+	}
+	if move.Layer < 0 || move.Layer >= size {
+		return fmt.Errorf("move %s selects layer %d outside a %dx%dx%d cube (layers 1-%d)", move, move.Layer+1, size, size, size, size)
+	}
+	if move.Wide {
+		depth := move.WideDepth
+		if depth == 0 {
+			depth = 2
+		}
+		if depth < 1 || depth > size || move.Layer != 0 {
+			return fmt.Errorf("move %s selects invalid wide layer depth %d for a %dx%dx%d cube", move, depth, size, size, size)
+		}
+	} else if move.WideDepth != 0 {
+		return fmt.Errorf("wide layer depth requires a wide turn")
+	}
+	return nil
+}
+
+// ApplyMove applies a single valid move, returning an error without mutation
+// when a layer is out of range or a slice is unsupported.
+func (c *Cube) ApplyMove(move Move) error {
+	if err := move.Validate(c.Size); err != nil {
+		return err
+	}
+	c.applyMove(move)
+	return nil
+}
+
+func (c *Cube) applyMove(move Move) {
 	moveType, quarterTurns := moveToMoveType(move)
 	layers := getAffectedLayers(move, c.Size)
 
@@ -12,10 +77,14 @@ func (c *Cube) ApplyMove(move Move) {
 }
 
 // ApplyMoves applies a sequence of moves to the cube
-func (c *Cube) ApplyMoves(moves []Move) {
-	for _, move := range moves {
-		c.ApplyMove(move)
+func (c *Cube) ApplyMoves(moves []Move) error {
+	if err := ValidateMoves(moves, c.Size); err != nil {
+		return err
 	}
+	for _, move := range moves {
+		c.applyMove(move)
+	}
+	return nil
 }
 
 // moveToMoveType converts a Move struct to MoveType and determines quarter turns
