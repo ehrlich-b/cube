@@ -216,8 +216,8 @@ func runPatternSearchWithOptions(pattern string, maxMoves int, fromState string,
 
 	// Simple brute force search
 	var results []searchResult
-	if options.dimension != 3 && strings.EqualFold(pattern, "solved") {
-		results = breadthFirstSearchLimit(startCube, func(c *cube.Cube) bool { return c.IsSolved() }, maxMoves, options.moves, 1)
+	if strings.EqualFold(pattern, "solved") {
+		results = solvedSearchResults(startCube, target, options.moves, maxMoves)
 	} else {
 		results = coordinatePatternResults(startCube, target, options.moves, maxMoves)
 	}
@@ -279,12 +279,7 @@ func runSequenceSearchWithOptions(scramble string, maxMoves int, showSteps bool,
 			}
 		}
 	}
-	var results []searchResult
-	if options.dimension != 3 {
-		results = breadthFirstSearchLimit(startCube, func(c *cube.Cube) bool { return c.IsSolved() }, maxMoves, options.moves, 1)
-	} else {
-		results = coordinatePatternResults(startCube, target, options.moves, maxMoves)
-	}
+	results := solvedSearchResults(startCube, target, options.moves, maxMoves)
 
 	if len(results) == 0 {
 		fmt.Printf("No solutions found within %d moves.\n", maxMoves)
@@ -307,6 +302,22 @@ func runSequenceSearchWithOptions(scramble string, maxMoves int, showSteps bool,
 type searchResult struct {
 	moves    []cube.Move
 	notation string
+}
+
+func solvedSearchResults(start, target *cube.Cube, moves []cube.Move, maxDepth int) []searchResult {
+	fixedCenters := start.Size == 3
+	for _, m := range moves {
+		if m.Wide || m.Layer != 0 || m.Slice != cube.NoSlice || m.Rotation != cube.NoRotation {
+			fixedCenters = false
+			break
+		}
+	}
+	if fixedCenters {
+		return coordinatePatternResults(start, target, moves, maxDepth)
+	}
+	// Solved faces may have different centers after a slice, wide turn or
+	// rotation. A target tied to the starting centers would lose solutions.
+	return breadthFirstSearchLimit(start, func(c *cube.Cube) bool { return c.IsSolved() }, maxDepth, moves, 1)
 }
 
 func coordinatePatternResults(start, target *cube.Cube, moves []cube.Move, maxDepth int) []searchResult {
