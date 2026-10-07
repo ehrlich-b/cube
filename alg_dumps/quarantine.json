@@ -26,6 +26,292 @@
     "Reason": "unresolved reference or invalid move \"similar\""
   },
   {
+    "Source": "cfop_f2l.csv:24",
+    "Row": [
+      "F2L-24",
+      "Corner Point Up #8",
+      "CFOP-F2L",
+      "(F' U' F U) (F' U F U') F' U2 F",
+      "Corner in top, edge in wrong slot (mirror)",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-24 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:25",
+    "Row": [
+      "F2L-25",
+      "Corner in Slot, Edge in U #1",
+      "CFOP-F2L",
+      "y' U R' U' R y R U' R'",
+      "Take edge out and insert",
+      "Corner already in place, edge in top",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-25 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:26",
+    "Row": [
+      "F2L-26",
+      "Corner in Slot, Edge in U #2",
+      "CFOP-F2L",
+      "y U' R U R' y' R' U R",
+      "Take edge out (mirror)",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-26 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:27",
+    "Row": [
+      "F2L-27",
+      "Corner in Slot, Edge in U #3",
+      "CFOP-F2L",
+      "(y) R U R' y' R' F R F'",
+      "Edge in top, corner in wrong slot",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-27 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:28",
+    "Row": [
+      "F2L-28",
+      "Corner in Slot, Edge in U #4",
+      "CFOP-F2L",
+      "(y') L' U' L y L F' L' F",
+      "Edge in top, corner in wrong slot (mirror)",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-28 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:29",
+    "Row": [
+      "F2L-29",
+      "Both in Slot (Mis slotted)",
+      "CFOP-F2L",
+      "R' F R F' U2 R U' R'",
+      "Both pieces in slot incorrectly",
+      "Needs edge flip or reposition",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-29 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:30",
+    "Row": [
+      "F2L-30",
+      "Both in Slot (Mis slotted) 2",
+      "CFOP-F2L",
+      "L F' L' F U2 L' U L",
+      "Both pieces in slot (mirror)",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-30 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:31",
+    "Row": [
+      "F2L-31",
+      "Edge in Slot, Corner in U #1",
+      "CFOP-F2L",
+      "U R U' R' U2 R U' R'",
+      "Edge solved, corner in top",
+      "Corner above solved edge (insert with setup)",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-31 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:32",
+    "Row": [
+      "F2L-32",
+      "Edge in Slot, Corner in U #2",
+      "CFOP-F2L",
+      "U' F' U F U2 F' U F",
+      "Edge solved, corner in top (mirror)",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-32 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:33",
+    "Row": [
+      "F2L-33",
+      "Edge in Slot, Corner in U #3",
+      "CFOP-F2L",
+      "R U' R' U R U' R'",
+      "Edge solved, corner in U (variation)",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-33 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:34",
+    "Row": [
+      "F2L-34",
+      "Edge in Slot, Corner in U #4",
+      "CFOP-F2L",
+      "F' U F U' F' U F",
+      "Edge solved, corner in U (mirror variation)",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-34 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:35",
+    "Row": [
+      "F2L-35",
+      "Corner \u0026 Edge in wrong slots #1",
+      "CFOP-F2L",
+      "(R U R' U) (R U' R')",
+      "Swap with adjacent slot",
+      "Corner-edge in wrong place (simple)",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-35 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:36",
+    "Row": [
+      "F2L-36",
+      "Corner \u0026 Edge in wrong slots #2",
+      "CFOP-F2L",
+      "(L' U' L U') (L' U L)",
+      "Swap with adjacent slot (mirror)",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-36 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:37",
+    "Row": [
+      "F2L-37",
+      "Corner \u0026 Edge in wrong slots #3",
+      "CFOP-F2L",
+      "(R U' R' U) (R U R')",
+      "Swap with opposite slot",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-37 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:38",
+    "Row": [
+      "F2L-38",
+      "Corner \u0026 Edge in wrong slots #4",
+      "CFOP-F2L",
+      "(L' U L U') (L' U' L)",
+      "Swap with opposite slot (mirror)",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-38 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:39",
+    "Row": [
+      "F2L-39",
+      "Edge flipped in slot #1",
+      "CFOP-F2L",
+      "(r U R' U') (r' F R F')",
+      "Flip paired edge in place (sledge)",
+      "Edge oriented wrong in slot",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-39 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:40",
+    "Row": [
+      "F2L-40",
+      "Edge flipped in slot #2",
+      "CFOP-F2L",
+      "(l' U' L U) (l F' L' F)",
+      "Flip paired edge (mirror)",
+      "UNK",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-40 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_f2l.csv:41",
+    "Row": [
+      "F2L-41",
+      "Edge flipped in slot #3",
+      "CFOP-F2L",
+      "(R U' R') d (R' U' R U') (R' U' R)",
+      "Flip edge with rotation setup",
+      "Edge flipped, need rotation to solve",
+      "cubingcheatsheet.com:contentReference[oaicite:26]{index=26}"
+    ],
+    "Reason": "algorithm does not solve independent standard F2L-41 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_oll.csv:5",
+    "Row": [
+      "OLL-5",
+      "Tank",
+      "CFOP-OLL",
+      "R U R' U (R' F R F') U2 (R' F R F')",
+      "Orients edges and corners (dot case)",
+      "No edges oriented, shape looks like a tank",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-5 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_oll.csv:6",
+    "Row": [
+      "OLL-6",
+      "Streetlights",
+      "CFOP-OLL",
+      "(y') r U R' U R U2 r2' U' R U' R' U2 r",
+      "Orients edges and corners (dot case)",
+      "No edges oriented, two opposite corner blocks",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-6 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_oll.csv:7",
+    "Row": [
+      "OLL-7",
+      "Butterfly",
+      "CFOP-OLL",
+      "r' R U (R U R' U') r R2' F R F'",
+      "Orients edges and corners (dot case)",
+      "No edges oriented, “Butterfly” pattern",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-7 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_oll.csv:8",
+    "Row": [
+      "OLL-8",
+      "Bolt",
+      "CFOP-OLL",
+      "M U (R U R' U') M' (R' F R F')",
+      "Orients edges and corners (dot case)",
+      "No edges oriented, M-slice shape",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-8 fixture under yaw/AUF"
+  },
+  {
     "Source": "cfop_oll.csv:9",
     "Row": [
       "OLL-9",
@@ -65,6 +351,32 @@
     "Reason": "claimed OLL algorithm disturbs the first two layers"
   },
   {
+    "Source": "cfop_oll.csv:17",
+    "Row": [
+      "OLL-17",
+      "Big Lightning",
+      "CFOP-OLL",
+      "r' R U (R U R' U') r R2' F R F'",
+      "Orients edges and one corner",
+      "One edge oriented, lightning bolt shape",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-17 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_oll.csv:18",
+    "Row": [
+      "OLL-18",
+      "Big Lightning (mirror)",
+      "CFOP-OLL",
+      "(F R U R' U' F')(R U2 R2' F R F' R U2 R')",
+      "Orients edges and one corner",
+      "Lightning bolt mirrored",
+      "speedsolving.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-18 fixture under yaw/AUF"
+  },
+  {
     "Source": "cfop_oll.csv:20",
     "Row": [
       "OLL-20",
@@ -76,6 +388,45 @@
       "speedsolving.com"
     ],
     "Reason": "claimed OLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_oll.csv:35",
+    "Row": [
+      "OLL-35",
+      "Bowtie (mirror)",
+      "CFOP-OLL",
+      "F' (L' U' L U) (L' U' L U) F",
+      "Orients two corners",
+      "Edges oriented, bowtie mirrored",
+      "cubingcheatsheet.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-35 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_oll.csv:37",
+    "Row": [
+      "OLL-37",
+      "Mario",
+      "CFOP-OLL",
+      "(R U R' U) (R U' R' U') (R' F R F')",
+      "Orients two corners",
+      "Edges oriented, W-shape mirror",
+      "cubingcheatsheet.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-37 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_oll.csv:38",
+    "Row": [
+      "OLL-38",
+      "Mounted Fish",
+      "CFOP-OLL",
+      "F (R U' R' U') (R U R') F'",
+      "Orients two corners",
+      "Edges oriented, fish shape",
+      "cubingcheatsheet.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-38 fixture under yaw/AUF"
   },
   {
     "Source": "cfop_oll.csv:39",
@@ -130,6 +481,32 @@
     "Reason": "claimed OLL algorithm disturbs the first two layers"
   },
   {
+    "Source": "cfop_oll.csv:47",
+    "Row": [
+      "OLL-47",
+      "Breakneck",
+      "CFOP-OLL",
+      "F (R U R' U') (R U R' U') F'",
+      "Orients edges (L-case)",
+      "No corners oriented, L-shape “breakneck”",
+      "cubingcheatsheet.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-47 fixture under yaw/AUF"
+  },
+  {
+    "Source": "cfop_oll.csv:48",
+    "Row": [
+      "OLL-48",
+      "Anti-Breakneck",
+      "CFOP-OLL",
+      "F' (L' U' L U) (L' U' L U) F",
+      "Orients edges (L-case)",
+      "No corners oriented, L-shape mirror",
+      "cubingcheatsheet.com"
+    ],
+    "Reason": "algorithm does not solve independent standard OLL-48 fixture under yaw/AUF"
+  },
+  {
     "Source": "cfop_pll.csv:3",
     "Row": [
       "PLL-E",
@@ -143,17 +520,17 @@
     "Reason": "claimed PLL algorithm disturbs the first two layers"
   },
   {
-    "Source": "cfop_pll.csv:13",
+    "Source": "cfop_pll.csv:14",
     "Row": [
-      "PLL-Jb",
-      "J Permutation B",
+      "PLL-Ra",
+      "R Permutation A",
       "CFOP-PLL",
-      "(x) R U R' F' R U R' U' R' F R2 U' R' U'",
-      "Cycles 3 corners \u0026 3 edges",
-      "Mirror of Ja (blocks on opposite side)",
-      "jperm.net"
+      "(F R U' R' U' R U R' F') (R U R' U' R' F R F')",
+      "Swaps 3 corners + 1 edge pair",
+      "Headlights + one 1x2 block (block on right)",
+      "algdb.net"
     ],
-    "Reason": "claimed PLL algorithm disturbs the first two layers"
+    "Reason": "algorithm does not solve independent standard PLL-Ra fixture under yaw/AUF"
   },
   {
     "Source": "cfop_pll.csv:17",

@@ -9,7 +9,7 @@ OLL-8,"Bolt","CFOP-OLL","M U (R U R' U') M' (R' F R F')","Orients edges and corn
 OLL-9,"Fish Hook","CFOP-OLL","(y) R' U' F' U F R U R' U' R U' R'","Orients edges and corners (L shape)","One edge oriented (L-shaped pattern)","speedsolving.com"
 OLL-10,"Anti Fish Hook","CFOP-OLL","(y2) F (U R U' R') F' U R U' R' U' R U' R'","Orients edges and corners (L shape)","One edge oriented (L-shape mirrored)","speedsolving.com"
 OLL-11,"Headlights","CFOP-OLL","(R U R' U')^2 (R' F R F')^2","Orients edges and corners (L shape)","Two adjacent corners oriented (headlights):contentReference[oaicite:2]{index=2}","cubingcheatsheet.com"
-OLL-12,"T","CFOP-OLL","(R U R' U') (R' F R F')","Orients edges and corners (L shape)","T-shape on top layer","cubingcheatsheet.com:contentReference[oaicite:3]{index=3}"
+OLL-12,"Small Lightning","CFOP-OLL","M' R' U' R U' R' U2 R U' M","Orient standard OLL-12","Two adjacent oriented edges and one oriented corner","https://www.icubing.com/en/oll/12"
 OLL-13,"Gun","CFOP-OLL","F (U R U' R2) F' (R U R U') R'","Orients edges and corners (L shape)","“Gun” shape (large L) on top","cubingcheatsheet.com"
 OLL-14,"Anti-Gun","CFOP-OLL","(R' F R) U (R' F' R) y' (R U' R')","Orients edges and corners (L shape)","Mirror of Gun case","cubingcheatsheet.com"
 OLL-15,"Squeegee","CFOP-OLL","(r' U' r) (R' U' R U) (r' U r)","Orients edges and corners (L shape)","Squares pattern (large L)","cubingcheatsheet.com"

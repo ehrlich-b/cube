@@ -211,7 +211,7 @@ run_test "Lookup by pattern" "$CUBE_BIN lookup --pattern \"R U R' U'\"" "Sexy Mo
 run_test "Lookup by category OLL" "$CUBE_BIN lookup --category OLL" "Sune"
 run_test "Lookup by category PLL" "$CUBE_BIN lookup --category PLL" "T-Perm"
 run_test "Lookup 2x2 preview uses its dimension" "$CUBE_BIN lookup 2x2-OLL-1 --preview" "Dimension: 2x2"
-run_test "Lookup merged OLL alias" "$CUBE_BIN lookup OLL-24" "Aliases:.*OLL-24"
+run_test "Lookup merged OLL alias" "$CUBE_BIN lookup OLL-27" "Aliases:.*OLL-27"
 run_test "Lookup all algorithms" "$CUBE_BIN lookup --all" "All algorithms in database:"
 run_test "Lookup with preview" "$CUBE_BIN lookup sune --preview" "Top face after algorithm:"
 run_test "Lookup T-Perm" "$CUBE_BIN lookup \"T-Perm\"" "PLL-T - T-Perm"

@@ -28,6 +28,7 @@ type summary struct {
 	Files, Rows, Imported, Merged, Quarantined, Verified3x3, VerifiedOther int
 	Categories                                                             map[string]int
 	InversePairs, MirrorPairs                                              int
+	PhysicalChecks                                                         map[string]int
 }
 
 var citation = regexp.MustCompile(`:contentReference\[oaicite:\d+\]\{index=\d+\}`)
@@ -244,7 +245,7 @@ func prepare(a *cube.Algorithm) error {
 			}
 		}
 	}
-	return nil
+	return cube.VerifyAlgorithmCases(*a)
 }
 
 func appendUnique(list []string, values ...string) []string {
@@ -327,8 +328,8 @@ func importFiles(dir string) ([]cube.Algorithm, []rejected, summary, error) {
 	db := []cube.Algorithm{
 		{Name: "Sune", CaseID: "OLL-27", Category: "OLL", Moves: "R U R' U R U2 R'", Dimension: 3, Description: "Orient corners when one is correctly oriented", Recognition: "One corner oriented, headlights on left", Probability: 4.63},
 		{Name: "Anti-Sune", CaseID: "OLL-26", Category: "OLL", Moves: "R U2 R' U' R U' R'", Dimension: 3, Description: "Orient corners with the inverse of Sune", Recognition: "One corner oriented, headlights on right", Probability: 4.63},
-		{Name: "Cross OLL", CaseID: "OLL-CROSS", Category: "OLL", Moves: "F R U R' U' F'", Dimension: 3, Description: "Form yellow cross on top face", Recognition: "Need yellow cross (dot, line, or L-shape)"},
-		{Name: "T-Perm", CaseID: "PLL-T", Category: "PLL", Moves: "R U R' F' R U R' U' R' F R2 U' R'", Dimension: 3, Description: "Swaps two adjacent corners and two edges", Recognition: "Headlights with opposite edge swap", Probability: 4.17},
+		{Name: "Cross OLL", CaseID: "OLL-45", Aliases: []string{"OLL-CROSS"}, Category: "OLL", Moves: "F R U R' U' F'", Dimension: 3, Description: "Orient the standard OLL-45 case", Recognition: "Two opposite edges oriented and two adjacent corners oriented"},
+		{Name: "T-Perm", CaseID: "PLL-T", Category: "PLL", Moves: "R U R' U' R' F R2 U' R' U' R U R' F'", Dimension: 3, Description: "Swaps two adjacent corners and two edges", Recognition: "Headlights with opposite edge swap", Probability: 4.17},
 		{Name: "Sexy Move", CaseID: "TRIG-1", Category: "Trigger", Moves: "R U R' U'", Dimension: 3, Description: "Most common trigger in cubing", Recognition: "F2L pair building/breaking trigger"},
 	}
 	keys := map[string]int{}
@@ -344,7 +345,7 @@ func importFiles(dir string) ([]cube.Algorithm, []rejected, summary, error) {
 	if err != nil {
 		return nil, nil, summary{}, err
 	}
-	report := summary{Files: len(files), Categories: map[string]int{}}
+	report := summary{Files: len(files), Categories: map[string]int{}, PhysicalChecks: map[string]int{}}
 	var quarantine []rejected
 	for _, name := range files {
 		file, err := os.Open(name)
@@ -411,6 +412,14 @@ func importFiles(dir string) ([]cube.Algorithm, []rejected, summary, error) {
 	}
 	report.Quarantined = len(quarantine)
 	for _, a := range db {
+		if err := cube.VerifyAlgorithmCases(a); err != nil {
+			return nil, nil, report, fmt.Errorf("merged %s: %w", a.CaseID, err)
+		}
+		for _, category := range []string{"OLL", "PLL", "F2L"} {
+			if a.Dimension == 3 && a.HasCategory(category) {
+				report.PhysicalChecks[category]++
+			}
+		}
 		report.Categories[a.Category]++
 		for _, category := range a.Categories {
 			report.Categories[category]++

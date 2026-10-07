@@ -15,20 +15,35 @@ CUBE_CACHE_DIR=$PWD/.scratch/cube-cache taskpolicy -b nice -n 15 go run -p 2 ./t
 ```
 
 This imports all nine `alg_dumps/*.csv` files into the embedded
-`internal/cube/algorithms_data.json`. It normalizes lowercase wide notation,
+`internal/cube/algorithms_data.json`. It preserves numbered wide/slice depths and normalizes lowercase wide notation,
 parentheses/repetition and prime/half-turn spellings, strips citation artifacts,
 merges equal normalized sequences within a dimension, and retains source rows,
 aliases and every category. Five built-in entries remain part of the reproducible
-import. Unresolved textual references and stage-invalid 3×3 CFOP entries go to
+import. Unresolved textual references, stage-invalid 3×3 CFOP entries, and
+algorithms that fail their independently constructed named case go to
 `alg_dumps/quarantine.json` with the complete original row and an explicit reason.
 No quarantine entry enters the live database. The report records 159 rows,
-144 accepted, 18 merged, 15 quarantined, and 131 verified unique algorithms
-(117 for 3×3 and 14 for other sizes), plus counts by category.
+115 accepted, 12 merged, 44 quarantined, and 108 verified unique algorithms
+(94 for 3×3 and 14 for other sizes), plus counts by category.
 
 All generated patterns pass the same CFEN parse/replay/match semantics as
 `cube verify`. OLL/PLL also preserve F2L, PLL preserves top orientation, and F2L
-preserves the cross after restoring the center frame. Other dimension case and
-parity descriptions are retained without a claim of independent validation.
+preserves the cross after restoring the center frame. Additionally, every 3×3
+OLL/PLL/F2L case ID and case-ID alias must solve a physical fixture assembled
+from standard piece coordinates, allowing yaw and AUF. The fixture coordinates
+in `internal/cube/standard_cases.go` come from
+[csTimer's case maps](https://github.com/cs0x7f/cstimer/blob/master/src/js/scramble/scramble_333_edit.js);
+they do not read stored patterns or invert stored algorithms. The report's
+`PhysicalChecks` counts 39 OLL, 18 PLL and 23 F2L records. Case-invalid rows keep
+their full original data and explicit reason in the quarantine, so a duplicate
+algorithm cannot acquire a false case alias through merging.
+
+The built-in T-perm, imported OLL-12 and Jb, and explicit 4×4 parity notation
+were corrected. Lowercase `r` is ambiguous across big-cube sources; the parity
+CSV now specifies inner slices as `2R`/`2L` and wide turns as `Uw` explicitly.
+Both 4×4 parity entries have independent flipped/swapped-dedge regression
+fixtures and preserve all solved centers. Other dimensions' case descriptions
+remain unverified beyond inverse replay.
 Inverse IDs and mirror IDs are detected by exact sticker permutations, with
 self-pairs included; mirror uses a left/right reflection. A missing counterpart
 leaves its ID empty. Every entry still includes its inverse move sequence.

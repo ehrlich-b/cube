@@ -10,7 +10,7 @@ PLL-V,"V Permutation","CFOP-PLL","R' U R' U' y R' F' R2 U' R' U R' F R F","Cycle
 PLL-Y,"Y Permutation","CFOP-PLL","F R U' R' U' R U R' F' R U R' U' R' F R F'","Swaps two corners and two edges (diagonal)","“Headlights” on one side, opposite corner-edge block","algdb.net"
 PLL-T,"T Permutation","CFOP-PLL","R U R' U' R' F R2 U' R' U' R U R' F'","Swaps 2 adjacent corners and 2 edges","2x2 solved block plus headlights on one face:contentReference[oaicite:20]{index=20}","jperm.net:contentReference[oaicite:21]{index=21}"
 PLL-Ja,"J Permutation A","CFOP-PLL","(x) R2 F R F' R U2 r' U r U2","Cycles 3 corners & 3 edges","1x3 block and 1x2 block present:contentReference[oaicite:22]{index=22}","jperm.net"
-PLL-Jb,"J Permutation B","CFOP-PLL","(x) R U R' F' R U R' U' R' F R2 U' R' U'","Cycles 3 corners & 3 edges","Mirror of Ja (blocks on opposite side)","jperm.net"
+PLL-Jb,"J Permutation B","CFOP-PLL","R U R' F' R U R' U' R' F R2 U' R' U'","Swaps adjacent corners and adjacent edges","Mirror of Ja (blocks on opposite side)","jperm.net"
 PLL-Ra,"R Permutation A","CFOP-PLL","(F R U' R' U' R U R' F') (R U R' U' R' F R F')","Swaps 3 corners + 1 edge pair","Headlights + one 1x2 block (block on right)","algdb.net"
 PLL-Rb,"R Permutation B","CFOP-PLL","R' U2 R U2 R' F R U R' U' R' F' R2 U'","Swaps 3 corners + 1 edge pair","Headlights + one 1x2 block (block on left)","algdb.net"
 PLL-Na,"N Permutation A","CFOP-PLL","(L U' R U2 L' U R') (L U' R U2 L' U R')","Cycles 4 corners + 2 edges","No headlights, multiple 1x2 blocks","algdb.net"

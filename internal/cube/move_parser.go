@@ -153,6 +153,8 @@ func (m Move) String() string {
 		// Add layer number prefix for numbered layer moves (2R, 3L, etc.)
 		if m.Layer > 0 {
 			result += fmt.Sprintf("%d", m.Layer+1) // Convert back to 1-indexed
+		} else if m.Wide && m.WideDepth > 0 {
+			result += strconv.Itoa(m.WideDepth)
 		}
 
 		// Add face letter

@@ -22,6 +22,7 @@ func TestNormalizeNotation(t *testing.T) {
 		{"U U (U2)", "U2"},
 		{"U U U2", "U U U2"},
 		{"2R2 B2 2L'", "2R2 B2 2L'"},
+		{"3Rw 2Uw2 3Fw' 4L", "3Rw 2Uw2 3Fw' 4L"},
 	} {
 		got, err := normalize(test.input)
 		if err != nil || got != test.want {
@@ -38,7 +39,7 @@ func TestNormalizeNotation(t *testing.T) {
 func TestImportMergeAndQuarantine(t *testing.T) {
 	dir := t.TempDir()
 	rows := [][]string{
-		{"F2L-TEST", "Pair", "CFOP-F2L", "U (R U' R')", "Insert pair", "Pair on top:contentReference[oaicite:2]{index=2}", "local fixture"},
+		{"F2L-1", "Pair", "CFOP-F2L", "U (R U' R')", "Insert pair", "Pair on top:contentReference[oaicite:2]{index=2}", "local fixture"},
 		{"TRIG-TEST", "Alias pair", "Trigger", "U R U' R'", "Same moves", "Pair", "local fixture"},
 		{"OLL-BAD", "Wrong category", "CFOP-OLL", "R", "Orient LL", "Invalid stage", "local fixture"},
 		{"REF", "Reference", "Advanced", "(use other algorithm)", "Unresolved", "Reference", "local fixture"},

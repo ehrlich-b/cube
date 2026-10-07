@@ -58,7 +58,7 @@ var showAlgCmd = &cobra.Command{
 
 		// Create working cube (start from solved state)
 		// TODO: Implement pattern-based starting state
-		workingCube := cube.NewCube(3)
+		workingCube := cube.NewCube(alg.Dimension)
 
 		// Apply all moves
 		for _, move := range moves {
@@ -89,7 +89,7 @@ func showAlgorithmAnimated(alg cube.Algorithm, color bool) error {
 
 	// Create working cube (start from solved state)
 	// TODO: Implement pattern-based starting state
-	workingCube := cube.NewCube(3)
+	workingCube := cube.NewCube(alg.Dimension)
 
 	// Show each step
 	for i, move := range moves {

@@ -1,10 +1,10 @@
 {
   "Files": 9,
   "Rows": 159,
-  "Imported": 144,
-  "Merged": 18,
-  "Quarantined": 15,
-  "Verified3x3": 117,
+  "Imported": 115,
+  "Merged": 12,
+  "Quarantined": 44,
+  "Verified3x3": 94,
   "VerifiedOther": 14,
   "Categories": {
     "2x2-CLL": 6,
@@ -16,13 +16,18 @@
     "5x5-PARITY": 1,
     "6x6-PARITY": 1,
     "Advanced": 7,
-    "F2L": 41,
-    "OLL": 46,
+    "F2L": 23,
+    "OLL": 39,
     "PLL": 18,
     "ROUX-CMLL": 2,
     "ROUX-LSE": 2,
     "Trigger": 8
   },
-  "InversePairs": 21,
-  "MirrorPairs": 12
+  "InversePairs": 22,
+  "MirrorPairs": 7,
+  "PhysicalChecks": {
+    "F2L": 23,
+    "OLL": 39,
+    "PLL": 18
+  }
 }
