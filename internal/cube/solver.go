@@ -40,7 +40,7 @@ func (s *BeginnerSolver) Solve(c *Cube) (*SolverResult, error) {
 	}, nil
 }
 
-// CFOP and Kociemba remain unimplemented stubs. Beginner is complete for 3x3.
+// CFOP remains an unimplemented stub. Beginner and Kociemba solve 3x3 cubes.
 //
 // The CLI rejects these unavailable algorithms rather than presenting an empty
 // result as success. Their legacy API behavior remains guarded by the invariant.
@@ -75,36 +75,15 @@ func (s *CFOPSolver) Solve(cube *Cube) (*SolverResult, error) {
 	}, nil
 }
 
-// KociembaSolver implements Kociemba's two-phase algorithm (placeholder)
+// KociembaSolver implements Kociemba's two-phase algorithm.
 type KociembaSolver struct{}
 
 func (s *KociembaSolver) Name() string {
 	return "Kociemba"
 }
 
-func (s *KociembaSolver) Solve(cube *Cube) (*SolverResult, error) {
-	if cube.Size != 3 {
-		return nil, fmt.Errorf("Kociemba algorithm only supports 3x3x3 cubes")
-	}
-
-	start := time.Now()
-
-	// Check if cube is already solved
-	if cube.IsSolved() {
-		return &SolverResult{
-			Solution: []Move{},
-			Steps:    0,
-			Duration: time.Since(start),
-		}, nil
-	}
-
-	// TODO: Implement real Kociemba two-phase algorithm
-	// For now, return empty solution
-	return &SolverResult{
-		Solution: []Move{},
-		Steps:    0,
-		Duration: time.Since(start),
-	}, nil
+func (s *KociembaSolver) Solve(c *Cube) (*SolverResult, error) {
+	return solveTwoPhase(c)
 }
 
 // GetSolver returns a solver by name

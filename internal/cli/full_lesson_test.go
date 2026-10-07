@@ -51,13 +51,63 @@ func TestDefaultFullSolveAndCFENResume(t *testing.T) {
 
 func TestFullCLIRejectsUnsupportedOrInvalidInputs(t *testing.T) {
 	for _, args := range [][]string{
-		{"R", "--algorithm", "cfop"}, {"R", "--algorithm", "kociemba"}, {"R", "--dimension", "4"},
+		{"R", "--algorithm", "cfop"}, {"R", "--dimension", "4"},
 		{"R3"}, {"--start", "YB|Y999999999/R9/B9/W9/O9/G9"}, {"--start", "YB|?9/R9/B9/W9/O9/G9"},
 		{"R", "--goal", "typo"},
 	} {
 		out, err := executeSolve(args...)
 		if err == nil || out != "" {
 			t.Fatalf("invalid args %v produced success/output: %q (%v)", args, out, err)
+		}
+	}
+}
+
+func TestKociembaMethodSelection(t *testing.T) {
+	for _, flags := range [][]string{nil, {"--method", "kociemba"}, {"--algorithm", "kociemba"}, {"--method", "beginner"}, {"--algorithm", "beginner"}} {
+		out, err := executeSolve(append([]string{"R U F2 L' B", "--headless"}, flags...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		moves, err := cube.ParseMoves(out)
+		if err != nil || len(moves) == 0 {
+			t.Fatal("missing solution", err)
+		}
+		c := cube.NewCube(3)
+		scramble, _ := cube.ParseMoves("R U F2 L' B")
+		c.ApplyMoves(scramble)
+		c.ApplyMoves(moves)
+		if !c.IsSolved() {
+			t.Fatal("method returned partial solution")
+		}
+		if (len(flags) == 0 || flags[1] == "kociemba") && len(moves) > 22 {
+			t.Fatal("Kociemba exceeded bound")
+		}
+	}
+	if _, err := executeSolve("R", "--method", "kociemba", "--algorithm", "beginner"); err == nil {
+		t.Fatal("conflicting solver flags accepted")
+	}
+}
+
+func TestOptimalCLIContractAndLimit(t *testing.T) {
+	out, err := executeSolve("R U F2", "--optimal", "--time-limit", "5s", "--headless")
+	if err != nil {
+		t.Fatal(err)
+	}
+	moves, err := cube.ParseMoves(out)
+	if err != nil || len(moves) != 3 {
+		t.Fatal("expected three-move optimal answer", out, err)
+	}
+	c := cube.NewCube(3)
+	scramble, _ := cube.ParseMoves("R U F2")
+	c.ApplyMoves(scramble)
+	c.ApplyMoves(moves)
+	if !c.IsSolved() {
+		t.Fatal("optimal CLI solution failed replay")
+	}
+	for _, flags := range [][]string{{"--time-limit", "1ns"}, {"--goal", "first-layer"}, {"--method", "beginner"}} {
+		out, err := executeSolve(append([]string{"R U F2", "--optimal", "--headless"}, flags...)...)
+		if err == nil || out != "" {
+			t.Fatal("invalid/expired optimal request emitted a solution", out, err)
 		}
 	}
 }

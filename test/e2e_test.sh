@@ -104,7 +104,9 @@ run_test "Basic solve" "$CUBE_BIN solve \"R U R' U'\"" "Solution:"
 run_test "Solve with color" "$CUBE_BIN solve \"R U R' U'\" --color" "🟦"
 run_test "Solve with beginner algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm beginner" "Using algorithm: beginner"
 run_test "Solve with CFOP algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm cfop" "" true
-run_test "Solve with Kociemba algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm kociemba" "" true
+run_test "Solve with Kociemba algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm kociemba" "Using algorithm: kociemba"
+run_test "Solve with Kociemba method" "$CUBE_BIN solve \"R U R' U'\" --method kociemba" "Using algorithm: kociemba"
+run_test "Solve with optimal search" "$CUBE_BIN solve 'R U F2' --optimal --time-limit 5s" "Using algorithm: optimal"
 run_test "Solve 2x2 cube" "$CUBE_BIN solve \"R U R' U'\" --dimension 2" "" true
 run_test "Solve 4x4 cube" "$CUBE_BIN solve \"Rw Uw Fw\" --dimension 4" "" true
 run_test "Solve 5x5 cube" "$CUBE_BIN solve \"2R 3L\" --dimension 5" "" true
@@ -293,8 +295,10 @@ TESTS_TOTAL=$((TESTS_TOTAL + 1))
 # Verify a real full beginner solution against an independently specified solved state.
 full_scramble="x R U F2 L' B"
 full_start=$($CUBE_BIN generate-cfen "$full_scramble")
-full_moves=$($CUBE_BIN solve "$full_scramble" --headless)
+full_moves=$($CUBE_BIN solve "$full_scramble" --method beginner --headless)
 run_test "Full beginner solution replay" "$CUBE_BIN verify \"$full_moves\" --start '$full_start' --target '$solved_cfen' --headless"
+fast_moves=$($CUBE_BIN solve "$full_scramble" --method kociemba --headless)
+run_test "Full Kociemba solution replay" "$CUBE_BIN verify \"$fast_moves\" --start '$full_start' --target '$solved_cfen' --headless"
 
 # Performance Tests
 echo -e "\n${YELLOW}Performance Tests:${NC}"
@@ -649,6 +653,13 @@ run_test "Move optimization - complex" "$CUBE_BIN optimize \"R R R\"" "R'.*1 mov
 run_test "Algorithm discovery - simple solve" "$CUBE_BIN find pattern solved --max-moves 3 --from \"R\"" "R'"
 run_test "Algorithm discovery - sequence solve" "$CUBE_BIN find sequence \"R U\" --max-moves 4" "U' R'"
 run_test "Algorithm discovery - cross pattern" "$CUBE_BIN find pattern cross --max-moves 4 --from \"F\"" "Found.*sequence"
+search_start=$($CUBE_BIN generate-cfen "R U F2 L' B")
+run_test "Algorithm discovery - concrete CFEN target" "$CUBE_BIN find --target 'YB|Y9/R9/B9/W9/O9/G9' --start '$search_start' --max-moves 5" "Found.*sequence"
+run_test "Algorithm discovery - fixed center frame" "$CUBE_BIN find --target 'YB|Y9/R9/B9/W9/O9/G9' --start '$full_start' --max-moves 5" "No sequences found"
+run_test "Algorithm discovery - wildcard CFEN target" "$CUBE_BIN find pattern 'YB|Y9/?9/?9/?9/?9/?9' --from F --max-moves 2" "Found.*sequence"
+run_test "Algorithm discovery - restricted moves" "$CUBE_BIN find sequence R2 --moves R --max-moves 2" "R R (2 moves"
+run_test "Algorithm discovery - 2x2 fallback" "$CUBE_BIN find sequence R --dimension 2 --max-moves 1" "R'"
+run_test "Algorithm discovery - depth ten" "$CUBE_BIN find sequence \"R U F2 L' B D2 R' F U2 L\" --max-moves 10" "10 moves"
 
 # CFEN (Cube Forsyth-Edwards Notation) Tests
 echo -e "\n${BLUE}CFEN Tests:${NC}"
@@ -780,7 +791,7 @@ run_test "Completed next is a no-op" "printf 'next\nnext\nquit\n' | $CUBE_BIN le
 run_test "Solve first-layer explicit goal" "$CUBE_BIN solve \"R U F2 L' B\" --goal first-layer" "Middle and last layers still need solving"
 run_test "Solve first-layer incompatible algorithm" "$CUBE_BIN solve R --goal first-layer --algorithm cfop" "" true
 run_test "Solve rejects unknown goal" "$CUBE_BIN solve R --goal unknown" "" true
-run_test "Full beginner solver finishes" "$CUBE_BIN solve R" "Cube complete:"
+run_test "Full beginner solver finishes" "$CUBE_BIN solve R --method beginner" "Cube complete:"
 
 # Headless moves are replayed through verify against an independent sticker-row
 # pattern. An empty placeholder answer cannot satisfy this scrambled fixture.

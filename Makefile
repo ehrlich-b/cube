@@ -1,4 +1,4 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba
 
 # Build the binary
 build:
@@ -84,3 +84,7 @@ test-first-layer: build
 # Independently replay full solutions, printed checkpoints and last-layer recovery
 test-beginner: build
 	python3 test/full_lesson_oracle.py
+
+# Independent uniform physical-state and geometry replay oracle
+test-kociemba: build
+	python3 test/kociemba_oracle.py

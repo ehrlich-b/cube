@@ -353,6 +353,15 @@ func readLessonLine(reader *bufio.Reader) (string, error) {
 
 func runFirstLayerSolve(cmd *cobra.Command, args []string) error {
 	algorithm, _ := cmd.Flags().GetString("algorithm")
+	if !cmd.Flags().Changed("algorithm") {
+		algorithm = "beginner"
+	}
+	if method := cmd.Flags().Lookup("method"); method != nil && cmd.Flags().Changed("method") {
+		if cmd.Flags().Changed("algorithm") && algorithm != method.Value.String() {
+			return fmt.Errorf("--method and --algorithm select different solvers")
+		}
+		algorithm = method.Value.String()
+	}
 	if algorithm != "beginner" {
 		return fmt.Errorf("--goal first-layer requires --algorithm beginner")
 	}
