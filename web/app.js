@@ -60,22 +60,35 @@ function freshState(next, newScramble = "", newBase = "") {
   showState(next);
 }
 
-async function turn(token, duration = Number($("speed").value)) {
+async function turn(token, duration = Number($("speed").value), settle = null) {
   const next = engine({ op: "twist", cfen: state.cfen, moves: token }).state;
-  await view.animate(token, duration);
+  await (settle ? settle() : view.animate(token, duration));
   record(next);
   showState(next);
 }
 
-async function manualTurn(token) {
-  if (!engine || busy || job) return;
-  clearSequence();
+async function manualTurn(token, settle = null) {
+  if (!settle && (!engine || busy || job)) return;
   busy = true;
   updateControls();
-  try { await turn(token); notice(`Turned ${token}.`); }
+  try {
+    if (token) {
+      clearSequence();
+      await turn(token, Number($("speed").value), settle);
+      notice(`Turned ${token}.`);
+    } else { await settle(); view.render(state); }
+  }
   catch (error) { notice(error.message, true); view.render(state); }
   finally { busy = false; updateControls(); }
 }
+
+view.onTurnStart = () => {
+  if (!engine || busy || job || running) return false;
+  busy = true;
+  updateControls();
+  return true;
+};
+view.onTurnEnd = (token, settle) => safe(() => manualTurn(token, settle));
 
 function refreshPlayback() {
   if (!sequence) return;
@@ -364,11 +377,12 @@ $("undo").addEventListener("click", () => { clearSequence(); showState(history[-
 $("redo").addEventListener("click", () => { clearSequence(); showState(history[++historyIndex]); notice("Move redone."); });
 $("home-view").addEventListener("click", () => view.center());
 for (const mode of ["3d", "net"]) $(`view-${mode}`).addEventListener("click", () => {
+  view.cancelDrag();
   $("stage").hidden = mode !== "3d";
   $("net").hidden = mode !== "net";
   $("view-3d").setAttribute("aria-pressed", String(mode === "3d"));
   $("view-net").setAttribute("aria-pressed", String(mode === "net"));
-  $("view-hint").textContent = mode === "3d" ? "Drag to look around" : "U above · L F R B across · D below";
+  $("view-hint").textContent = mode === "3d" ? "Drag stickers to turn · background to orbit" : "U above · L F R B across · D below";
 });
 $("import").addEventListener("click", () => safe(() => {
   const next = engine({ op: "state", cfen: $("cfen").value.trim() }).state;
@@ -395,6 +409,8 @@ function historyReplace(hash) { window.history.replaceState(null, "", hash || lo
 window.addEventListener("hashchange", () => { if (engine && !busy && !job) safe(() => restoreHash(location.hash.slice(1))); });
 window.addEventListener("keydown", event => {
   if (event.ctrlKey || event.metaKey || event.altKey || event.repeat || event.target.closest("input,textarea,select,[contenteditable]")) return;
+  if (event.key === "?") { event.preventDefault(); $("keyboard-help").togglePopover(); return; }
+  if ($("keyboard-help").matches(":popover-open")) return;
   const key = event.key.toLowerCase();
   const token = "xyz".includes(key) && key.length === 1 ? key : "urfdlbmes".includes(key) && key.length === 1 ? key.toUpperCase() : "";
   if (!token) return;

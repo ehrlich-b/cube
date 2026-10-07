@@ -54,6 +54,75 @@ async function runAlgorithm(page, moves) {
   await page.waitForFunction(() => document.getElementById("play").textContent === "Play");
 }
 
+async function stickerPoint(page, face, index) {
+  const sticker = page.locator(`#cube .sticker[data-face="${face}"][data-index="${index}"]`);
+  const box = await sticker.boundingBox();
+  assert.ok(box, `${face}${index} has a projected box`);
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  assert.equal(await page.evaluate(({ x, y, face, index }) => {
+    const hit = document.elementFromPoint(x, y)?.closest(".sticker");
+    return hit?.dataset.face === face && Number(hit.dataset.index) === index;
+  }, { ...point, face, index }), true, `${face}${index} is the touched sticker`);
+  return point;
+}
+
+async function dragSticker(page, { face, index, dx, dy, move, screenshot, cancel = false, reverse = false }) {
+  const before = await page.locator("#cfen").inputValue();
+  const expected = await page.evaluate(({ cfen, moves }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves }))).data.state,
+    { cfen: before, moves: move || "" });
+  const camera = await page.locator("#camera").getAttribute("style");
+  const point = await stickerPoint(page, face, index);
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+  await page.mouse.move(point.x + dx / 2, point.y + dy / 2, { steps: 8 });
+  assert.equal(await page.locator("#stage").getAttribute("data-dragging"), "turn");
+  assert.equal(await page.locator("#reset").isDisabled(), true);
+  assert.equal(await page.locator("#cube .layer .cubie").count(), 9);
+  assert.notEqual(await page.locator("#cube .layer").evaluate(layer => getComputedStyle(layer).transform), "none");
+  assert.equal(await page.locator("#cfen").inputValue(), before, "preview does not mutate the engine");
+  if (screenshot) await page.screenshot({ path: path.join(screens, screenshot) });
+  await page.mouse.move(point.x + dx, point.y + dy, { steps: 8 });
+  if (reverse) await page.mouse.move(point.x, point.y, { steps: 8 });
+  if (cancel) await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await idle(page);
+  assert.equal(await page.locator("#cfen").inputValue(), expected.cfen, `${move || "cancelled drag"} engine state`);
+  for (const [face, colors] of Object.entries(expected.faces)) {
+    assert.deepEqual(await page.locator(`#cube .sticker[data-face="${face}"]`).evaluateAll(stickers =>
+      stickers.sort((a, b) => Number(a.dataset.index) - Number(b.dataset.index)).map(sticker => sticker.dataset.color)), colors, `${move || "cancel"} ${face} stickers`);
+  }
+  assert.equal(await page.locator("#cube .layer").count(), 0, "temporary layer is cleaned up");
+  assert.equal(await page.locator("#camera").getAttribute("style"), camera, "sticker turns preserve the view");
+  if (move) {
+    assert.equal(await page.locator("#notice").textContent(), `Turned ${move}.`);
+    await page.locator("#undo").click();
+    assert.equal(await page.locator("#cfen").inputValue(), before, "drag is one undoable move");
+    await page.locator("#redo").click();
+    assert.equal(await page.locator("#cfen").inputValue(), expected.cfen, "drag can be redone");
+  }
+}
+
+async function touchSticker(page, { face, index, dx, dy, move, screenshot, cancel = false }) {
+  const before = await page.locator("#cfen").inputValue();
+  const expected = await page.evaluate(({ cfen, moves }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves }))).data.state.cfen,
+    { cfen: before, moves: move || "" });
+  const point = await stickerPoint(page, face, index);
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...point, id: 1 }] });
+    for (let step = 1; step <= 8; step++) {
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: point.x + dx * step / 8, y: point.y + dy * step / 8, id: 1 }] });
+      if (step === 4 && screenshot) await page.screenshot({ path: path.join(screens, screenshot) });
+    }
+    assert.equal(await page.locator("#cfen").inputValue(), before);
+    assert.equal(await page.locator("#cube .layer .cubie").count(), 9);
+    await session.send("Input.dispatchTouchEvent", { type: cancel ? "touchCancel" : "touchEnd", touchPoints: [] });
+    await idle(page);
+    assert.equal(await page.locator("#cfen").inputValue(), expected, `${move || "cancelled touch"} state`);
+    assert.equal(await page.locator("#cube .layer").count(), 0);
+  } finally { await session.detach(); }
+}
+
 try {
   if (server) await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`HTTP server did not start: ${serverLog}`)), 10000);
@@ -91,6 +160,58 @@ try {
   assert.equal(await page.locator(".sticker").count(), 54);
   assert.equal(await page.locator("#solve-method").inputValue(), "kociemba");
   await page.screenshot({ path: path.join(screens, "cube-1280x800.png") });
+
+  await page.locator("#help-toggle").click();
+  assert.equal(await page.locator("#keyboard-help").evaluate(help => help.matches(":popover-open")), true);
+  assert.match(await page.locator("#keyboard-help").textContent(), /Middle slices/);
+  await page.keyboard.press("Escape");
+  await page.locator("#stage").focus();
+  await page.keyboard.press("?");
+  assert.equal(await page.locator("#keyboard-help").evaluate(help => help.matches(":popover-open")), true);
+  await page.keyboard.press("?");
+  assert.equal(await page.locator("#keyboard-help").evaluate(help => help.matches(":popover-open")), false);
+  for (const drag of [
+    { face: "F", index: 5, dx: 0, dy: -110, move: "R", screenshot: "drag-1280x800.png" },
+    { face: "F", index: 5, dx: 0, dy: 110, move: "R'" },
+    { face: "F", index: 1, dx: -110, dy: 0, move: "U" },
+    { face: "U", index: 7, dx: 240, dy: 0, move: "F2" },
+    { face: "F", index: 3, dx: 0, dy: 110, move: "L" },
+    { face: "F", index: 7, dx: 110, dy: 0, move: "D" },
+    { face: "R", index: 5, dx: 0, dy: -110, move: "B" },
+    { face: "F", index: 4, dx: 0, dy: 110, move: "M" },
+    { face: "F", index: 4, dx: 110, dy: 0, move: "E" },
+    { face: "R", index: 4, dx: 0, dy: 110, move: "S" },
+    { face: "F", index: 5, dx: 0, dy: -18 },
+    { face: "F", index: 5, dx: 0, dy: -110, cancel: true },
+    { face: "F", index: 5, dx: 0, dy: -110, reverse: true }
+  ]) {
+    await page.locator("#reset").click();
+    await page.locator("#home-view").click();
+    await dragSticker(page, drag);
+    if (!drag.move) assert.equal(await page.locator("#undo").isDisabled(), true, "cancellation adds no history");
+  }
+  const stage = await page.locator("#stage").boundingBox();
+  const background = { x: stage.x + 12, y: stage.y + 12 };
+  assert.equal(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y).id, background), "stage");
+  const beforeOrbit = await page.locator("#camera").getAttribute("style");
+  await page.mouse.move(background.x, background.y);
+  await page.mouse.down();
+  await page.mouse.move(background.x + 80, background.y + 30, { steps: 10 });
+  await page.mouse.up();
+  assert.notEqual(await page.locator("#camera").getAttribute("style"), beforeOrbit);
+  assert.equal(await page.locator("#cfen").inputValue(), solved, "background drag changes only the view");
+  assert.equal(await page.locator("#undo").isDisabled(), true);
+  await page.locator("#home-view").click();
+  // Turn the cube around, then twist R from its back sticker. The screen
+  // direction reverses while the move still follows the touched face.
+  await page.mouse.move(background.x, background.y);
+  await page.mouse.down();
+  await page.mouse.move(background.x + 360, background.y, { steps: 15 });
+  await page.mouse.up();
+  await dragSticker(page, { face: "B", index: 3, dx: 0, dy: 110, move: "R" });
+  await page.locator("#reset").click();
+  await page.locator("#home-view").click();
+  console.log("PASS browser: all face/slice sticker drags, prime/half turns, live preview, undo/redo, threshold/reversal/cancellation, background orbit and keyboard help");
 
   await page.locator("#scramble").click();
   await idle(page);
@@ -302,12 +423,18 @@ try {
   await page.locator("#solve-method").selectOption("beginner");
   assert.equal(await page.locator("#solve-method").inputValue(), "beginner");
   await page.screenshot({ path: path.join(screens, "cube-390x844.png") });
+  await dragSticker(page, { face: "F", index: 5, dx: 0, dy: -110, move: "R", screenshot: "drag-390x844.png" });
+  await page.locator("#reset").click();
+  await touchSticker(page, { face: "F", index: 5, dx: 0, dy: 110, move: "R'", screenshot: "touch-390x844.png" });
+  await page.locator("#reset").click();
+  await touchSticker(page, { face: "F", index: 5, dx: 0, dy: -110, cancel: true });
+  assert.equal(await page.locator("#undo").isDisabled(), true, "touch cancellation adds no history");
   await page.locator('[data-move="F"]').click();
   await idle(page);
   assert.equal(await page.locator("#cube").getAttribute("data-solved"), "false");
   assert.deepEqual(errors, []);
-  console.log("PASS browser: 390px phone layout, touch-sized controls and no browser errors");
-  console.log(`Screenshots: ${path.relative(root, screens)}/{cube,search,cfop}-{1280x800,390x844}.png`);
+  console.log("PASS browser: 390px phone layout, native touch turn/cancellation and no browser errors");
+  console.log(`Screenshots: ${path.relative(root, screens)}/{cube,drag,search,cfop}-{1280x800,390x844}.png, touch-390x844.png`);
 } finally {
   if (context) await context.close();
   if (server && server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }

@@ -17,30 +17,43 @@ export function turnGeometry(token) {
   return { axis, angle, selected: position => layer === null || (base.endsWith("w") ? position[axis] * sign >= 0 : position[axis] === layer) };
 }
 
+const normals = { R: [1, 0, 0], L: [-1, 0, 0], U: [0, 1, 0], D: [0, -1, 0], F: [0, 0, 1], B: [0, 0, -1] };
+const layerMoves = [["L", "M", "R"], ["D", "E", "U"], ["B", "S", "F"]];
+const rotation = (axis, angle) => `rotate${["X", "Y", "Z"][axis]}(${angle}deg)`;
+
 export class CubeView {
   constructor(root, net, camera, stage) {
     this.root = root;
     this.net = net;
     this.camera = camera;
+    this.stage = stage;
     this.pitch = -25;
     this.yaw = -33;
     this.reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let drag;
     stage.addEventListener("pointerdown", event => {
-      drag = { x: event.clientX, y: event.clientY, yaw: this.yaw, pitch: this.pitch };
+      if (event.button !== 0 || !event.isPrimary || this.drag) return;
+      const sticker = event.target.closest(".sticker");
+      if (sticker && !this.onTurnStart?.()) return;
+      this.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, yaw: this.yaw, pitch: this.pitch,
+        candidates: sticker ? this.dragCandidates(sticker) : null };
+      stage.dataset.dragging = sticker ? "turn" : "orbit";
+      stage.focus({ preventScroll: true });
+      event.preventDefault();
       stage.setPointerCapture(event.pointerId);
     });
     stage.addEventListener("pointermove", event => {
-      if (!drag) return;
-      this.yaw = drag.yaw + (event.clientX - drag.x) * .5;
-      this.pitch = Math.max(-80, Math.min(80, drag.pitch - (event.clientY - drag.y) * .5));
-      this.orient();
+      if (event.pointerId !== this.drag?.id) return;
+      this.moveDrag(event.clientX, event.clientY);
     });
-    stage.addEventListener("pointerup", () => { drag = null; });
-    stage.addEventListener("pointercancel", () => { drag = null; });
+    stage.addEventListener("pointerup", event => this.endDrag(event));
+    stage.addEventListener("pointercancel", event => this.endDrag(event, true));
+    stage.addEventListener("lostpointercapture", event => this.endDrag(event, true));
+    window.addEventListener("blur", () => this.cancelDrag());
     stage.addEventListener("keydown", event => {
+      if (event.key === "Escape" && this.drag) { event.preventDefault(); this.cancelDrag(); return; }
       if (!event.key.startsWith("Arrow")) return;
       event.preventDefault();
+      if (this.drag?.candidates) return;
       if (event.key === "ArrowLeft") this.yaw -= 15;
       if (event.key === "ArrowRight") this.yaw += 15;
       if (event.key === "ArrowUp") this.pitch = Math.max(-80, this.pitch - 15);
@@ -50,7 +63,93 @@ export class CubeView {
   }
 
   orient() { this.camera.style.transform = `rotateX(${this.pitch}deg) rotateY(${this.yaw}deg)`; }
-  center() { this.pitch = -25; this.yaw = -33; this.orient(); }
+  center() { this.cancelDrag(); this.pitch = -25; this.yaw = -33; this.orient(); }
+
+  // Project the two face-plane tangents through the same CSS camera and
+  // perspective as the stickers. This keeps swipe directions tied to the cube
+  // even after orbiting to its back or underside.
+  dragCandidates(sticker) {
+    const face = sticker.dataset.face, index = Number(sticker.dataset.index);
+    const position = stickerAddress(face, Math.floor(index / 3), index % 3);
+    const normal = normals[face];
+    const point = position.map((value, axis) => (value * 62 + normal[axis] * 30) * (axis === 1 ? -1 : 1));
+    const camera = new DOMMatrix(getComputedStyle(this.camera).transform);
+    const style = getComputedStyle(this.stage);
+    const perspective = parseFloat(style.perspective);
+    const origin = style.perspectiveOrigin.split(" ").map(parseFloat);
+    const project = matrix => {
+      const p = camera.multiply(matrix).transformPoint(new DOMPoint(...point));
+      const scale = perspective / (perspective - p.z);
+      return [(p.x + this.camera.offsetLeft - origin[0]) * scale, (p.y + this.camera.offsetTop - origin[1]) * scale];
+    };
+    const start = project(new DOMMatrix());
+    return [0, 1, 2].filter(axis => !normal[axis]).map(axis => {
+      const token = layerMoves[axis][position[axis] + 1];
+      const geometry = turnGeometry(token);
+      const step = Math.sign(geometry.angle);
+      const end = project(new DOMMatrix().rotate(axis === 0 ? step : 0, axis === 1 ? step : 0, axis === 2 ? step : 0));
+      const tangent = end.map((value, i) => value - start[i]);
+      const length = Math.hypot(...tangent);
+      // A quarter turn takes roughly one sticker-to-sticker sweep across the
+      // cube; normalize tiny foreshortened tangents to keep touch controllable.
+      return { token, geometry, direction: tangent.map(value => value / length), pixelsPerDegree: Math.max(.65, Math.min(1.25, length)) };
+    });
+  }
+
+  moveDrag(x, y) {
+    const drag = this.drag;
+    const dx = x - drag.x, dy = y - drag.y;
+    if (!drag.candidates) {
+      this.yaw = drag.yaw + dx * .5;
+      this.pitch = Math.max(-80, Math.min(80, drag.pitch - dy * .5));
+      this.orient();
+      return;
+    }
+    if (!drag.turn) {
+      if (Math.hypot(dx, dy) < 7) return;
+      drag.turn = drag.candidates.reduce((best, candidate) =>
+        Math.abs(dx * candidate.direction[0] + dy * candidate.direction[1]) > Math.abs(dx * best.direction[0] + dy * best.direction[1]) ? candidate : best);
+      drag.layer = this.makeLayer(drag.turn.geometry.selected);
+    }
+    const { geometry, direction, pixelsPerDegree } = drag.turn;
+    drag.degrees = Math.max(-180, Math.min(180, (dx * direction[0] + dy * direction[1]) / pixelsPerDegree));
+    drag.layer.style.transform = rotation(geometry.axis, drag.degrees * Math.sign(geometry.angle));
+  }
+
+  endDrag(event, cancelled = false) {
+    if (event.pointerId !== this.drag?.id) return;
+    if (!cancelled) this.moveDrag(event.clientX, event.clientY);
+    const drag = this.drag;
+    this.drag = null;
+    delete this.stage.dataset.dragging;
+    if (this.stage.hasPointerCapture(drag.id)) this.stage.releasePointerCapture(drag.id);
+    if (!drag.candidates) return;
+    const quarters = cancelled || !drag.turn ? 0 : Math.round(Math.abs(drag.degrees) / 90);
+    const token = quarters ? drag.turn.token + (quarters === 2 ? "2" : drag.degrees < 0 ? "'" : "") : null;
+    const settle = async () => {
+      if (!drag.layer) return;
+      const target = quarters * 90 * Math.sign(drag.degrees) * Math.sign(drag.turn.geometry.angle);
+      const animation = drag.layer.animate([
+        { transform: drag.layer.style.transform }, { transform: rotation(drag.turn.geometry.axis, target) }
+      ], { duration: this.reducedMotion ? 0 : 140, easing: "cubic-bezier(.2,.7,.2,1)", fill: "forwards" });
+      await animation.finished;
+    };
+    this.onTurnEnd(token, settle);
+  }
+
+  cancelDrag() {
+    if (this.drag) this.endDrag({ pointerId: this.drag.id }, true);
+  }
+
+  makeLayer(selected) {
+    const layer = document.createElement("div");
+    layer.className = "layer";
+    for (const cubie of this.root.querySelectorAll(".cubie")) {
+      if (selected(cubie.dataset.position.split(",").map(Number))) layer.append(cubie);
+    }
+    this.root.append(layer);
+    return layer;
+  }
 
   render(state) {
     const cubies = new Map();
@@ -97,14 +196,8 @@ export class CubeView {
   async animate(token, duration) {
     if (this.reducedMotion || this.root.closest("[hidden]")) return;
     const { axis, angle, selected } = turnGeometry(token);
-    const layer = document.createElement("div");
-    layer.className = "layer";
-    for (const cubie of this.root.querySelectorAll(".cubie")) {
-      if (selected(cubie.dataset.position.split(",").map(Number))) layer.append(cubie);
-    }
-    this.root.append(layer);
-    const rotation = `rotate${["X", "Y", "Z"][axis]}(${angle}deg)`;
-    const animation = layer.animate([{ transform: "none" }, { transform: rotation }], { duration, easing: "cubic-bezier(.3,.05,.25,1)", fill: "forwards" });
+    const layer = this.makeLayer(selected);
+    const animation = layer.animate([{ transform: "none" }, { transform: rotation(axis, angle) }], { duration, easing: "cubic-bezier(.3,.05,.25,1)", fill: "forwards" });
     await animation.finished;
     // The next render replaces the temporary layer with the engine's stickers.
   }
