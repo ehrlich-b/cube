@@ -245,7 +245,21 @@ func prepare(a *cube.Algorithm) error {
 			}
 		}
 	}
+	if err := prepareF2LText(a); err != nil {
+		return err
+	}
 	return cube.VerifyAlgorithmCases(*a)
+}
+
+func prepareF2LText(a *cube.Algorithm) error {
+	if a.Dimension == 3 && a.HasCategory("F2L") {
+		description, recognition, err := cube.StandardF2LText(*a)
+		if err != nil {
+			return err
+		}
+		a.Description, a.Recognition = description, recognition
+	}
+	return nil
 }
 
 func appendUnique(list []string, values ...string) []string {
@@ -411,7 +425,11 @@ func importFiles(dir string) ([]cube.Algorithm, []rejected, summary, error) {
 		file.Close()
 	}
 	report.Quarantined = len(quarantine)
-	for _, a := range db {
+	for i := range db {
+		if err := prepareF2LText(&db[i]); err != nil {
+			return nil, nil, report, err
+		}
+		a := db[i]
 		if err := cube.VerifyAlgorithmCases(a); err != nil {
 			return nil, nil, report, fmt.Errorf("merged %s: %w", a.CaseID, err)
 		}

@@ -167,5 +167,68 @@ func VerifyAlgorithmCases(a Algorithm) error {
 			return fmt.Errorf("missing independent %s case ID", category)
 		}
 	}
+	if a.HasCategory("F2L") {
+		description, recognition, err := StandardF2LText(a)
+		if err != nil {
+			return err
+		}
+		if a.Description != description || a.Recognition != recognition {
+			return fmt.Errorf("F2L description/recognition does not match independent physical case: want %q", description)
+		}
+	}
 	return nil
+}
+
+// StandardF2LText derives the target pair's location and sticker directions
+// from the independent named fixtures. The frame is explicitly the standard
+// FR case before yaw/AUF, not the algorithm's inverse recognition pattern.
+// Merged F2L aliases retain a description of each named physical case.
+func StandardF2LText(a Algorithm) (description, recognition string, err error) {
+	if a.Dimension != 3 || !a.HasCategory("F2L") {
+		return "", "", nil
+	}
+	var cases []string
+	seen := map[string]bool{}
+	for _, id := range append([]string{a.CaseID}, a.Aliases...) {
+		id = strings.TrimSuffix(id, "-CSV")
+		if !strings.HasPrefix(id, "F2L-") || seen[id] {
+			continue
+		}
+		seen[id] = true
+		s, _, err := standardCaseState(id)
+		if err != nil {
+			return "", "", err
+		}
+		var corner, edge string
+		for pos, piece := range s.cp {
+			if piece != 4 {
+				continue
+			}
+			coords := cornerFacelets[pos]
+			layer := "FR slot"
+			if pos < 4 {
+				layer = "top layer"
+			}
+			corner = fmt.Sprintf("corner in %s at %s%s%s (white on %s)", layer,
+				coords[0].Face, coords[1].Face, coords[2].Face, coords[s.co[pos]].Face)
+		}
+		for pos, piece := range s.ep {
+			if piece != 8 {
+				continue
+			}
+			coords := edgeFacelets[pos]
+			layer := "FR slot"
+			if pos < 4 {
+				layer = "top layer"
+			}
+			edge = fmt.Sprintf("edge in %s at %s%s (blue on %s)", layer,
+				coords[0].Face, coords[1].Face, coords[s.eo[pos]].Face)
+		}
+		cases = append(cases, fmt.Sprintf("%s (standard FR frame before yaw/AUF): %s; %s.", id, corner, edge))
+	}
+	if len(cases) == 0 {
+		return "", "", fmt.Errorf("missing independent F2L case ID")
+	}
+	recognition = strings.Join(cases, " ")
+	return "Insert the FR pair. " + recognition, recognition, nil
 }
