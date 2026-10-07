@@ -12,8 +12,9 @@ recoverable playback. The white-layer sublesson remains explicit via `--goal fir
 - Move engine: correct, NxN, covered by fuzz + invariant tests ✅
 - CFEN verify / optimize: working ✅
 - Find: coordinate IDA* for exact/wildcard 3×3 targets, restricted moves and BFS fallback ✅
-- Algorithm DB: **131 unique entries, all with verified inverse-to-solved patterns**;
-  144/159 CSV rows accepted, 18 merged, 15 quarantined with reasons ✅
+- Algorithm DB: **108 unique entries, all with verified inverse-to-solved patterns**;
+  115/159 CSV rows accepted, 12 merged, 44 quarantined with reasons ✅
+  Counts checked against [import-report.json](./alg_dumps/import-report.json) by Go tests.
 - White first layer: cross + four corners, rotations, saved CFEN and recovery ✅
 - Physical 3×3 input validation and independent cubie/geometry oracles ✅
 - Full beginner solve: middle edges, yellow cross/alignment, corner placement/orientation ✅

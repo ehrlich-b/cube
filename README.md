@@ -71,29 +71,33 @@ No generated tables are committed; a missing or invalid cache is rebuilt.
 ## Algorithm database and CFOP
 
 The nine CSV files contain **159 rows** (including an empty `zz_misc.csv`). The
-reproducible importer accepts **144**, merges **18** duplicate move sequences
-across files/categories, and quarantines **15** with original rows and reasons
+reproducible importer accepts **115**, merges **12** duplicate move sequences
+across files/categories, and quarantines **44** with original rows and reasons
 in [quarantine.json](./alg_dumps/quarantine.json). Together with the five existing
-algorithms this produces **131 unique entries: 117 for 3×3, 14 for other sizes**.
+algorithms this produces **108 unique entries: 94 for 3×3, 14 for other sizes**.
 Every entry has a concrete inverse-to-solved CFEN recognition pattern and passes
 CFEN verification. The importer also checks that 3×3 OLL/PLL preserve F2L,
-PLL preserves orientation, and F2L preserves the cross. This replay check does
-not independently validate the claimed 2×2/big-cube case or parity description.
+PLL preserves orientation, and F2L preserves the cross. Independent named
+fixtures validate the 3×3 F2L/OLL/PLL case IDs. F2L descriptions and recognition
+text derive corner/edge positions and sticker directions from those fixtures
+in the standard FR frame before yaw/AUF. The importer does not independently
+validate the claimed 2×2/big-cube case or parity description.
 
 | Category | Entries |
 |---|---:|
-| F2L / OLL / PLL | 41 / 46 / 18 |
+| F2L / OLL / PLL | 23 / 39 / 18 |
 | Trigger / Advanced | 8 / 7 |
 | Roux CMLL / LSE | 2 / 2 |
 | 2×2 CLL / EG1 / EG2 / OLL / PBL | 6 / 1 / 1 / 1 / 2 |
 | 4×4 / 5×5 / 6×6 parity | 2 / 1 / 1 |
 
 Counts are category memberships; merged entries preserve aliases, categories,
-and file/row provenance. **21 inverse pairs and 12 mirror pairs** are detected
+and file/row provenance. **22 inverse pairs and 7 mirror pairs** are detected
 from exact sticker permutations (including self-inverse/self-mirror cases).
 Unknown relationships stay empty. Mirror means reflection in the left/right
 plane; this does not claim every familiar case mirror matches without AUF.
-See [import-report.json](./alg_dumps/import-report.json).
+Counts come from [import-report.json](./alg_dumps/import-report.json); a Go test
+checks this section and TODO.md against the report so stale counts fail validation.
 
 ```sh
 CUBE_CACHE_DIR=$PWD/.scratch/cube-cache taskpolicy -b nice -n 15 make import-algorithms
