@@ -89,6 +89,7 @@ try {
   const solved = await page.locator("#cfen").inputValue();
   assert.equal(await page.locator("#cube").getAttribute("data-solved"), "true");
   assert.equal(await page.locator(".sticker").count(), 54);
+  assert.equal(await page.locator("#solve-method").inputValue(), "kociemba");
   await page.screenshot({ path: path.join(screens, "cube-1280x800.png") });
 
   await page.locator("#scramble").click();
@@ -98,8 +99,9 @@ try {
   await page.locator("#solve").click();
   await page.locator("#playback").waitFor({ state: "visible" });
   await idle(page);
+  assert.match(await page.locator("#sequence-title").textContent(), /kociemba$/);
   const count = Number(await page.locator("#scrubber").getAttribute("max"));
-  assert.ok(count > 0);
+  assert.ok(count > 0 && count <= 30);
   await page.locator("#speed").selectOption("70");
   await page.locator("#step").click();
   await idle(page);
@@ -120,6 +122,19 @@ try {
   await page.locator("#scrubber").fill(String(count));
   assert.equal(await page.locator("#cube").getAttribute("data-solved"), "true");
   console.log("PASS browser: scramble → solve → step/play/pause/scrub → all six faces solved");
+
+  for (const method of ["beginner", "kociemba"]) {
+    await page.locator("#reset").click();
+    await runAlgorithm(page, "R U F2 L' B");
+    await page.locator("#solve-method").selectOption(method);
+    await page.locator("#solve").click();
+    await idle(page);
+    assert.ok((await page.locator("#sequence-moves button").count()) > 0);
+    assert.match(await page.locator("#sequence-title").textContent(), new RegExp(`${method}$`));
+    await page.locator("#scrubber").fill(await page.locator("#scrubber").getAttribute("max"));
+    assert.equal(await page.locator("#cfen").inputValue(), solved);
+  }
+  console.log("PASS browser: method selector, both solver headings and verified solution replay");
 
   await page.locator("#reset").click();
   await page.locator("#stage").focus();
@@ -177,23 +192,75 @@ try {
   await page.locator("#play").click();
   await idle(page);
   await page.waitForFunction(() => document.getElementById("cube").dataset.solved === "true");
-  // An impossible all-yellow target makes a long search deterministic.
-  await page.locator("#target").fill("YB|Y9/Y9/Y9/Y9/Y9/Y9");
-  await page.locator("#depth").fill("8");
+
+  await page.locator("#reset").click();
+  await runAlgorithm(page, "R U F2 L' B D2 R' F U2 L");
+  const deepStart = await page.locator("#cfen").inputValue();
+  await page.locator("#tab-search").click();
+  assert.equal(await page.locator("#depth").getAttribute("max"), "10");
+  await page.locator("#depth").fill("9");
+  await page.locator("#find").click();
+  await idle(page);
+  assert.match(await page.locator("#search-result").textContent(), /No path found within 9 moves/);
+  assert.equal(await page.locator("#cfen").inputValue(), deepStart);
+  await page.locator("#depth").fill("10");
+  await page.locator("#find").click();
+  await idle(page);
+  assert.match(await page.locator("#search-result").textContent(), /Found 10 moves/);
+  assert.equal(await page.locator("#sequence-kind").textContent(), "SEARCH RESULT");
+  assert.equal(await page.locator("#cfen").inputValue(), deepStart);
+  await page.screenshot({ path: path.join(screens, "search-1280x800.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  await page.locator(".control-card").evaluate(element => element.scrollIntoView({ block: "start" }));
+  await page.screenshot({ path: path.join(screens, "search-390x844.png") });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.locator("#play").click();
+  await idle(page);
+  await page.waitForFunction(() => document.getElementById("cube").dataset.solved === "true");
+  assert.equal(await page.locator("#cfen").inputValue(), solved);
+  console.log("PASS browser: shortest ten-move worker search, depth-nine exhaustion and result replay");
+
+  // A physical scramble and reachable center frame keep the worker busy;
+  // an impossible center target would now return immediately through IDA*.
+  await page.locator("#reset").click();
+  await runAlgorithm(page, "R2 U F' D B2 L' U2 F R' D2 L B' U R2 F2 D' L2 U' B R");
+  const cancelStart = await page.locator("#cfen").inputValue();
+  await page.locator("#tab-search").click();
   await page.locator("#find").click();
   await page.locator("#cancel-search").waitFor({ state: "visible" });
   // These controls run while the worker is searching, proving the UI responds.
   await page.locator("#view-net").click();
   assert.equal(await page.locator("#net").isVisible(), true);
+  assert.equal(await page.locator("#solve-method").isDisabled(), true);
   await page.locator("#cancel-search").click();
   await idle(page);
   assert.match(await page.locator("#notice").textContent(), /canceled/);
+  assert.equal(await page.locator("#cfen").inputValue(), cancelStart);
+  assert.equal(await page.locator("#search-result").textContent(), "");
+  assert.equal(await page.locator("#playback").isVisible(), false);
+  assert.equal(await page.locator("#solve-method").isEnabled(), true);
   await page.locator("#view-3d").click();
+  await page.locator("#depth").fill("11");
+  await page.locator("#find").click();
+  assert.match(await page.locator("#notice").textContent(), /0 to 10/);
   await page.locator("#target").fill("YB|?9/?9/?9/?9/?9/?9");
   await page.locator("#depth").fill("0");
   await page.locator("#find").click();
   await page.waitForFunction(() => document.getElementById("search-result").textContent.includes("already matches"));
-  console.log("PASS browser: worker search, result replay, wildcard target and responsive cancellation");
+  // Restart after cancellation and exercise a wildcard that needs a face turn.
+  await page.locator("#reset").click();
+  await runAlgorithm(page, "F");
+  await page.locator("#tab-search").click();
+  await page.locator("#target").fill("YB|Y9/?9/?9/?9/?9/?9");
+  await page.locator("#depth").fill("1");
+  await page.locator("#find").click();
+  await idle(page);
+  assert.match(await page.locator("#search-result").textContent(), /Found 1 moves/);
+  await page.locator("#play").click();
+  await idle(page);
+  await page.waitForFunction(() => document.getElementById("cube").dataset.solved === "true");
+  console.log("PASS browser: wildcard paths, responsive cancellation, unchanged state and fresh worker recovery");
 
   await page.goto(`http://127.0.0.1:${port}/web/#scramble=R+U&alg=U%27+R%27`);
   await idle(page);
@@ -212,13 +279,16 @@ try {
   await idle(page);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  assert.equal(await page.locator("#solve-method").inputValue(), "kociemba");
+  await page.locator("#solve-method").selectOption("beginner");
+  assert.equal(await page.locator("#solve-method").inputValue(), "beginner");
   await page.screenshot({ path: path.join(screens, "cube-390x844.png") });
   await page.locator('[data-move="F"]').click();
   await idle(page);
   assert.equal(await page.locator("#cube").getAttribute("data-solved"), "false");
   assert.deepEqual(errors, []);
   console.log("PASS browser: 390px phone layout, touch-sized controls and no browser errors");
-  console.log(`Screenshots: ${path.relative(root, screens)}/cube-1280x800.png and cube-390x844.png`);
+  console.log(`Screenshots: ${path.relative(root, screens)}/{cube,search}-{1280x800,390x844}.png`);
 } finally {
   if (context) await context.close();
   if (server && server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }

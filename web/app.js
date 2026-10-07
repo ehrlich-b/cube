@@ -6,7 +6,7 @@ const view = new CubeView($("cube"), $("net"), $("camera"), $("stage"));
 let engine, state, initial, history = [], historyIndex = 0, busy = false, running = false, sequence = null, job = null;
 let scramble = "", baseCFEN = "", currentMode = "practice";
 const pendingHash = location.hash.slice(1);
-const primaryControls = ["scramble", "solve", "reset", "run-algorithm", "start-lesson", "find", "import", "export"];
+const primaryControls = ["scramble", "solve", "solve-method", "reset", "run-algorithm", "start-lesson", "find", "import", "export"];
 
 function notice(message, error = false) {
   $("notice").textContent = message;
@@ -160,6 +160,7 @@ function compute(request, label) {
   return new Promise((resolve, reject) => {
     const finish = (error, result) => {
       clearTimeout(timer);
+      // Termination interrupts synchronous WASM search without waiting for it to yield.
       worker.terminate();
       job = null;
       $("cancel-search").hidden = true;
@@ -187,7 +188,7 @@ function setMode(mode) {
 
 async function solve() {
   clearSequence();
-  const result = await compute({ op: "solve", cfen: state.cfen }, "Finding a verified solution…");
+  const result = await compute({ op: "solve", cfen: state.cfen, method: $("solve-method").value }, "Finding a verified solution…");
   prepareSequence(result.moves, "SOLUTION", `Your path to solved · ${result.method}`, result.state.cfen);
   notice(result.moves.length ? "Solution ready. Play, step through, or drag the slider to explore." : "Your cube is already solved.");
 }
@@ -227,7 +228,7 @@ async function find() {
   const startCFEN = state.cfen;
   const target = $("target").value.trim();
   const maxDepth = Number($("depth").value);
-  if (!Number.isInteger(maxDepth) || maxDepth < 0 || maxDepth > 8) throw new Error("Choose a whole-number depth from 0 to 8.");
+  if (!Number.isInteger(maxDepth) || maxDepth < 0 || maxDepth > 10) throw new Error("Choose a whole-number depth from 0 to 10.");
   const pending = compute({ op: "find", cfen: startCFEN, target, maxDepth }, "Searching from your current cube… You can cancel anytime.");
   $("find").hidden = true;
   $("cancel-search").hidden = false;

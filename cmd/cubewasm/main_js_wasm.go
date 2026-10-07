@@ -117,7 +117,6 @@ func dispatch(req request) (any, error) {
 	case "solve":
 		method := req.Method
 		if method == "" || method == "auto" {
-			// A future implementation is picked up through the existing factory.
 			method = "kociemba"
 		}
 		solver, err := cube.GetSolver(method)
@@ -127,14 +126,6 @@ func dispatch(req request) (any, error) {
 		result, err := solver.Solve(c)
 		if err != nil {
 			return nil, err
-		}
-		if len(result.Solution) == 0 && !c.IsSolved() && (req.Method == "" || req.Method == "auto") {
-			method = "beginner"
-			solver, _ = cube.GetSolver(method)
-			result, err = solver.Solve(c)
-			if err != nil {
-				return nil, err
-			}
 		}
 		c.ApplyMoves(result.Solution)
 		if !c.IsSolved() {
@@ -156,17 +147,18 @@ func dispatch(req request) (any, error) {
 		}
 		return map[string]any{"steps": steps, "moves": tokens(lesson.Moves()), "state": view(lesson.Final)}, nil
 	case "find":
-		if req.MaxDepth < 0 || req.MaxDepth > 8 {
-			return nil, fmt.Errorf("search depth must be between 0 and 8")
+		if req.MaxDepth < 0 || req.MaxDepth > 10 {
+			return nil, fmt.Errorf("search depth must be between 0 and 10")
 		}
 		target, err := parseCFEN(req.Target, true)
 		if err != nil {
 			return nil, err
 		}
-		moves, found := cube.SearchToTarget(c, func(candidate *cube.Cube) bool {
-			matches, _ := target.MatchesCube(candidate)
-			return matches
-		}, req.MaxDepth)
+		goal, err := target.ToCube()
+		if err != nil {
+			return nil, err
+		}
+		moves, found := cube.FindPattern(c, goal, nil, req.MaxDepth)
 		c.ApplyMoves(moves)
 		return map[string]any{"found": found, "moves": tokens(moves), "state": view(c)}, nil
 	default:

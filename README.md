@@ -106,17 +106,18 @@ for prime turns. Drag to orbit the view, or use arrow keys while the cube is
 focused. The buttons, algorithm box, undo/redo, reset, scramble, and 2D net
 work on phones too. Solving produces a verified sequence with play/pause,
 step forward/back, clickable moves, a position slider, and adjustable speed.
+The selector beside Solve defaults to Kociemba and also offers Beginner;
+the solution heading identifies the method that ran.
 Lesson mode gives the beginner method's actual instructions and checks,
 replanning the next hint from your current state after your own turns.
 
-Search accepts a 3×3 CFEN target with `?` wildcards and a depth of 0–8. It runs
+Search accepts a 3×3 CFEN target with `?` wildcards and a depth of 0–10. It runs
 in a cancellable Web Worker with a 30-second limit; start with short searches.
 Solver and lesson planning also run in workers. The WASM binding calls
-`ParseMoves` / `ApplyMoves`, `GetSolver`, `PlanBeginner`, `SearchToTarget`, and
-the existing CFEN and physical validation APIs. Automatic solving tries
-Kociemba through the solver factory and falls back to beginner while Kociemba
-returns an empty stub result. A later engine implementation is picked up on
-the next WASM build, without a separate JavaScript solver or searcher.
+`ParseMoves` / `ApplyMoves`, `GetSolver`, `PlanBeginner`, `FindPattern`, and
+the existing CFEN and physical validation APIs. Search uses the CLI's shortest
+IDA* path, including its sticker BFS fallback, without a separate JavaScript
+solver or searcher.
 
 Import/export uses concrete CFEN in YB storage order (`U/R/F/D/L/B`); actual
 center colors preserve rotated grips. Share copies a URL hash containing the

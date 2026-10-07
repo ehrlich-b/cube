@@ -27,7 +27,7 @@
           <div id="stage" class="stage" aria-label="3D cube; drag to change your view" tabindex="0"><div class="cube-shadow"></div><div id="camera" class="camera"><div id="cube" class="cube"></div></div></div>
           <div id="net" class="net" hidden aria-label="Unfolded cube net"></div>
           <div class="viewer-foot"><span id="view-hint">Drag to look around</span><button id="home-view" class="text-button">Center view ↺</button></div>
-          <div class="main-actions"><button id="scramble" class="secondary" disabled>↝ &nbsp; Scramble</button><button id="solve" class="primary" disabled>Solve this cube <span>→</span></button></div>
+          <div class="main-actions"><button id="scramble" class="secondary" disabled>↝ &nbsp; Scramble</button><div class="solve-actions"><label class="sr-only" for="solve-method">Solve method</label><select id="solve-method" disabled><option value="kociemba" selected>Kociemba</option><option value="beginner">Beginner</option></select><button id="solve" class="primary" disabled>Solve this cube <span>→</span></button></div></div>
           <div class="history-bar"><div><button id="undo" aria-label="Undo last move" disabled>↶ Undo</button><button id="redo" aria-label="Redo last move" disabled>↷ Redo</button></div><button id="reset" disabled>Reset cube</button></div>
           <div class="scramble-line"><span>SCRAMBLE</span><output id="scramble-text">Start solved, or mix things up.</output></div>
         </section>
@@ -51,8 +51,8 @@
           <div id="search" class="panel" role="tabpanel" aria-labelledby="tab-search" hidden>
             <p class="eyebrow">FIND A SHORT PATH</p><h2>Search for a pattern.</h2><p class="muted">Find face turns from your current cube to a CFEN target. Use <b>?</b> for stickers you don’t care about.</p>
             <label class="field-label" for="target">TARGET · U / R / F / D / L / B</label><textarea id="target" rows="3" spellcheck="false">YB|Y9/R9/B9/W9/O9/G9</textarea>
-            <div class="search-options"><label for="depth">Maximum moves <input id="depth" type="number" min="0" max="8" value="3"></label><button id="find" class="primary" disabled>Find moves →</button><button id="cancel-search" class="secondary" hidden>Cancel</button></div>
-            <p class="muted search-note">Start with 2–3 moves. Deeper searches can take a while; you can cancel anytime.</p><div id="search-result" class="search-result" aria-live="polite"></div>
+            <div class="search-options"><label for="depth">Maximum moves <input id="depth" type="number" min="0" max="10" value="3"></label><button id="find" class="primary" disabled>Find moves →</button><button id="cancel-search" class="secondary" hidden>Cancel</button></div>
+            <p class="muted search-note">Find a shortest path of up to 10 moves. Searches stop after 30 seconds; you can cancel anytime.</p><div id="search-result" class="search-result" aria-live="polite"></div>
           </div>
         </section>
       </div>

@@ -44,13 +44,22 @@ function rejects(request, pattern) {
   for (const scramble of ["R U R' U'", "R U F2 L' B", "x y R U F2 L' B D2 R2 U' F L2 B'", "R2 U F' D B2 L' U2 F R' D2 L B' U R2 F2 D' L2 U' B R"]) {
     const start = call({ op: "twist", moves: scramble }).state;
     const solution = call({ op: "solve", cfen: start.cfen });
+    assert.equal(solution.method, "kociemba");
     assert.ok(solution.moves.length > 0);
     assert.equal(solution.state.solved, true);
     assert.equal(call({ op: "twist", cfen: start.cfen, moves: solution.moves.join(" ") }).state.solved, true);
     assert.equal(call({ op: "state", cfen: start.cfen }).state.cfen, start.cfen);
   }
   assert.equal(call({ op: "solve" }).state.solved, true);
-  console.log("PASS solve: replay four scrambles, rotated grips, full solution invariant");
+  for (const method of ["auto", "kociemba", "beginner"]) {
+    const start = call({ op: "twist", moves: "R U F2 L' B" }).state;
+    const solution = call({ op: "solve", cfen: start.cfen, method });
+    assert.equal(solution.method, method === "auto" ? "kociemba" : method);
+    assert.ok(solution.moves.length > 0);
+    assert.equal(solution.state.solved, true);
+    assert.equal(call({ op: "twist", cfen: start.cfen, moves: solution.moves.join(" ") }).state.solved, true);
+  }
+  console.log("PASS solve: Kociemba default/auto, both method selections, replay and full solution invariant");
 
   const start = call({ op: "twist", moves: "R U F2 L' B" }).state;
   const lesson = call({ op: "learn", cfen: start.cfen });
@@ -80,7 +89,26 @@ function rejects(request, pattern) {
   assert.equal(call({ op: "find", target: near.cfen, maxDepth: 0 }).found, false);
   const target = call({ op: "twist", moves: "F" }).state.cfen;
   assert.equal(call({ op: "find", target, maxDepth: 1 }).state.cfen, target);
-  console.log("PASS find: exact and wildcard targets, shortest path, depth exhaustion, no mutation");
+  const wildcard = "YB|Y9/?9/?9/?9/?9/?9";
+  const partial = call({ op: "find", cfen: target, target: wildcard, maxDepth: 1 });
+  assert.equal(partial.found, true);
+  assert.equal(partial.moves.length, 1);
+  assert.deepEqual(call({ op: "twist", cfen: target, moves: partial.moves.join(" ") }).state.faces.U, Array(9).fill("Y"));
+  assert.equal(call({ op: "find", cfen: target, target: wildcard, maxDepth: 0 }).found, false);
+  // Same proven ten-move fixture as the CLI's e2e test; depth nine cannot reach it.
+  const deep = call({ op: "twist", moves: "R U F2 L' B D2 R' F U2 L" }).state;
+  const deepResult = call({ op: "find", cfen: deep.cfen, target: solved.cfen, maxDepth: 10 });
+  assert.equal(deepResult.found, true);
+  assert.equal(deepResult.moves.length, 10);
+  assert.equal(call({ op: "twist", cfen: deep.cfen, moves: deepResult.moves.join(" ") }).state.cfen, solved.cfen);
+  const exhausted = call({ op: "find", cfen: deep.cfen, target: solved.cfen, maxDepth: 9 });
+  assert.equal(exhausted.found, false);
+  assert.deepEqual(exhausted.moves, []);
+  assert.equal(exhausted.state.cfen, deep.cfen);
+  assert.equal(call({ op: "state", cfen: deep.cfen }).state.cfen, deep.cfen);
+  // Face turns keep centers fixed, even for otherwise unrestricted wildcards.
+  assert.equal(call({ op: "find", target: "YB|W9/?9/?9/?9/?9/?9", maxDepth: 10 }).found, false);
+  console.log("PASS find: exact/wildcard shortest paths through depth ten, depth exhaustion, fixed centers, no mutation");
 
   rejects({ op: "twist", moves: "R garbage U" }, /invalid/);
   rejects({ op: "twist", moves: "999Rw" }, /invalid/);
@@ -89,7 +117,7 @@ function rejects(request, pattern) {
   rejects({ op: "state", cfen: "YB|?9/R9/B9/W9/O9/G9" }, /only allowed/);
   rejects({ op: "state", cfen: "YB|W9/R9/B9/W9/O9/G9" }, /color|sticker|center/i);
   rejects({ op: "state", cfen: "WB|W9/R9/B9/Y9/O9/G9" }, /YB/);
-  rejects({ op: "find", target: solved.cfen, maxDepth: 9 }, /depth/);
+  rejects({ op: "find", target: solved.cfen, maxDepth: 11 }, /depth/);
   rejects({ op: "find", target: solved.cfen, maxDepth: -1 }, /depth/);
   rejects({ op: "find", target: "YB|?4/?4/?4/?4/?4/?4", maxDepth: 0 }, /3x3/);
   rejects({ op: "solve", moves: "R", method: "cfop" }, /does not solve/);
