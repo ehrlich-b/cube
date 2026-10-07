@@ -21,7 +21,7 @@ Examples:
   cube lookup "T-Perm"
   cube lookup --pattern "R U R' U'"`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		query := ""
 		if len(args) > 0 {
 			query = args[0]
@@ -37,27 +37,37 @@ Examples:
 		if pattern != "" {
 			results = cube.LookupByMoves(pattern)
 			fmt.Printf("Algorithms matching pattern '%s':\n\n", pattern)
-		} else if category != "" {
-			results = cube.GetByCategory(category)
-			fmt.Printf("Algorithms in category '%s':\n\n", strings.ToUpper(category))
-		} else if listAll {
-			results = cube.AlgorithmDatabase
-			fmt.Println("All algorithms in database:")
 		} else if query != "" {
 			results = cube.LookupAlgorithm(query)
 			fmt.Printf("Algorithms matching '%s':\n\n", query)
+		} else if listAll || category != "" {
+			results = cube.AlgorithmDatabase
+			if category != "" {
+				fmt.Printf("Algorithms in category '%s':\n\n", strings.ToUpper(category))
+			} else {
+				fmt.Println("All algorithms in database:")
+			}
 		} else {
 			fmt.Println("Please provide a query, use --pattern, --category, or --all")
 			fmt.Println("\nExample: cube lookup sune")
 			fmt.Println("         cube lookup --category OLL")
 			fmt.Println("         cube lookup --all")
-			return
+			return nil
+		}
+		if category != "" {
+			filtered := make([]cube.Algorithm, 0, len(results))
+			for _, alg := range results {
+				if alg.HasCategory(strings.TrimSpace(category)) {
+					filtered = append(filtered, alg)
+				}
+			}
+			results = filtered
 		}
 
 		// Display results
 		if len(results) == 0 {
 			fmt.Println("No algorithms found.")
-			return
+			return nil
 		}
 
 		for i, alg := range results {
@@ -83,25 +93,29 @@ Examples:
 			preview, _ := cmd.Flags().GetBool("preview")
 			if preview {
 				fmt.Println("\nPreview (applied to solved cube):")
-				previewAlgorithm(alg, useColor)
+				if err := previewAlgorithm(alg, useColor); err != nil {
+					return err
+				}
 			}
 		}
 
 		if len(results) > 1 {
 			fmt.Printf("\nFound %d algorithms.\n", len(results))
 		}
+		return nil
 	},
 }
 
-func previewAlgorithm(algorithm cube.Algorithm, useColor bool) {
+func previewAlgorithm(algorithm cube.Algorithm, useColor bool) error {
 	c := cube.NewCube(algorithm.Dimension)
 	parsedMoves, err := cube.ParseScramble(algorithm.Moves)
 	if err != nil {
-		fmt.Printf("Error parsing moves: %v\n", err)
-		return
+		return fmt.Errorf("error parsing moves: %w", err)
 	}
 
-	c.ApplyMoves(parsedMoves)
+	if err := c.ApplyMoves(parsedMoves); err != nil {
+		return err
+	}
 
 	// Show only the top face for OLL/PLL preview
 	fmt.Println("Top face after algorithm:")
@@ -117,6 +131,7 @@ func previewAlgorithm(algorithm cube.Algorithm, useColor bool) {
 		}
 		fmt.Println()
 	}
+	return nil
 }
 
 func init() {

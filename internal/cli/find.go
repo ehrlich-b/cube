@@ -114,6 +114,9 @@ func findOptions(cmd *cobra.Command) (findSearchOptions, error) {
 		if len(moves) == 0 {
 			return findSearchOptions{}, fmt.Errorf("empty move set")
 		}
+		if err := cube.ValidateMoves(moves, dimension); err != nil {
+			return findSearchOptions{}, err
+		}
 	}
 	return findSearchOptions{dimension: dimension, moves: moves}, nil
 }
@@ -152,7 +155,9 @@ func findStart(text string, dimension int) (*cube.Cube, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.ApplyMoves(moves)
+	if err := c.ApplyMoves(moves); err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 
@@ -268,7 +273,9 @@ func runSequenceSearchWithOptions(scramble string, maxMoves int, showSteps bool,
 	if err != nil {
 		return err
 	}
-	startCube.ApplyMoves(scrambleMoves)
+	if err := startCube.ApplyMoves(scrambleMoves); err != nil {
+		return err
+	}
 
 	// Search for solutions
 	target := copyCube(startCube)

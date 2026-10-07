@@ -775,8 +775,8 @@ run_test "show-alg without CFEN patterns" "$CUBE_BIN show-alg 'NonExistentAlg'" 
 # Test identify command
 run_test "identify solved state" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9'" "🔍 ANALYZING PATTERN"
 run_test "identify Sune pattern" "$CUBE_BIN identify 'YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6'" "Anti-Sune"
-run_test "identify with suggestions" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9' --suggest" "RECOMMENDED ACTIONS"
-run_test "identify with category filter" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9' --category OLL" "Category: OLL"
+run_test "identify with suggestions" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9' --suggest" "SUGGESTIONS"
+run_test "identify with category filter" "$CUBE_BIN identify 'YB|Y9/R9/B9/W9/O9/G9' --category OLL" "No matching algorithms"
 run_test "identify invalid CFEN" "$CUBE_BIN identify 'INVALID'" "" true
 
 # Working first-layer goal and beginner interaction

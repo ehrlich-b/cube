@@ -21,7 +21,7 @@ var identifyCmd = &cobra.Command{
 	Short: "Identify cube patterns and suggest matching algorithms",
 	Long:  `Analyze a cube state (in CFEN format) and identify matching OLL/PLL cases or suggest applicable algorithms.`,
 	Example: `  cube identify "YB|Y9/R9/B9/W9/O9/G9"  # Solved state
-  cube identify "YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6"  # Sune pattern
+  cube identify "YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6"  # Anti-Sune pattern
   cube identify --suggest --category OLL  # Show OLL algorithms for current pattern`,
 	Args: cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -123,41 +123,29 @@ func findMatchingAlgorithms(inputCube *cube.Cube, pattern, categoryFilter string
 
 	for _, alg := range allAlgorithms {
 		// Filter by category if specified
-		if categoryFilter != "" && !strings.EqualFold(alg.Category, categoryFilter) {
+		if categoryFilter != "" && !alg.HasCategory(strings.TrimSpace(categoryFilter)) {
 			continue
 		}
 
-		// TODO: Update verification system for new Pattern field
-		// Skip algorithms without patterns
-		if alg.Pattern == "" {
+		if alg.Pattern == "" || alg.Dimension != inputCube.Size {
 			continue
 		}
 
-		// TODO: Implement pattern matching with new Pattern field
-		// For now, add algorithm as potential match if it has a pattern
-		if alg.Pattern != "" {
+		recognition, err := cfen.ParseCFEN(alg.Pattern)
+		if err != nil {
+			continue
+		}
+		if matched, err := recognition.MatchesCube(inputCube); err == nil && matched {
 			match := AlgorithmMatch{
 				Algorithm:  alg,
-				MatchType:  "pattern_available",
-				Confidence: 0.5,
+				MatchType:  "exact_start",
+				Confidence: 1,
 			}
 			matches = append(matches, match)
 		}
 	}
 
 	return matches
-}
-
-func calculatePartialMatch(inputPattern string, alg cube.Algorithm) float64 {
-	// TODO: Implement pattern matching with new Pattern field
-	// For now, return basic confidence for algorithms with patterns
-
-	if alg.Pattern == "" {
-		return 0.0
-	}
-
-	// Basic confidence for having a pattern
-	return 0.3
 }
 
 func init() {

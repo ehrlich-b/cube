@@ -79,7 +79,9 @@ func firstLayerInput(cmd *cobra.Command, args []string) (*cube.Cube, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.ApplyMoves(moves)
+		if err := c.ApplyMoves(moves); err != nil {
+			return nil, err
+		}
 	}
 	return c, nil
 }

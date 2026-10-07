@@ -66,11 +66,16 @@ var AlgorithmDatabase = func() []Algorithm {
 // LookupAlgorithm searches for algorithms by name or moves
 func LookupAlgorithm(query string) []Algorithm {
 	query = strings.ToLower(strings.TrimSpace(query))
-	var results []Algorithm
+	nameQuery := normalizeAlgorithmName(query)
+	var exact, results []Algorithm
 
 	for _, alg := range AlgorithmDatabase {
+		if normalizeAlgorithmName(alg.Name) == nameQuery || strings.EqualFold(alg.CaseID, query) || exactAlias(alg.Aliases, nameQuery) || commonPermutationAlias(alg, nameQuery) {
+			exact = append(exact, alg)
+			continue
+		}
 		// Check if query matches name, moves, or description
-		if strings.Contains(strings.ToLower(alg.Name), query) ||
+		if strings.Contains(normalizeAlgorithmName(alg.Name), nameQuery) ||
 			strings.Contains(strings.ToLower(alg.Moves), query) ||
 			strings.Contains(strings.ToLower(alg.Description), query) ||
 			strings.Contains(strings.ToLower(alg.CaseID), query) ||
@@ -79,7 +84,12 @@ func LookupAlgorithm(query string) []Algorithm {
 		}
 	}
 
-	return results
+	return append(exact, results...)
+}
+
+// Both accepted U permutations are commonly requested as "U-Perm".
+func commonPermutationAlias(alg Algorithm, nameQuery string) bool {
+	return nameQuery == "uperm" && (alg.CaseID == "PLL-Ua" || alg.CaseID == "PLL-Ub")
 }
 
 // LookupByMoves finds algorithms that exactly match the given moves
@@ -126,7 +136,23 @@ func (alg *Algorithm) CalculateMoveCount() int {
 
 func matchesAlias(aliases []string, query string) bool {
 	for _, alias := range aliases {
-		if strings.Contains(strings.ToLower(alias), query) {
+		if strings.Contains(normalizeAlgorithmName(alias), normalizeAlgorithmName(query)) {
+			return true
+		}
+	}
+	return false
+}
+
+// Common PLL spelling varies between "H-Perm", "H Perm" and "H Permutation".
+// Normalize names and aliases only; keep move-sequence matching unchanged.
+func normalizeAlgorithmName(text string) string {
+	text = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(text)), "permutation", "perm")
+	return strings.NewReplacer("-", "", " ", "", "(", "", ")", "").Replace(text)
+}
+
+func exactAlias(aliases []string, query string) bool {
+	for _, alias := range aliases {
+		if normalizeAlgorithmName(alias) == query {
 			return true
 		}
 	}

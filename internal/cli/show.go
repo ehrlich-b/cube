@@ -20,13 +20,16 @@ Examples:
   cube show "R U R' U'" --highlight-cross
   cube show "" --highlight-oll`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		scramble := ""
 		if len(args) > 0 {
 			scramble = args[0]
 		}
 
 		dimension, _ := cmd.Flags().GetInt("dimension")
+		if dimension < 2 {
+			return fmt.Errorf("dimension must be at least 2 (got %d)", dimension)
+		}
 		useColor, _ := cmd.Flags().GetBool("color")
 		useLetters, _ := cmd.Flags().GetBool("letters")
 		useUnicode := useColor && !useLetters
@@ -42,10 +45,11 @@ Examples:
 		if scramble != "" {
 			moves, err := cube.ParseScramble(scramble)
 			if err != nil {
-				fmt.Printf("Error parsing scramble: %v\n", err)
-				return
+				return fmt.Errorf("error parsing scramble: %w", err)
 			}
-			c.ApplyMoves(moves)
+			if err := c.ApplyMoves(moves); err != nil {
+				return err
+			}
 			fmt.Printf("Cube state after scramble: %s\n\n", scramble)
 		} else {
 			fmt.Println("Solved cube state:")
@@ -70,6 +74,7 @@ Examples:
 		} else {
 			fmt.Println(c.UnfoldedString(useColor, useUnicode))
 		}
+		return nil
 	},
 }
 

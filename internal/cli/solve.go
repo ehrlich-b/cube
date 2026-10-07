@@ -80,7 +80,9 @@ Use --headless for space-separated solution moves, or --cfen for final state.`,
 			if err != nil {
 				return err
 			}
-			c.ApplyMoves(result.Solution)
+			if err := c.ApplyMoves(result.Solution); err != nil {
+				return err
+			}
 			if !c.IsSolved() {
 				return fmt.Errorf("returned solution failed full-cube verification")
 			}

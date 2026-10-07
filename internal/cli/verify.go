@@ -18,7 +18,7 @@ Both states are specified using CFEN notation with wildcard support.
 Examples:
   # Verify Sune algorithm (OLL case)
   cube verify "R U R' U R U2 R'" \
-    --start "YB|Y9/R3G3R3/B3W3B3/W9/O3Y3O3/G3R3G3" \
+    --start "YB|RYBY5O/G2YR6/GBYB6/W9/BR2O6/O2YG6" \
     --target "YB|Y9/?9/?9/?9/?9/?9"
 
   # Verify T-Perm (PLL case)
@@ -105,7 +105,12 @@ Examples:
 			os.Exit(1)
 		}
 
-		c.ApplyMoves(moves)
+		if err := c.ApplyMoves(moves); err != nil {
+			if !headless {
+				fmt.Printf("Error applying algorithm: %v\n", err)
+			}
+			os.Exit(1)
+		}
 
 		// Show result state if verbose
 		if verbose && !headless {

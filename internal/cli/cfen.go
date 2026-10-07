@@ -73,7 +73,7 @@ Examples:
 		// Get dimension
 		dimension, _ := cmd.Flags().GetInt("dimension")
 		if dimension < 2 {
-			dimension = 3 // Default to 3x3
+			return fmt.Errorf("dimension must be at least 2 (got %d)", dimension)
 		}
 
 		// Get starting state
@@ -89,7 +89,7 @@ Examples:
 			}
 
 			// Validate dimension if specified
-			if dimension != 3 && cfenState.Dimension != dimension {
+			if cmd.Flags().Changed("dimension") && cfenState.Dimension != dimension {
 				return fmt.Errorf("CFEN dimension %d doesn't match specified dimension %d",
 					cfenState.Dimension, dimension)
 			}
@@ -109,7 +109,9 @@ Examples:
 			if err != nil {
 				return fmt.Errorf("invalid scramble: %v", err)
 			}
-			resultCube.ApplyMoves(moves)
+			if err := resultCube.ApplyMoves(moves); err != nil {
+				return err
+			}
 		}
 
 		// Generate CFEN
@@ -157,8 +159,10 @@ Examples:
 
 		// Get dimension
 		dimension, _ := cmd.Flags().GetInt("dimension")
-		if dimension < 2 {
+		if !cmd.Flags().Changed("dimension") {
 			dimension = targetState.Dimension // Use CFEN dimension as default
+		} else if dimension < 2 {
+			return fmt.Errorf("dimension must be at least 2 (got %d)", dimension)
 		} else if dimension != targetState.Dimension {
 			return fmt.Errorf("specified dimension %d doesn't match target CFEN dimension %d",
 				dimension, targetState.Dimension)
@@ -173,7 +177,9 @@ Examples:
 			if err != nil {
 				return fmt.Errorf("invalid scramble: %v", err)
 			}
-			testCube.ApplyMoves(scrambleMoves)
+			if err := testCube.ApplyMoves(scrambleMoves); err != nil {
+				return err
+			}
 		}
 
 		// Apply solution
@@ -182,7 +188,9 @@ Examples:
 			if err != nil {
 				return fmt.Errorf("invalid solution: %v", err)
 			}
-			testCube.ApplyMoves(solutionMoves)
+			if err := testCube.ApplyMoves(solutionMoves); err != nil {
+				return err
+			}
 		}
 
 		// Check if result matches target pattern

@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 
+	"github.com/ehrlich-b/cube/internal/cfen"
 	"github.com/ehrlich-b/cube/internal/cube"
 	"github.com/spf13/cobra"
 )
@@ -42,7 +43,6 @@ var showAlgCmd = &cobra.Command{
 		fmt.Printf("Category: %s\n", alg.Category)
 		fmt.Printf("Moves: %s (%d moves)\n\n", alg.Moves, alg.MoveCount)
 
-		// TODO: Implement pattern visualization with new Pattern field
 		fmt.Printf("Pattern: %s\n\n", alg.Pattern)
 
 		// Show algorithm execution
@@ -56,13 +56,16 @@ var showAlgCmd = &cobra.Command{
 			return fmt.Errorf("failed to parse algorithm moves: %w", err)
 		}
 
-		// Create working cube (start from solved state)
-		// TODO: Implement pattern-based starting state
-		workingCube := cube.NewCube(alg.Dimension)
+		workingCube, err := algorithmStart(alg)
+		if err != nil {
+			return err
+		}
+		fmt.Println("START STATE:")
+		fmt.Println(workingCube.StringWithColor(color))
 
 		// Apply all moves
-		for _, move := range moves {
-			workingCube.ApplyMove(move)
+		if err := workingCube.ApplyMoves(moves); err != nil {
+			return err
 		}
 
 		// Display final state
@@ -70,8 +73,10 @@ var showAlgCmd = &cobra.Command{
 		output := workingCube.StringWithColor(color)
 		fmt.Println(output)
 
-		// TODO: Implement pattern verification with new Pattern field
-		fmt.Println("✅ Algorithm executed successfully")
+		if !workingCube.IsSolved() {
+			return fmt.Errorf("algorithm '%s' did not solve its recognition state", alg.Name)
+		}
+		fmt.Println("✅ Algorithm solved its recognition state")
 
 		return nil
 	},
@@ -87,15 +92,23 @@ func showAlgorithmAnimated(alg cube.Algorithm, color bool) error {
 		return fmt.Errorf("failed to parse moves: %w", err)
 	}
 
-	// Create working cube (start from solved state)
-	// TODO: Implement pattern-based starting state
-	workingCube := cube.NewCube(alg.Dimension)
+	workingCube, err := algorithmStart(alg)
+	if err != nil {
+		return err
+	}
+	if err := cube.ValidateMoves(moves, workingCube.Size); err != nil {
+		return err
+	}
+	fmt.Println("START STATE:")
+	fmt.Println(workingCube.StringWithColor(color))
 
 	// Show each step
 	for i, move := range moves {
 		fmt.Printf("\nStep %d/%d: %s\n", i+1, len(moves), move.String())
 
-		workingCube.ApplyMove(move)
+		if err := workingCube.ApplyMove(move); err != nil {
+			return err
+		}
 
 		output := workingCube.StringWithColor(color)
 		fmt.Println(output)
@@ -106,8 +119,24 @@ func showAlgorithmAnimated(alg cube.Algorithm, color bool) error {
 		}
 	}
 
-	fmt.Println("\n✅ Algorithm execution complete!")
+	fmt.Println("\n🎯 FINAL STATE:")
+	fmt.Println(workingCube.StringWithColor(color))
+	if !workingCube.IsSolved() {
+		return fmt.Errorf("algorithm '%s' did not solve its recognition state", alg.Name)
+	}
+	fmt.Println("✅ Algorithm solved its recognition state")
 	return nil
+}
+
+func algorithmStart(alg cube.Algorithm) (*cube.Cube, error) {
+	state, err := cfen.ParseCFEN(alg.Pattern)
+	if err != nil {
+		return nil, fmt.Errorf("invalid recognition pattern for '%s': %w", alg.Name, err)
+	}
+	if state.Dimension != alg.Dimension {
+		return nil, fmt.Errorf("recognition dimension %d doesn't match algorithm dimension %d", state.Dimension, alg.Dimension)
+	}
+	return state.ToCube()
 }
 
 func init() {

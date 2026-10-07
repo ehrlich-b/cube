@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/ehrlich-b/cube/internal/cfen"
 	"github.com/ehrlich-b/cube/internal/cube"
@@ -21,9 +20,12 @@ Examples:
   cube twist "F R U' R' F'" --color
   cube twist "Rw Uw Fw" --dimension 4`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		moves := args[0]
 		dimension, _ := cmd.Flags().GetInt("dimension")
+		if dimension < 2 {
+			return fmt.Errorf("dimension must be at least 2 (got %d)", dimension)
+		}
 		useCfenOutput, _ := cmd.Flags().GetBool("cfen")
 		startCfen, _ := cmd.Flags().GetString("start")
 
@@ -33,22 +35,19 @@ Examples:
 			// Parse starting CFEN
 			cfenState, err := cfen.ParseCFEN(startCfen)
 			if err != nil {
-				fmt.Printf("Error parsing starting CFEN: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error parsing starting CFEN: %w", err)
 			}
 
 			// Validate dimension if specified
-			if dimension != 3 && cfenState.Dimension != dimension {
-				fmt.Printf("CFEN dimension %d doesn't match specified dimension %d\n",
+			if cmd.Flags().Changed("dimension") && cfenState.Dimension != dimension {
+				return fmt.Errorf("CFEN dimension %d doesn't match specified dimension %d",
 					cfenState.Dimension, dimension)
-				os.Exit(1)
 			}
 			dimension = cfenState.Dimension // Use CFEN dimension
 
 			c, err = cfenState.ToCube()
 			if err != nil {
-				fmt.Printf("Error converting CFEN to cube: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error converting CFEN to cube: %w", err)
 			}
 		} else {
 			// Start with solved cube
@@ -65,20 +64,18 @@ Examples:
 		// Parse and apply moves
 		parsedMoves, err := cube.ParseScramble(moves)
 		if err != nil {
-			if !useCfenOutput {
-				fmt.Printf("Error parsing moves: %v\n", err)
-			}
-			os.Exit(1)
+			return fmt.Errorf("error parsing moves: %w", err)
 		}
 
-		c.ApplyMoves(parsedMoves)
+		if err := c.ApplyMoves(parsedMoves); err != nil {
+			return err
+		}
 
 		if useCfenOutput {
 			// CFEN output mode
 			cfenStr, err := cfen.GenerateCFEN(c)
 			if err != nil {
-				fmt.Printf("Error generating CFEN: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error generating CFEN: %w", err)
 			}
 			fmt.Print(cfenStr)
 		} else {
@@ -101,6 +98,7 @@ Examples:
 				fmt.Printf("Status: 🔄 Scrambled\n")
 			}
 		}
+		return nil
 	},
 }
 
