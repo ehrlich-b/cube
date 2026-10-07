@@ -54,11 +54,13 @@ func FindPattern(start, target *Cube, moves []Move, maxDepth int) ([]Move, bool)
 		return exactCoordinateSearch(readCubie(goal).inverse().mul(state), moves, maxDepth)
 	}
 	p := compileCubiePattern(goal)
-	s := wildcardSearch{pattern: p, allowed: indices, path: make([]int, maxDepth)}
+	s := wildcardSearch{pattern: p, allowed: indices}
 	for _, m := range indices {
 		s.present[m] = true
 	}
 	for depth := p.bound(state); depth <= maxDepth; depth++ {
+		// Allocate only the current search bound, not the requested maximum.
+		s.path = make([]int, depth)
 		if s.dfs(state, depth, 0, -1) {
 			result := make([]Move, depth)
 			for i, m := range s.path[:depth] {
