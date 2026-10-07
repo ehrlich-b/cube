@@ -2,32 +2,56 @@
 
 A Go command-line toolkit for Rubik's cubes: a correct NxNxN move engine, full WCA
 move notation, a CFEN state/pattern language with verification, move optimization,
-and a breadth-first algorithm search.
+and shortest-sequence pattern search.
 
 > **Honest status:** the move engine, verification, optimization, and search all work
-> and are covered by tests. **A complete 3×3 beginner solver and lesson now work.**
-> See [the beginner guide](./examples/beginner.md). CFOP and Kociemba remain unimplemented.
+> and are covered by tests. **Kociemba solves a complete 3×3 by default.** The
+> complete beginner solver and [lesson](./examples/beginner.md) remain available.
+> CFOP and larger-cube solving remain unimplemented.
 
 ## Status
 
 **Works today**
 - `cube learn` — a complete layer-by-layer 3×3 solve, with checkpoints, orientation
   guidance and interactive recovery (`next`, `moves`, `undo`, `reset`, saved CFEN)
-- `cube solve` — complete 3×3 beginner solution, including headless moves
+- `cube solve` — fast complete 3×3 Kociemba solution; `--method beginner` retains
+  the beginner solver, and `--algorithm` remains a supported alias
+- `cube solve --optimal --time-limit 1s` — shortest face-turn solution if proved
+  before the deadline; an explicit error if the search times out
 - `--goal first-layer` retains the explicit white-layer sublesson
 - Physical 3×3 state validation: color counts, centers, cubie identity, flips, twists, parity
 - NxNxN move engine (2x2 through large N), all WCA notation, whole-cube rotations
 - `cube twist` — apply moves, render the cube (ASCII / colored / Unicode)
 - `cube verify` — check an algorithm against CFEN start/target states (wildcards supported)
 - `cube optimize` — cancel/merge moves (`R R R` → `R'`)
-- `cube find` — BFS search for move sequences that reach a target pattern
+- `cube find` — IDA* with cubie coordinates and admissible pruning tables for
+  exact/wildcard 3×3 targets; sticker BFS for other dimensions or move alphabets
+- CFEN search targets and concrete start states, restricted `--moves`, and
+  checkerboard/cross patterns; returns one shortest sequence
 - `cube lookup`, `cube show`, the CFEN utility commands, and the `verify-*` database tools
 
 **Not implemented yet**
-- **CFOP and Kociemba remain empty API stubs**; the CLI rejects these unavailable algorithms.
-- Beginner solving supports 3×3 only; other dimensions are rejected, not reported as solved.
+- **CFOP remains an empty API stub**; the CLI rejects it.
+- Solving supports 3×3 only; other dimensions are rejected, not reported as solved.
 - Algorithm database has only 5 entries with verification patterns (of 63 defined)
-- `cube find` is correct but exponential — practical only to ~6 moves; it is not a general scramble solver
+- Optimal search is exponential on deep states; wildcard heuristics are weaker
+  than exact-state heuristics. Use Kociemba for general scramble solving.
+
+Measured on this Mac under background QoS (2026-10-07): fresh CLI searches of
+exact depths 8/9/10 took **0.72/0.46/0.52 seconds**, including table setup.
+Ten seeded targets per depth averaged **0.29/1.58/9.40 ms** with tables loaded.
+The independent Python oracle solved **200 uniform physical states**, averaging
+**21.73 face turns**, maximum **22**, with mean/max process latency
+**71.5/365.7 ms**. A paired 30-scramble comparison averaged **21.70 moves** for
+Kociemba versus **209.57** for beginner. These samples are not worst-case bounds.
+Kociemba prefers at most 22 turns for one second, then permits up to 30 to retain
+completeness. Grip rotations are separate from face-turn length.
+
+Kociemba tables are generated deterministically on first use and cached under
+the user's cache directory (`cube/coordinates-v1.gob`); `CUBE_CACHE_DIR` overrides
+the location. Generation measured **0.67 seconds** and warm loading **26 ms**.
+Search's four-edge tables take about **0.49 seconds** to generate in memory.
+No generated tables are committed; a missing or invalid cache is rebuilt.
 
 ## Quick Start
 
@@ -45,6 +69,7 @@ make build-tools      # builds dist/tools/verify-algorithm and verify-database
 
 # Return moves that solve all six faces
 ./dist/cube solve "R U F2 L' B" --headless
+./dist/cube solve "R U F2 L' B" --method beginner --headless
 
 # Return moves that solve the first layer (other layers may remain scrambled)
 ./dist/cube solve "R U F2 L' B" --goal first-layer --headless
@@ -58,6 +83,9 @@ make build-tools      # builds dist/tools/verify-algorithm and verify-database
 
 # Search for a short sequence that reaches a pattern
 ./dist/cube find sequence "R U"         # → U' R'
+./dist/cube find sequence "R U F2 L' B D2 R' F U2 L" --max-moves 10
+./dist/cube find --target 'YB|Y9/?9/?9/?9/?9/?9' --start 'YB|Y9/R9/B9/W9/O9/G9'
+./dist/cube find sequence R2 --moves R --max-moves 2  # → R R
 ```
 
 See [examples/](./examples/) for tutorials and pattern walkthroughs.
@@ -71,12 +99,13 @@ See [examples/](./examples/) for tutorials and pattern walkthroughs.
 | `show` | Render a cube with cross/OLL/PLL/F2L highlighting | works |
 | `lookup` | Search the algorithm database | works |
 | `optimize` | Cancel/merge a move sequence | works |
-| `find` | BFS search for sequences reaching a pattern | works (exponential) |
+| `find` | Shortest exact/wildcard pattern search | works (3×3 IDA*, BFS fallback) |
 | `parse-cfen` / `generate-cfen` / `verify-cfen` / `match-cfen` | CFEN utilities | works |
 | `identify` / `show-alg` | Pattern identify / algorithm display | partial |
 | `learn` | Teach a complete beginner solve, with recovery and checkpoints | works (3×3) |
 | `solve --goal first-layer` | Solve the white first layer | works (3×3 beginner) |
-| `solve` / `solve --goal full` | Solve all three layers with beginner method | works (3×3) |
+| `solve` / `solve --goal full` | Kociemba by default; beginner selectable | works (3×3) |
+| `solve --optimal` | Prove a shortest face-turn solution within a time limit | works (deep states may time out) |
 
 Note: `verify` takes a single positional argument — the algorithm — plus `--start`/`--target` flags.
 
@@ -104,10 +133,11 @@ to work from a different orientation.
 
 ```bash
 make test        # Go unit tests, including the invariant suite
-make e2e-test    # 122 end-to-end CLI tests
+make e2e-test    # end-to-end CLI tests
 make test-all    # both
 make test-first-layer  # independent partial-goal regression oracle (Python 3)
 make test-beginner     # independently replay full solutions and last-layer recovery
+make test-kociemba     # 200 independent uniform physical states and move replay
 make fmt && make vet   # before committing
 ```
 
@@ -130,11 +160,13 @@ internal/cube/                   # Core engine
   moves.go / move_parser.go      # move parsing + application
   ring_generators.go / permutations.go  # the permutation engine
   algorithms.go                  # algorithm database
-  solver.go                      # full beginner solver + CFOP/Kociemba stubs
+  solver.go / kociemba.go         # full beginner and Kociemba solvers; CFOP stub
+  coordinates.go / coordinate_tables.go  # cubie moves and deterministic pruning tables
+  pattern_search.go / optimal_search.go  # shortest wildcard/exact search + BFS fallback
   first_layer.go / full_lesson.go / lesson_session.go  # beginner checkpoints and recovery
   state_validation.go            # physical 3x3 legality checks
   solving_db.go                  # experimental 4-look pattern matcher (currently unwired)
-  cubie.go                       # piece-addressing scaffold for future piece tracking (unused)
+  cubie.go                       # piece addresses, ranges and 3×3 selector aliases
 internal/cfen/                   # CFEN parsing, generation, conversion, matching
 tools/                           # verify-algorithm, verify-database, generate-patterns
 ```
@@ -174,7 +206,8 @@ func main() {
 The complete beginner path now finishes all six faces. The unchanged full-solver
 contract actively checks it. Partial first-layer results retain a separate result
 type and explicit goal. Next improvements should follow a human physical-cube
-trial; CFOP, Kociemba and larger-cube solving remain future work.
+trial; CFOP and larger-cube solving remain future work. Fast Kociemba solving and
+bounded optimal search now complement the beginner lesson.
 See [TODO.md](./TODO.md) and [docs/solvers.md](./docs/solvers.md).
 
 ## License

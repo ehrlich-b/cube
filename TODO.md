@@ -4,20 +4,32 @@
 
 This project has built a correct, well-tested engine for cube manipulation, verification,
 optimization, and search. **The complete 3×3 beginner solver and lesson work as of 2026-10-03.**
-`cube solve` finishes all six faces; `cube learn` provides the full sequence with
+`cube solve` defaults to Kociemba as of 2026-10-07; `--method beginner` and
+`cube learn` retain the complete beginner sequence with
 recoverable playback. The white-layer sublesson remains explicit via `--goal first-layer`. This TODO is a pragmatic path forward.
 
 **Verified reality (current):**
 - Move engine: correct, NxN, covered by fuzz + invariant tests ✅
-- CFEN verify / optimize / find (BFS): working ✅ (find is exponential — short sequences only, not a scramble solver)
+- CFEN verify / optimize: working ✅
+- Find: coordinate IDA* for exact/wildcard 3×3 targets, restricted moves and BFS fallback ✅
 - Algorithm DB: 63 entries, **5** with verification patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move) ✅
 - White first layer: cross + four corners, rotations, saved CFEN and recovery ✅
 - Physical 3×3 input validation and independent cubie/geometry oracles ✅
 - Full beginner solve: middle edges, yellow cross/alignment, corner placement/orientation ✅
-- CFOP and Kociemba remain unimplemented; CLI rejects them ❌
+- Kociemba two-phase: complete 3×3 default; deterministic lazy cached tables ✅
+- Optimal face-turn IDA*: explicit time limit and no answer on timeout ✅
+- CFOP remains unimplemented; CLI rejects it ❌
 - `solving_db.go`: a 4-look pattern-matcher that is **dead code** (unwired) ⚠️
 - Tests: active full-solver contract, Go tests, binary E2E cases, and independent
   physical-cubie/checkpoint/interaction oracles for full and partial goals.
+
+**Measured 2026-10-07, Mac background QoS:** fresh depth 8/9/10 CLI searches
+0.72/0.46/0.52 s; loaded-table means across ten targets each 0.29/1.58/9.40 ms.
+200 independently constructed Python physical states: Kociemba mean 21.73,
+max 22 face turns; process mean 71.5 ms, max 365.7 ms. Thirty paired scrambles:
+Kociemba 21.70 vs beginner 209.57 moves. Table generation 0.67 s, cached load
+26 ms; search table generation 0.49 s. The 22-turn preference has a one-second
+budget; difficult cases can use the complete 30-turn two-phase bound.
 
 **Guardrails (do not let these go red):** `internal/cube/invariants_test.go`,
 `internal/cfen/cfen_test.go`, `internal/cli/commands_test.go`. The solver-contract test is the
@@ -170,14 +182,18 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 *Goal: Add search-based solving for better solutions*
 
 ### 5.1 Basic Search Implementation
-- [ ] Implement breadth-first search with state representation
-- [ ] Add iterative deepening with depth limits
-- [ ] Create duplicate detection and solution extraction
+- [x] Retain correct sticker BFS with independent path storage as fallback
+- [x] Add coordinate IDA* with depth limits and shortest-sequence guarantees
+- [x] Create duplicate detection and solution extraction for BFS
 
 ### 5.2 Heuristic Search
 - [ ] Implement A* search with heuristic functions
-- [ ] Create pattern databases (corner/edge orientation)
-- [ ] Build pruning tables for search optimization
+- [x] Create pattern databases (corner/edge orientation, slice, permutation, four-edge groups)
+- [x] Build admissible pruning tables for exact and wildcard pattern search
+- [x] Match retained BFS on 40 cases through depth four and independent sticker
+  BFS on 60 random start/target pairs through depth six
+- [x] Verify exact depths 8–10, restricted move alphabets and non-3×3 fallback
+- [x] Add `cube solve --optimal --time-limit` with explicit timeout errors
 
 ---
 
@@ -190,9 +206,13 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 - [ ] Algorithm-based OLL/PLL from database
 
 ### 6.2 Kociemba Two-Phase
-- [ ] Phase 1: Reduce to &lt;U,D,R2,L2,F2,B2&gt; subgroup
-- [ ] Phase 2: Solve within subgroup optimally
-- [ ] Generate pruning tables and coordinate systems
+- [x] Phase 1: Reduce to &lt;U,D,R2,L2,F2,B2&gt; subgroup
+- [x] Phase 2: Search subgroup with exact-depth IDA* (combined result is not globally optimal)
+- [x] Generate deterministic lazy cached pruning tables and coordinate systems
+- [x] Keep `KociembaSolver.Solve` / `GetSolver` signatures and beginner lesson intact
+- [x] Default to Kociemba after measured paired length comparison
+- [x] 200 seeded scramble oracle, 200 uniform cubie-state oracle and 200 independent
+  Python physical-state replays; unchanged full-solver/CFEN/command guardrails
 
 ### 6.3 Big Cube Support
 - [ ] 4x4 reduction method (centers, edges, parity)
