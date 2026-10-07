@@ -1,4 +1,4 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba web web-pages test-web test-web-smoke
 
 # Build the binary
 build:
@@ -27,7 +27,21 @@ test:
 run:
 	go run ./cmd/cube
 
-# Serve command removed - this is a CLI-only tool
+# Static website; no JavaScript bundler or npm build step.
+web:
+	GOOS=js GOARCH=wasm go build -p 2 -trimpath -o web/cube.wasm ./cmd/cubewasm
+	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" web/wasm_exec.js
+
+# Export only runtime assets; keep test packages out of GitHub Pages.
+web-pages: web
+	mkdir -p dist/web
+	cp web/index.html web/style.css web/icon.svg web/app.js web/cube-view.js web/engine.js web/worker.js web/cube.wasm web/wasm_exec.js dist/web/
+
+test-web: web
+	node web/test/api.test.cjs
+
+test-web-smoke: web
+	node web/test/smoke.mjs
 
 # Install dependencies
 install:

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f4ef">
+  <meta name="description" content="Twist, solve and learn a Rubik’s cube with the real Go engine, right in your browser.">
+  <title>Cube — your next move</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <a class="brand" href="./" aria-label="Cube home"><img src="./icon.svg" alt="" width="30" height="30">cube<span class="brand-dot">.</span></a>
+      <span class="header-note">A hands-on cube playground</span>
+      <button id="share" class="quiet">Share ↗</button>
+    </header>
+    <main>
+      <div class="intro">
+        <div><p class="eyebrow">MAKE YOUR NEXT MOVE</p><h1>Your cube. Every move.</h1><p class="lede">Explore a sequence, find a solution, or learn one turn at a time.</p></div>
+        <span class="engine-label"><i></i> Powered by Go · Runs locally</span>
+      </div>
+      <div class="workspace">
+        <section class="cube-card" aria-label="Interactive cube">
+          <div class="card-top"><span id="state-label" class="state-badge">Loading engine…</span><div class="view-toggle" aria-label="Cube view"><button id="view-3d" aria-pressed="true">3D cube</button><button id="view-net" aria-pressed="false">2D net</button></div></div>
+          <div id="stage" class="stage" aria-label="3D cube; drag to change your view" tabindex="0"><div class="cube-shadow"></div><div id="camera" class="camera"><div id="cube" class="cube"></div></div></div>
+          <div id="net" class="net" hidden aria-label="Unfolded cube net"></div>
+          <div class="viewer-foot"><span id="view-hint">Drag to look around</span><button id="home-view" class="text-button">Center view ↺</button></div>
+          <div class="main-actions"><button id="scramble" class="secondary" disabled>↝ &nbsp; Scramble</button><button id="solve" class="primary" disabled>Solve this cube <span>→</span></button></div>
+          <div class="history-bar"><div><button id="undo" aria-label="Undo last move" disabled>↶ Undo</button><button id="redo" aria-label="Redo last move" disabled>↷ Redo</button></div><button id="reset" disabled>Reset cube</button></div>
+          <div class="scramble-line"><span>SCRAMBLE</span><output id="scramble-text">Start solved, or mix things up.</output></div>
+        </section>
+        <section class="control-card" aria-label="Cube tools">
+          <div class="tabs" role="tablist" aria-label="Mode"><button id="tab-practice" role="tab" aria-selected="true" aria-controls="practice">Practice</button><button id="tab-lesson" role="tab" aria-selected="false" aria-controls="lesson" tabindex="-1">Lesson</button><button id="tab-search" role="tab" aria-selected="false" aria-controls="search" tabindex="-1">Search</button></div>
+          <div id="practice" class="panel" role="tabpanel" aria-labelledby="tab-practice">
+            <div class="section-heading"><h2>Give it a turn</h2><span class="small-pill">3 × 3</span></div>
+            <p class="muted">Click a move, or use your keyboard. Hold <kbd>shift</kbd> for a prime turn.</p>
+            <div id="move-buttons" class="move-grid"></div>
+            <div class="notation"><span><b>R</b> clockwise</span><span><b>R′</b> counterclockwise</span><span><b>R2</b> half turn</span></div>
+            <label class="field-label" for="algorithm">PLAY AN ALGORITHM</label>
+            <textarea id="algorithm" rows="3" spellcheck="false" placeholder="R U R' U'"></textarea>
+            <div class="algorithm-actions"><span class="muted">Faces, slices, wide moves & rotations</span><button id="run-algorithm" class="primary" disabled>Play →</button></div>
+            <details class="advanced"><summary>More moves</summary><div id="extra-moves" class="extra-grid"></div></details>
+          </div>
+          <div id="lesson" class="panel" role="tabpanel" aria-labelledby="tab-lesson" hidden>
+            <p class="eyebrow">THE BEGINNER METHOD</p><h2>One checkpoint at a time.</h2><p class="muted">Build the white layer, finish the middle, then bring the yellow layer home. Hints follow your current cube.</p>
+            <button id="start-lesson" class="primary" disabled>Get next hint →</button>
+            <div id="lesson-content" class="lesson-content"><p class="empty-note">Scramble your cube, then get a hint to begin. You can make your own turns and ask for a fresh hint anytime.</p></div>
+          </div>
+          <div id="search" class="panel" role="tabpanel" aria-labelledby="tab-search" hidden>
+            <p class="eyebrow">FIND A SHORT PATH</p><h2>Search for a pattern.</h2><p class="muted">Find face turns from your current cube to a CFEN target. Use <b>?</b> for stickers you don’t care about.</p>
+            <label class="field-label" for="target">TARGET · U / R / F / D / L / B</label><textarea id="target" rows="3" spellcheck="false">YB|Y9/R9/B9/W9/O9/G9</textarea>
+            <div class="search-options"><label for="depth">Maximum moves <input id="depth" type="number" min="0" max="8" value="3"></label><button id="find" class="primary" disabled>Find moves →</button><button id="cancel-search" class="secondary" hidden>Cancel</button></div>
+            <p class="muted search-note">Start with 2–3 moves. Deeper searches can take a while; you can cancel anytime.</p><div id="search-result" class="search-result" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+      <section id="playback" class="playback" aria-label="Sequence playback" hidden>
+        <div class="playback-heading"><div><p id="sequence-kind" class="eyebrow">SOLUTION</p><h2 id="sequence-title">Your path to solved</h2></div><span id="sequence-count" class="small-pill"></span></div>
+        <div class="transport"><button id="back-step" class="secondary" aria-label="Step backward">←</button><button id="play" class="primary">Play</button><button id="step" class="secondary">Step →</button><label class="speed-label" for="speed">Speed <select id="speed"><option value="460">Slow</option><option value="220" selected>Normal</option><option value="70">Fast</option></select></label><output id="progress">0 / 0</output></div>
+        <label class="sr-only" for="scrubber">Sequence position</label><input id="scrubber" type="range" min="0" max="0" value="0">
+        <div id="sequence-moves" class="sequence-moves" aria-label="Moves; click to jump to a position"></div>
+      </section>
+      <section class="state-card"><div><p class="eyebrow">TAKE YOUR CUBE WITH YOU</p><h2>Save or restore a state.</h2><p class="muted">CFEN records every sticker, including rotated grips.</p></div><div class="state-input"><label class="sr-only" for="cfen">Cube state in CFEN</label><input id="cfen" spellcheck="false" placeholder="YB|Y9/R9/B9/W9/O9/G9"><div><button id="import" class="secondary" disabled>Import</button><button id="export" class="secondary" disabled>Copy CFEN</button></div></div></section>
+      <p id="notice" class="notice" role="status" aria-live="polite">Loading the cube engine…</p>
+    </main>
+    <footer><span>Six faces. Endless possibilities.</span><span>WCA notation · No account needed</span></footer>
+  </div>
+  <noscript>This playground needs JavaScript and WebAssembly. The Go CLI works without a browser.</noscript>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

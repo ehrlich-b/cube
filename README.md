@@ -90,6 +90,68 @@ make build-tools      # builds dist/tools/verify-algorithm and verify-database
 
 See [examples/](./examples/) for tutorials and pattern walkthroughs.
 
+## Interactive Website
+
+The static [cube playground](./web/) uses the real Go engine compiled to
+WebAssembly. There is no npm build step, server API, account, or external CDN.
+
+```bash
+make web
+python3 -m http.server --bind 127.0.0.1 8080
+# Open http://127.0.0.1:8080/web/
+```
+
+Turn the 3D cube with WCA keys (`R U F L D B`, `M E S`, `x y z`); hold Shift
+for prime turns. Drag to orbit the view, or use arrow keys while the cube is
+focused. The buttons, algorithm box, undo/redo, reset, scramble, and 2D net
+work on phones too. Solving produces a verified sequence with play/pause,
+step forward/back, clickable moves, a position slider, and adjustable speed.
+Lesson mode gives the beginner method's actual instructions and checks,
+replanning the next hint from your current state after your own turns.
+
+Search accepts a 3×3 CFEN target with `?` wildcards and a depth of 0–8. It runs
+in a cancellable Web Worker with a 30-second limit; start with short searches.
+Solver and lesson planning also run in workers. The WASM binding calls
+`ParseMoves` / `ApplyMoves`, `GetSolver`, `PlanBeginner`, `SearchToTarget`, and
+the existing CFEN and physical validation APIs. Automatic solving tries
+Kociemba through the solver factory and falls back to beginner while Kociemba
+returns an empty stub result. A later engine implementation is picked up on
+the next WASM build, without a separate JavaScript solver or searcher.
+
+Import/export uses concrete CFEN in YB storage order (`U/R/F/D/L/B`); actual
+center colors preserve rotated grips. Share copies a URL hash containing the
+scramble and algorithm, or an imported/manual starting state. Opening a link
+restores the starting cube and prepares its algorithm for playback.
+
+```bash
+taskpolicy -b nice -n 15 make test-web
+cd web && npm install && cd ..   # Playwright is only a web devDependency
+taskpolicy -b nice -n 15 make test-web-smoke
+```
+
+The smoke test uses headless Playwright Chromium with a disposable profile,
+starts Python on a random loopback port, stops it on exit, and saves
+`.scratch/screens/cube-1280x800.png` and `cube-390x844.png`. It uses the cached
+Chromium on macOS; elsewhere install Chromium with `cd web && npx playwright
+install chromium`. All test temporary files stay in `.scratch/`.
+
+If an execution sandbox denies loopback sockets, `taskpolicy -b nice -n 15
+node web/test/smoke.mjs --in-memory` runs the same browser assertions using
+local-file request routing. This alternate transport does not check Python
+serving; the normal smoke target continues to require the Python server.
+
+To publish, run this **single command yourself** from the repository root:
+
+```bash
+taskpolicy -b nice -n 15 make web-pages && npx --yes gh-pages --dist dist/web --nojekyll
+```
+
+This builds and publishes only runtime assets to the `gh-pages` branch of the
+current repository's origin. GitHub Pages must separately be configured to
+serve that branch's root. All asset paths are relative, including worker and
+WASM paths, so repository subpaths work. Publishing and Pages configuration
+are intentionally not performed by this implementation task.
+
 ## Command Overview
 
 | Command | Purpose | Status |
