@@ -7,8 +7,8 @@ Read TODO.md first. `cube solve` defaults to Kociemba; `--method beginner` and
 the white cross/corners sublesson. Interactive lessons support actual moves,
 undo/reset, rotated grips and saved CFEN recovery. `full_lesson.go` extends the
 verified first-layer checkpoints; only complete solutions implement `Solver`.
-Do not weaken the full-solver invariant. CFOP remains a stub; the CLI rejects it
-and unsupported dimensions. Kociemba has 200-scramble and 200-uniform-state Go
+Do not weaken the full-solver invariant. CFOP now solves Cross, F2L, OLL and PLL
+from the imported database; unsupported dimensions are rejected. Kociemba has 200-scramble and 200-uniform-state Go
 oracles plus an independent 200-state Python physical replay oracle.
 `cube find` uses shortest coordinate IDA* for exact/wildcard 3×3 patterns with
 restricted alphabets, retaining sticker BFS for other dimensions/move types.
@@ -145,10 +145,10 @@ tools/ (Database utilities) ────────────┘
 - Standard Singmaster notation parsing (R, U', F2, etc.)
 
 **Algorithm Database (`internal/cube/algorithms.go`):**
-- `Algorithm` struct: `Name`, `CaseID`, `Category`, `Moves`, `Pattern` (masked CFEN), `Recognition`, `Inverse`, `Mirror`
-- 63 algorithms defined (OLL, PLL, F2L, triggers)
-- **Only 5 carry a verification `Pattern`:** Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move
-- A legacy `Verified` bool still lingers on a few entries — the db refactor was only partial
+- `Algorithm` struct: `Name`, `CaseID`, `Category`, `Moves`, `Pattern` (concrete inverse-to-solved CFEN), `Recognition`, `Inverse`, `Mirror`
+- 131 unique algorithms, all with inverse-to-solved CFEN patterns (117 for 3×3)
+- 144 CSV rows accepted, 18 merged across categories, 15 quarantined with reasons
+- `tools/import-algorithms` reproducibly generates the embedded JSON and reports
 
 **CFEN Verification System (`internal/cfen/`):**
 - CFEN parsing and generation with wildcard (`?`) support
@@ -159,7 +159,7 @@ tools/ (Database utilities) ────────────┘
 **Solver System (`internal/cube/solver.go`):**
 - Interface-driven design: `type Solver interface { Solve(*Cube) (*SolverResult, error); Name() string }`
 - Three registered solvers: BeginnerSolver, CFOPSolver, KociembaSolver
-- BeginnerSolver completes a validated 3×3 via `PlanBeginner`; KociembaSolver uses two-phase coordinate search. CFOP remains an empty API stub.
+- BeginnerSolver completes a validated 3×3 via `PlanBeginner`; KociembaSolver uses two-phase coordinate search. CFOP uses optimal cross search, paired F2L recognition/search and complete database OLL/PLL tables.
 - `internal/cube/solving_db.go` sketches a 4-look pattern-match solver but is **dead code** (unwired to any command)
 
 **Main CLI Commands (`internal/cli/`):** (with honest status)
@@ -199,8 +199,8 @@ tools/ (Database utilities) ────────────┘
 - **Enhanced verification system** - `cube verify` command with flexible CFEN start/target support
 - **CFEN infrastructure** - Complete parsing, generation, and wildcard matching
 - **Pattern highlighting system** - `cube show` with cross/OLL/PLL/F2L highlighting
-- **Algorithm database** - 63 algorithms defined; 5 carry verification patterns
-- **Verified algorithm collection** - 5 algorithms with real CFEN patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move) — all pass `verify-database`
+- **Algorithm database** - 131 unique entries with verified recognition patterns
+- **Verified algorithm collection** - all 131 entries pass `verify-database` (inverse pattern → solved)
 - **Clean architecture** - Separate database tools from main CLI
 - **Database verification tools** - Standalone utilities for algorithm curation
 - **Comprehensive test suite** - End-to-end tests, Go unit tests and independent Python physical replay
@@ -208,19 +208,19 @@ tools/ (Database utilities) ────────────┘
 - Cross-platform build system (macOS/Linux compatible)
 
 **⚠️ Current Issues / Known Gaps:**
-- CFOP and larger-cube solving remain unimplemented; CLI rejects those selections.
+- Larger-cube solving remains unimplemented; CFOP color neutrality and look-ahead remain future work.
 - Beginner physical usability remains unverified by a human trial.
-- Algorithm database has only 5 verification patterns (of 63 entries)
+- Incorrect raw CSV cases remain in quarantine; other-size parity descriptions need independent validation.
 - `internal/cube/solving_db.go` is a dead-code 4-look pattern-matcher — wire it up or delete it
 - `internal/cube/cubie.go` supplies piece addresses, ranges and 3×3 selector aliases
-- CSV algorithm dumps ready for import in `/alg_dumps/` (9 files, 100+ algorithms)
+- All nine CSV algorithm dumps in `alg_dumps/` are imported reproducibly, with rejected rows quarantined.
 
 **📍 Key Files to Know:**
 - `TODO.md` - **ALWAYS READ FIRST** - Current development plan and progress
 - `internal/cube/cube.go` - Core cube representation, color output methods
 - `internal/cube/moves.go` - Move parsing and application logic
-- `internal/cube/solver.go` / `kociemba.go` - Full beginner and Kociemba implementations; CFOP stub
-- `internal/cube/algorithms.go` - Algorithm database (63 entries, 5 with CFEN patterns)
+- `internal/cube/solver.go` / `kociemba.go` - Full beginner, Kociemba and CFOP implementations (`cfop.go`)
+- `internal/cube/algorithms.go` - Embedded algorithm database (131 entries, all with CFEN recognition patterns)
 - `internal/cfen/` - Complete CFEN parsing, generation, and verification system
 - `internal/cli/verify.go` - Enhanced verification command with CFEN support
 - `internal/cli/solve.go` - CLI solve command with algorithm selection
@@ -297,7 +297,7 @@ RRR WWW BOO YYY
 ### Solver status (IMPORTANT)
 The default Kociemba solver completes a valid 3×3 and its returned moves are
 checked against all six faces. Use `--method beginner` for the beginner solver
-or `--goal first-layer` for the partial goal. CFOP is unimplemented and rejected.
+or `--goal first-layer` for the partial goal. `--method cfop` returns named, verified stage checkpoints.
 ```bash
 ./dist/cube solve "R U R' U'" --headless
 ./dist/cube learn "R U F2 L' B" --interactive
@@ -353,10 +353,10 @@ make build-tools
 ```
 
 **Adding New Verified Algorithms:**
-1. Add algorithm to `internal/cube/algorithms.go` with proper CFEN patterns
+1. Add a CSV algorithm row and run `make import-algorithms` to regenerate patterns
 2. Use `./dist/tools/verify-algorithm` to test the algorithm
 3. Use `./dist/tools/verify-database` to ensure database consistency
-4. Update move count with `algorithm.UpdateMoveCount()`
+4. Review the generated import report and any quarantined rows
 
 **CFEN Pattern Development:**
 ```bash

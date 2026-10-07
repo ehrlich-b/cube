@@ -12,13 +12,15 @@ recoverable playback. The white-layer sublesson remains explicit via `--goal fir
 - Move engine: correct, NxN, covered by fuzz + invariant tests ✅
 - CFEN verify / optimize: working ✅
 - Find: coordinate IDA* for exact/wildcard 3×3 targets, restricted moves and BFS fallback ✅
-- Algorithm DB: 63 entries, **5** with verification patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move) ✅
+- Algorithm DB: **131 unique entries, all with verified inverse-to-solved patterns**;
+  144/159 CSV rows accepted, 18 merged, 15 quarantined with reasons ✅
 - White first layer: cross + four corners, rotations, saved CFEN and recovery ✅
 - Physical 3×3 input validation and independent cubie/geometry oracles ✅
 - Full beginner solve: middle edges, yellow cross/alignment, corner placement/orientation ✅
 - Kociemba two-phase: complete 3×3 default; deterministic lazy cached tables ✅
 - Optimal face-turn IDA*: explicit time limit and no answer on timeout ✅
-- CFOP remains unimplemented; CLI rejects it ❌
+- CFOP: optimal white cross, database paired F2L + search fallback, complete database
+  OLL/PLL recognition and AUF; CLI and staged site playback ✅
 - `solving_db.go`: a 4-look pattern-matcher that is **dead code** (unwired) ⚠️
 - Tests: active full-solver contract, Go tests, binary E2E cases, and independent
   physical-cubie/checkpoint/interaction oracles for full and partial goals.
@@ -67,32 +69,42 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 ---
 
 ## 🗃️ Phase 1: Algorithm Database Modernization
-*Goal: Replace current 67-algorithm database with comprehensive, well-structured system*
+*Goal: Import a comprehensive, reproducible algorithm database (only five original entries were live)*
 
 ### 1.1 Refactor Core Structure ✅ COMPLETE
 - [x] Implement new Algorithm struct per `/docs/move_db_refactor.md`:
-  - [~] Remove `Verified`, `TestedOn`, `StartCFEN`, `TargetCFEN` fields — PARTIAL: `Verified` bool + `MarkVerified`/`GetVerifiedAlgorithms` still present in algorithms.go
+  - [x] Remove obsolete verification fields and commented legacy database
   - [x] Add `CaseID`, `Pattern`, `Recognition`, `Inverse`, `Mirror` fields
   - [x] Update all existing code references
 - [x] Build pattern generation tool:
-  - [x] Apply algorithm to solved YB cube
+  - [x] Apply inverse algorithm to solved YB cube to generate recognition state
   - [x] Generate CFEN patterns automatically (`tools/generate-patterns/`)
   - [x] Updated 5 key algorithms with generated patterns (Sune, Anti-Sune, Cross OLL, T-Perm, Sexy Move)
 - [x] Update CLI commands and database tools to work with new structure
 - [x] Fix e2e tests - all 98 tests now passing ✅
 
 ### 1.2 Import Comprehensive Dataset
-- [ ] Create CSV import system for `/alg_dumps/` (9 files, 100+ algorithms)
-- [ ] Handle data quality issues (inconsistent formats, references)
-- [ ] Merge duplicates across CSV files
-- [ ] Auto-generate patterns for all imported algorithms
-- [ ] Support multi-dimensional algorithms (2x2, 4x4+, parity cases)
+- [x] Create CSV import system for `/alg_dumps/` (9 files, 100+ algorithms)
+- [x] Handle data quality issues (inconsistent formats, references)
+- [x] Merge duplicates across CSV files
+- [x] Auto-generate patterns for all imported algorithms
+- [x] Support multi-dimensional algorithms (2x2, 4x4+, parity cases)
+
+Imported 144 rows from 159; 18 duplicate sequences merged across categories;
+15 quarantined (invalid references or broken claimed OLL/PLL stage behavior).
+131 unique entries verify: 117 for 3×3, 14 for other dimensions. Category
+memberships: F2L 41, OLL 46, PLL 18, Trigger 8, Advanced 7, Roux CMLL/LSE 2/2,
+2×2 CLL/EG1/EG2/OLL/PBL 6/1/1/1/2, 4×4/5×5/6×6 parity 2/1/1.
+Case descriptions for other dimensions remain unvalidated beyond inverse replay.
 
 ### 1.3 Database Enhancement
-- [ ] Identify inverse and mirror relationships automatically
-- [ ] Add algorithm lookup/search improvements
-- [ ] Create database validation tools
-- [ ] Update CLI commands to work with new structure
+- [x] Identify inverse and mirror relationships automatically
+- [x] Add algorithm lookup/search improvements
+- [x] Create database validation tools
+- [x] Update CLI commands to work with new structure
+
+21 exact inverse pairs and 12 exact left/right mirror pairs (self-pairs included).
+Aliases and all category memberships survive merging. Reports are reproducible.
 
 ---
 
@@ -134,9 +146,9 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 - [ ] Implement concrete patterns:
   - [x] White cross predicate (4 white edges in correct positions)
   - [x] White first-layer predicate (cross + 4 corners)
-  - [ ] F2LSlotPattern (corner-edge pair in position)
-  - [ ] OLLSolvedPattern (all yellow stickers on top)
-  - [ ] PLLSolvedPattern (last layer permuted correctly)
+  - [x] F2L slot predicate and masked corner-edge recognition patterns
+  - [x] OLL solved predicate and yellow-sticker recognition patterns
+  - [x] PLL full-state recognition patterns and full solved predicate
 - [ ] Connect patterns to CFEN system for verification
 
 ---
@@ -166,8 +178,8 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 ### 4.3 Last Layer
 - [x] Beginner yellow cross, edge alignment and corner placement via named algorithm groups
 - [x] Atomic four-corner orientation sweep restores all six solved faces
-- [ ] OLL recognition from pattern database and algorithm application
-- [ ] PLL recognition from piece positions and algorithm application
+- [x] OLL recognition from pattern database and algorithm application
+- [x] PLL recognition from piece positions and algorithm application
 - [x] Verification that cube is fully solved
 
 ### 4.4 Integration & Testing
@@ -201,9 +213,27 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 *Goal: Implement CFOP and Kociemba solvers*
 
 ### 6.1 CFOP Implementation
+- [x] Shortest white cross via `FindPattern` (eight-turn bound)
+- [x] Paired F2L database recognition, AUF/slot rotations, preserving solved slots
+- [x] `FindPattern` F2L fallback when the database has no matching case
+- [x] Complete OLL/PLL recognition: 216/288 states through database compositions
+- [x] 200 uniform-state Go oracle, full-solver invariant, rotated-frame coverage
+- [x] Site method picker and Cross/F2L 1–4/OLL/PLL case-name playback
 - [ ] Cross optimization (extended cross, color neutrality)
 - [ ] Advanced F2L with look-ahead
-- [ ] Algorithm-based OLL/PLL from database
+- [x] Algorithm-based OLL/PLL from database
+
+200-state Go lengths (mean/max turns): Cross 5.790/8; F2L 1–4
+6.820/12, 6.715/12, 7.025/12, 7.350/12; OLL 10.635/18; PLL 13.070/20;
+total **57.405/73**. Face/wide/slice turns count one, rotations are separate.
+The same Go sample took **8.81 s total, 44.04 ms mean, 835.87 ms maximum**,
+including first-use setup. A separate Python 3D geometry oracle replayed every
+checkpoint on **200 independent uniform physical states**, including all 24
+rigid grips: **58.275 mean, 75 maximum turns**. Fresh CLI processes averaged
+**835.14 ms**, maximum **1796.34 ms** (167.03 s total, including table setup in
+every process).
+The raw OLL/PLL sets are incomplete, so some stages use multiple named algorithms.
+No look-ahead, extended cross, or color neutrality is claimed.
 
 ### 6.2 Kociemba Two-Phase
 - [x] Phase 1: Reduce to &lt;U,D,R2,L2,F2,B2&gt; subgroup
@@ -254,7 +284,8 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 - **Phase 3**: Working piece tracking and pattern recognition systems
 - **Phase 4**: Beginner method that solves any valid 3x3 scramble
 - **Phase 5**: Sub-second solving with search optimization
-- **Phase 6**: Multiple solving methods (CFOP, Kociemba) with &lt;20 move average
+- **Phase 6**: Complete, independently verified CFOP and Kociemba; report measured
+  lengths honestly (CFOP ~57 turns; Kociemba ~22, neither promises &lt;20)
 - **Phase 7**: Production-ready solver with &lt;100ms response time
 
 ---

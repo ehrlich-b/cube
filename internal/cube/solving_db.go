@@ -14,7 +14,7 @@ package cube
 // - State-based algorithm selection
 // - 4-look last layer methodology
 //
-// Note: Current solvers in solver.go are unimplemented stubs
+// Note: Beginner, CFOP and Kociemba solvers do not use this legacy experiment.
 
 import (
 	"fmt"

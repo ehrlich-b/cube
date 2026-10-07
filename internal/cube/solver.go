@@ -10,6 +10,7 @@ type SolverResult struct {
 	Solution []Move
 	Steps    int
 	Duration time.Duration
+	Stages   []SolveStage // CFOP checkpoints, in playback order.
 }
 
 // Solver interface for different solving algorithms
@@ -40,39 +41,15 @@ func (s *BeginnerSolver) Solve(c *Cube) (*SolverResult, error) {
 	}, nil
 }
 
-// CFOP remains an unimplemented stub. Beginner and Kociemba solve 3x3 cubes.
-//
-// The CLI rejects these unavailable algorithms rather than presenting an empty
-// result as success. Their legacy API behavior remains guarded by the invariant.
-
-// TODO: All solver helper methods will be implemented with the new design
-
-// CFOPSolver implements CFOP method (placeholder)
+// CFOPSolver implements cross, paired F2L, database OLL and database PLL.
 type CFOPSolver struct{}
 
 func (s *CFOPSolver) Name() string {
 	return "CFOP"
 }
 
-func (s *CFOPSolver) Solve(cube *Cube) (*SolverResult, error) {
-	start := time.Now()
-
-	// Check if cube is already solved
-	if cube.IsSolved() {
-		return &SolverResult{
-			Solution: []Move{},
-			Steps:    0,
-			Duration: time.Since(start),
-		}, nil
-	}
-
-	// TODO: Implement real CFOP solver
-	// For now, return empty solution
-	return &SolverResult{
-		Solution: []Move{},
-		Steps:    0,
-		Duration: time.Since(start),
-	}, nil
+func (s *CFOPSolver) Solve(c *Cube) (*SolverResult, error) {
+	return solveCFOP(c)
 }
 
 // KociembaSolver implements Kociemba's two-phase algorithm.

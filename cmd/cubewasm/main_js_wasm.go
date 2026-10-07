@@ -131,7 +131,11 @@ func dispatch(req request) (any, error) {
 		if !c.IsSolved() {
 			return nil, fmt.Errorf("%s returned a solution that does not solve all six faces", method)
 		}
-		return map[string]any{"state": view(c), "moves": tokens(result.Solution), "method": method}, nil
+		stages := make([]any, 0, len(result.Stages))
+		for _, stage := range result.Stages {
+			stages = append(stages, map[string]any{"name": stage.Name, "cases": stage.Cases, "moves": tokens(stage.Moves), "turns": cube.TurnCount(stage.Moves), "after": view(stage.After)})
+		}
+		return map[string]any{"state": view(c), "moves": tokens(result.Solution), "method": method, "stages": stages}, nil
 	case "learn":
 		lesson, err := cube.PlanBeginner(c)
 		if err != nil {

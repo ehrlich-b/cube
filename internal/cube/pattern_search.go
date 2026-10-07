@@ -55,13 +55,41 @@ func FindPattern(start, target *Cube, moves []Move, maxDepth int) ([]Move, bool)
 	}
 	p := compileCubiePattern(goal)
 	s := wildcardSearch{pattern: p, allowed: indices}
+	home = NewCube(3)
+	for g := range s.fixedGroups {
+		s.fixedGroups[g] = true
+		for _, coords := range edgeFacelets[g*4 : g*4+4] {
+			for _, coord := range coords {
+				if sticker(goal, coord) != sticker(home, coord) {
+					s.fixedGroups[g] = false
+				}
+			}
+		}
+		if s.fixedGroups[g] {
+			s.edges = searchEdgePatterns()
+		}
+	}
+	for i := range s.fixedPairs {
+		s.fixedPairs[i] = true
+		for _, coord := range cornerFacelets[4+i] {
+			if sticker(goal, coord) != sticker(home, coord) {
+				s.fixedPairs[i] = false
+			}
+		}
+		for _, coord := range edgeFacelets[8+i] {
+			if sticker(goal, coord) != sticker(home, coord) {
+				s.fixedPairs[i] = false
+			}
+		}
+	}
 	for _, m := range indices {
 		s.present[m] = true
 	}
-	for depth := p.bound(state); depth <= maxDepth; depth++ {
+	e := [3]int{edgeCoordinate(state, 0), edgeCoordinate(state, 1), edgeCoordinate(state, 2)}
+	for depth := s.bound(state, e); depth <= maxDepth; depth++ {
 		// Allocate only the current search bound, not the requested maximum.
 		s.path = make([]int, depth)
-		if s.dfs(state, depth, 0, -1) {
+		if s.dfs(state, e, depth, 0, -1) {
 			result := make([]Move, depth)
 			for i, m := range s.path[:depth] {
 				result[i] = coordinateMoves[m]
@@ -203,14 +231,87 @@ func (p *cubiePattern) bound(s cubie) int {
 }
 
 type wildcardSearch struct {
-	pattern cubiePattern
-	allowed []int
-	present [18]bool
-	path    []int
+	pattern     cubiePattern
+	allowed     []int
+	present     [18]bool
+	path        []int
+	edges       *edgePatterns
+	fixedGroups [3]bool
+	fixedPairs  [4]bool
 }
 
-func (s *wildcardSearch) dfs(state cubie, left, level, prev int) bool {
+// Pair distances and fully fixed four-edge groups are stronger admissible
+// bounds for cross/F2L targets. Taking their maximum preserves shortestness.
+func (s *wildcardSearch) bound(state cubie, e [3]int) int {
 	h := s.pattern.bound(state)
+	for g, fixed := range s.fixedGroups {
+		if fixed {
+			h = max(h, int(s.edges.distance[g][e[g]]))
+		}
+	}
+	var corners, edges [4]int
+	for pos, id := range state.cp {
+		if id >= 4 {
+			corners[id-4] = pos*3 + int(state.co[pos])
+		}
+	}
+	for pos, id := range state.ep {
+		if id >= 8 {
+			edges[id-8] = pos*2 + int(state.eo[pos])
+		}
+	}
+	for i, fixed := range s.fixedPairs {
+		if fixed {
+			h = max(h, int(f2lPairDistances[i][corners[i]*24+edges[i]]))
+		}
+	}
+	return h
+}
+
+var f2lPairDistances = func() [4][576]uint8 {
+	var transition [576][18]int
+	for x := range transition {
+		cp, co, ep, eo := x/24/3, x/24%3, x%24/2, x%2
+		for m, move := range cubieMoves {
+			c, e := 0, 0
+			for dest, source := range move.cp {
+				if int(source) == cp {
+					c = dest*3 + (co+int(move.co[dest]))%3
+					break
+				}
+			}
+			for dest, source := range move.ep {
+				if int(source) == ep {
+					e = dest*2 + (eo ^ int(move.eo[dest]))
+					break
+				}
+			}
+			transition[x][m] = c*24 + e
+		}
+	}
+	var result [4][576]uint8
+	for slot := range result {
+		for x := range result[slot] {
+			result[slot][x] = 255
+		}
+		goal := (4+slot)*3*24 + (8+slot)*2
+		result[slot][goal] = 0
+		queue := []int{goal}
+		for head := 0; head < len(queue); head++ {
+			x := queue[head]
+			for _, next := range transition[x] {
+				if result[slot][next] == 255 {
+					result[slot][next] = result[slot][x] + 1
+					queue = append(queue, next)
+				}
+			}
+		}
+	}
+	return result
+}()
+
+func (s *wildcardSearch) dfs(state cubie, e [3]int, left, level, prev int) bool {
+	h := s.bound(state, e)
 	if h > left {
 		return false
 	}
@@ -223,7 +324,13 @@ func (s *wildcardSearch) dfs(state cubie, left, level, prev int) bool {
 			continue
 		}
 		s.path[level] = m
-		if s.dfs(state.mul(cubieMoves[m]), left-1, level+1, m) {
+		var next [3]int
+		for g, fixed := range s.fixedGroups {
+			if fixed {
+				next[g] = int(s.edges.moves[e[g]*18+m])
+			}
+		}
+		if s.dfs(state.mul(cubieMoves[m]), next, left-1, level+1, m) {
 			return true
 		}
 	}

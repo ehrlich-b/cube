@@ -1,4 +1,4 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba web web-pages test-web test-web-smoke
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop import-algorithms web web-pages test-web test-web-smoke
 
 # Build the binary
 build:
@@ -102,3 +102,11 @@ test-beginner: build
 # Independent uniform physical-state and geometry replay oracle
 test-kociemba: build
 	python3 test/kociemba_oracle.py
+
+# Reproducible CSV import; rejected rows retain their original data and reason.
+import-algorithms:
+	go run -p 2 ./tools/import-algorithms
+
+# Independent physical-state and CFOP checkpoint replay oracle.
+test-cfop: build
+	python3 test/cfop_oracle.py

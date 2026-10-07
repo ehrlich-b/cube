@@ -51,7 +51,7 @@ function rejects(request, pattern) {
     assert.equal(call({ op: "state", cfen: start.cfen }).state.cfen, start.cfen);
   }
   assert.equal(call({ op: "solve" }).state.solved, true);
-  for (const method of ["auto", "kociemba", "beginner"]) {
+  for (const method of ["auto", "kociemba", "beginner", "cfop"]) {
     const start = call({ op: "twist", moves: "R U F2 L' B" }).state;
     const solution = call({ op: "solve", cfen: start.cfen, method });
     assert.equal(solution.method, method === "auto" ? "kociemba" : method);
@@ -59,7 +59,33 @@ function rejects(request, pattern) {
     assert.equal(solution.state.solved, true);
     assert.equal(call({ op: "twist", cfen: start.cfen, moves: solution.moves.join(" ") }).state.solved, true);
   }
-  console.log("PASS solve: Kociemba default/auto, both method selections, replay and full solution invariant");
+  for (const scramble of ["R U R' U'", "R U F2 L' B", "x y R U F2 L' B D2 R2 U' F L2 B'", "R2 U F' D B2 L' U2 F R' D2 L B' U R2 F2 D' L2 U' B R"]) {
+    const start = call({ op: "twist", moves: scramble }).state;
+    const solution = call({ op: "solve", cfen: start.cfen, method: "cfop" });
+    assert.deepEqual(solution.stages.map(stage => stage.name), ["Cross", "F2L 1", "F2L 2", "F2L 3", "F2L 4", "OLL", "PLL"]);
+    assert.deepEqual(solution.stages.flatMap(stage => stage.moves), solution.moves);
+    let current = start;
+    for (const stage of solution.stages) {
+      assert.ok(stage.cases.length > 0);
+      assert.equal(stage.turns, stage.moves.filter(move => !/^[xyz]/.test(move)).length);
+      current = call({ op: "twist", cfen: current.cfen, moves: stage.moves.join(" ") }).state;
+      assert.equal(current.cfen, stage.after.cfen, stage.name);
+      // The complete white cross stays solved at every checkpoint.
+      for (const i of [1, 3, 5, 7]) assert.equal(current.faces.D[i], "W");
+      for (const face of ["F", "R", "B", "L"]) assert.equal(current.faces[face][7], current.faces[face][4]);
+      if (["F2L 4", "OLL", "PLL"].includes(stage.name)) {
+        assert.deepEqual(current.faces.D, Array(9).fill("W"));
+        for (const face of ["F", "R", "B", "L"]) assert.deepEqual(current.faces[face].slice(3), Array(6).fill(current.faces[face][4]));
+      }
+      if (["OLL", "PLL"].includes(stage.name)) assert.deepEqual(current.faces.U, Array(9).fill("Y"));
+    }
+    assert.equal(current.solved, true);
+  }
+  const cfopSkip = call({ op: "solve", method: "cfop" });
+  assert.equal(cfopSkip.stages.length, 7);
+  assert.deepEqual(cfopSkip.moves, []);
+  console.log("PASS CFOP: grouped stage metadata, case names, checkpoint replay, rotated inputs and skips");
+  console.log("PASS solve: Kociemba default/auto, all method selections, replay and full solution invariant");
 
   const start = call({ op: "twist", moves: "R U F2 L' B" }).state;
   const lesson = call({ op: "learn", cfen: start.cfen });
@@ -120,11 +146,11 @@ function rejects(request, pattern) {
   rejects({ op: "find", target: solved.cfen, maxDepth: 11 }, /depth/);
   rejects({ op: "find", target: solved.cfen, maxDepth: -1 }, /depth/);
   rejects({ op: "find", target: "YB|?4/?4/?4/?4/?4/?4", maxDepth: 0 }, /3x3/);
-  rejects({ op: "solve", moves: "R", method: "cfop" }, /does not solve/);
+  rejects({ op: "solve", moves: "R", method: "missing" }, /unknown/);
   rejects({ op: "missing" }, /unknown/);
   assert.equal(JSON.parse(globalThis.cubeAPI("{")).ok, false);
   assert.equal(JSON.parse(globalThis.cubeAPI()).ok, false);
   assert.equal(JSON.parse(globalThis.cubeAPI(42)).ok, false);
-  console.log("PASS API bounds: invalid moves, unsafe runs, impossible states and unavailable solvers");
+  console.log("PASS API bounds: invalid moves, unsafe runs, impossible states and unknown solvers");
   process.exit(0);
 })().catch(error => { console.error(error); process.exit(1); });

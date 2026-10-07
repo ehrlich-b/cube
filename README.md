@@ -7,7 +7,7 @@ and shortest-sequence pattern search.
 > **Honest status:** the move engine, verification, optimization, and search all work
 > and are covered by tests. **Kociemba solves a complete 3×3 by default.** The
 > complete beginner solver and [lesson](./examples/beginner.md) remain available.
-> CFOP and larger-cube solving remain unimplemented.
+> CFOP now solves a complete 3×3 with named stage playback. Larger-cube solving remains future work.
 
 ## Status
 
@@ -15,7 +15,8 @@ and shortest-sequence pattern search.
 - `cube learn` — a complete layer-by-layer 3×3 solve, with checkpoints, orientation
   guidance and interactive recovery (`next`, `moves`, `undo`, `reset`, saved CFEN)
 - `cube solve` — fast complete 3×3 Kociemba solution; `--method beginner` retains
-  the beginner solver, and `--algorithm` remains a supported alias
+  the beginner solver; `--method cfop` solves Cross, F2L, OLL and PLL with case names.
+  `--algorithm` remains a supported alias
 - `cube solve --optimal --time-limit 1s` — shortest face-turn solution if proved
   before the deadline; an explicit error if the search times out
 - `--goal first-layer` retains the explicit white-layer sublesson
@@ -31,9 +32,10 @@ and shortest-sequence pattern search.
 - `cube lookup`, `cube show`, the CFEN utility commands, and the `verify-*` database tools
 
 **Not implemented yet**
-- **CFOP remains an empty API stub**; the CLI rejects it.
+- CFOP color neutrality, extended cross and F2L look-ahead remain future work.
 - Solving supports 3×3 only; other dimensions are rejected, not reported as solved.
-- Algorithm database has only 5 entries with verification patterns (of 63 defined)
+- The dump contains incorrect descriptions and missing cases; quarantined rows need
+  curation, and some OLL/PLL cases use multiple verified database algorithms.
 - Optimal search is exponential on deep states; wildcard heuristics are weaker
   than exact-state heuristics. Use Kociemba for general scramble solving.
 
@@ -53,6 +55,75 @@ the location. Generation measured **0.67 seconds** and warm loading **26 ms**.
 Search's four-edge tables take about **0.49 seconds** to generate in memory.
 No generated tables are committed; a missing or invalid cache is rebuilt.
 
+## Algorithm database and CFOP
+
+The nine CSV files contain **159 rows** (including an empty `zz_misc.csv`). The
+reproducible importer accepts **144**, merges **18** duplicate move sequences
+across files/categories, and quarantines **15** with original rows and reasons
+in [quarantine.json](./alg_dumps/quarantine.json). Together with the five existing
+algorithms this produces **131 unique entries: 117 for 3×3, 14 for other sizes**.
+Every entry has a concrete inverse-to-solved CFEN recognition pattern and passes
+CFEN verification. The importer also checks that 3×3 OLL/PLL preserve F2L,
+PLL preserves orientation, and F2L preserves the cross. This replay check does
+not independently validate the claimed 2×2/big-cube case or parity description.
+
+| Category | Entries |
+|---|---:|
+| F2L / OLL / PLL | 41 / 46 / 18 |
+| Trigger / Advanced | 8 / 7 |
+| Roux CMLL / LSE | 2 / 2 |
+| 2×2 CLL / EG1 / EG2 / OLL / PBL | 6 / 1 / 1 / 1 / 2 |
+| 4×4 / 5×5 / 6×6 parity | 2 / 1 / 1 |
+
+Counts are category memberships; merged entries preserve aliases, categories,
+and file/row provenance. **21 inverse pairs and 12 mirror pairs** are detected
+from exact sticker permutations (including self-inverse/self-mirror cases).
+Unknown relationships stay empty. Mirror means reflection in the left/right
+plane; this does not claim every familiar case mirror matches without AUF.
+See [import-report.json](./alg_dumps/import-report.json).
+
+```sh
+CUBE_CACHE_DIR=$PWD/.scratch/cube-cache taskpolicy -b nice -n 15 make import-algorithms
+./dist/tools/verify-database
+./dist/cube lookup --category F2L
+./dist/cube solve "R U F2 L' B" --method cfop
+```
+
+CFOP uses `FindPattern` for a shortest white cross (at most eight face turns),
+then recognizes safe one-slot F2L algorithms from the imported CFEN patterns,
+with U setups and rotated slots.
+When no database case matches, `FindPattern` inserts a pair while preserving the
+cross and every solved slot. Last-layer recognition uses yellow-sticker masks
+for OLL and full permutations for PLL. The valid database algorithms plus AUF
+are composed into complete tables of **216 OLL orientations and 288 PLL
+permutations**; incomplete raw case sets do not require a full-solver fallback.
+Every checkpoint and the complete solution are replayed and verified.
+
+The seeded 200-uniform-state Go oracle measured these real lengths on this Mac
+under background QoS on 2026-10-07:
+
+| Stage | Mean turns | Max turns |
+|---|---:|---:|
+| Cross | 5.790 | 8 |
+| F2L 1 | 6.820 | 12 |
+| F2L 2 | 6.715 | 12 |
+| F2L 3 | 7.025 | 12 |
+| F2L 4 | 7.350 | 12 |
+| OLL | 10.635 | 18 |
+| PLL | 13.070 | 20 |
+| Total | **57.405** | **73** |
+
+The same Go sample took **8.81 s total, 44.04 ms mean, 835.87 ms maximum**,
+including first-use setup. A separate Python 3D geometry oracle replayed every
+checkpoint on **200 independent uniform physical states**, including all 24
+rigid grips: **58.275 mean, 75 maximum turns**. Fresh CLI processes averaged
+**835.14 ms**, maximum **1796.34 ms** (167.03 s total, including table setup in
+every process).
+A face, wide or slice turn counts as one, including half turns; grip rotations
+are excluded. Stage maxima can occur on different states. These samples are
+not worst-case runtime or solution-length guarantees. This is paired F2L with
+search fallback, without look-ahead or color neutrality.
+
 ## Quick Start
 
 ```bash
@@ -70,6 +141,7 @@ make build-tools      # builds dist/tools/verify-algorithm and verify-database
 # Return moves that solve all six faces
 ./dist/cube solve "R U F2 L' B" --headless
 ./dist/cube solve "R U F2 L' B" --method beginner --headless
+./dist/cube solve "R U F2 L' B" --method cfop --headless
 
 # Return moves that solve the first layer (other layers may remain scrambled)
 ./dist/cube solve "R U F2 L' B" --goal first-layer --headless
@@ -106,8 +178,10 @@ for prime turns. Drag to orbit the view, or use arrow keys while the cube is
 focused. The buttons, algorithm box, undo/redo, reset, scramble, and 2D net
 work on phones too. Solving produces a verified sequence with play/pause,
 step forward/back, clickable moves, a position slider, and adjustable speed.
-The selector beside Solve defaults to Kociemba and also offers Beginner;
-the solution heading identifies the method that ran.
+The selector beside Solve defaults to Kociemba and also offers Beginner and
+CFOP. CFOP playback groups moves into Cross, F2L 1–4, OLL and PLL with case names,
+turn counts and skips; every move retains click, step and scrub playback.
+The solution heading identifies the method that ran.
 Lesson mode gives the beginner method's actual instructions and checks,
 replanning the next hint from your current state after your own turns.
 
@@ -132,14 +206,16 @@ taskpolicy -b nice -n 15 make test-web-smoke
 
 The smoke test uses headless Playwright Chromium with a disposable profile,
 starts Python on a random loopback port, stops it on exit, and saves
-`.scratch/screens/cube-1280x800.png` and `cube-390x844.png`. It uses the cached
+`.scratch/screens/{cube,search,cfop}-{1280x800,390x844}.png`. It uses the cached
 Chromium on macOS; elsewhere install Chromium with `cd web && npx playwright
 install chromium`. All test temporary files stay in `.scratch/`.
 
 If an execution sandbox denies loopback sockets, `taskpolicy -b nice -n 15
 node web/test/smoke.mjs --in-memory` runs the same browser assertions using
 local-file request routing. This alternate transport does not check Python
-serving; the normal smoke target continues to require the Python server.
+serving; the normal smoke target continues to require the Python server. The
+2026-10-07 validation used this transport because the sandbox refused loopback
+bind; WASM API checks and the full desktop/mobile browser assertions passed.
 
 To publish, run this **single command yourself** from the repository root:
 
@@ -167,7 +243,7 @@ are intentionally not performed by this implementation task.
 | `identify` / `show-alg` | Pattern identify / algorithm display | partial |
 | `learn` | Teach a complete beginner solve, with recovery and checkpoints | works (3×3) |
 | `solve --goal first-layer` | Solve the white first layer | works (3×3 beginner) |
-| `solve` / `solve --goal full` | Kociemba by default; beginner selectable | works (3×3) |
+| `solve` / `solve --goal full` | Kociemba by default; beginner/CFOP selectable | works (3×3) |
 | `solve --optimal` | Prove a shortest face-turn solution within a time limit | works (deep states may time out) |
 
 Note: `verify` takes a single positional argument — the algorithm — plus `--start`/`--target` flags.
@@ -201,6 +277,7 @@ make test-all    # both
 make test-first-layer  # independent partial-goal regression oracle (Python 3)
 make test-beginner     # independently replay full solutions and last-layer recovery
 make test-kociemba     # 200 independent uniform physical states and move replay
+make test-cfop         # 200 independent physical states, every CFOP checkpoint
 make fmt && make vet   # before committing
 ```
 
@@ -223,7 +300,7 @@ internal/cube/                   # Core engine
   moves.go / move_parser.go      # move parsing + application
   ring_generators.go / permutations.go  # the permutation engine
   algorithms.go                  # algorithm database
-  solver.go / kociemba.go         # full beginner and Kociemba solvers; CFOP stub
+  solver.go / kociemba.go / cfop.go # full beginner, Kociemba and CFOP solvers
   coordinates.go / coordinate_tables.go  # cubie moves and deterministic pruning tables
   pattern_search.go / optimal_search.go  # shortest wildcard/exact search + BFS fallback
   first_layer.go / full_lesson.go / lesson_session.go  # beginner checkpoints and recovery
@@ -231,7 +308,7 @@ internal/cube/                   # Core engine
   solving_db.go                  # experimental 4-look pattern matcher (currently unwired)
   cubie.go                       # piece addresses, ranges and 3×3 selector aliases
 internal/cfen/                   # CFEN parsing, generation, conversion, matching
-tools/                           # verify-algorithm, verify-database, generate-patterns
+tools/                           # import-algorithms, verify-*, generate-patterns
 ```
 
 ## Programmatic Usage
@@ -269,8 +346,8 @@ func main() {
 The complete beginner path now finishes all six faces. The unchanged full-solver
 contract actively checks it. Partial first-layer results retain a separate result
 type and explicit goal. Next improvements should follow a human physical-cube
-trial; CFOP and larger-cube solving remain future work. Fast Kociemba solving and
-bounded optimal search now complement the beginner lesson.
+trial. Database CFOP now complements Kociemba and bounded optimal search;
+color neutrality, look-ahead and larger-cube solving remain future work.
 See [TODO.md](./TODO.md) and [docs/solvers.md](./docs/solvers.md).
 
 ## License

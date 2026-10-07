@@ -123,18 +123,37 @@ try {
   assert.equal(await page.locator("#cube").getAttribute("data-solved"), "true");
   console.log("PASS browser: scramble → solve → step/play/pause/scrub → all six faces solved");
 
-  for (const method of ["beginner", "kociemba"]) {
+  for (const method of ["beginner", "kociemba", "cfop"]) {
     await page.locator("#reset").click();
-    await runAlgorithm(page, "R U F2 L' B");
+    await runAlgorithm(page, method === "cfop" ? "R2 U F' D B2 L' U2 F R' D2 L B' U R2 F2 D' L2 U' B R" : "R U F2 L' B");
     await page.locator("#solve-method").selectOption(method);
     await page.locator("#solve").click();
     await idle(page);
     assert.ok((await page.locator("#sequence-moves button").count()) > 0);
     assert.match(await page.locator("#sequence-title").textContent(), new RegExp(`${method}$`));
+    if (method === "cfop") {
+      assert.deepEqual(await page.locator(".sequence-stage").evaluateAll(groups => groups.map(group => group.dataset.stage)), ["Cross", "F2L 1", "F2L 2", "F2L 3", "F2L 4", "OLL", "PLL"]);
+      assert.equal(await page.locator(".sequence-stage .case-name").count(), 7);
+      assert.match(await page.locator('[data-stage="OLL"] .case-name').textContent(), /OLL-/);
+      assert.match(await page.locator('[data-stage="PLL"] .case-name').textContent(), /PLL-/);
+      const buttons = page.locator("#sequence-moves button");
+      await buttons.first().click();
+      assert.equal(await page.locator("#scrubber").inputValue(), "1");
+      assert.equal(await buttons.first().getAttribute("class"), "done");
+      await page.locator("#back-step").click();
+      assert.equal(await page.locator("#scrubber").inputValue(), "0");
+      await page.locator("#playback").evaluate(element => element.scrollIntoView({ block: "end" }));
+      await page.screenshot({ path: path.join(screens, "cfop-1280x800.png") });
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      await page.locator("#playback").evaluate(element => element.scrollIntoView({ block: "start" }));
+      await page.screenshot({ path: path.join(screens, "cfop-390x844.png") });
+      await page.setViewportSize({ width: 1280, height: 800 });
+    }
     await page.locator("#scrubber").fill(await page.locator("#scrubber").getAttribute("max"));
     assert.equal(await page.locator("#cfen").inputValue(), solved);
   }
-  console.log("PASS browser: method selector, both solver headings and verified solution replay");
+  console.log("PASS browser: method selector, all solver headings and verified solution replay");
 
   await page.locator("#reset").click();
   await page.locator("#stage").focus();
@@ -288,7 +307,7 @@ try {
   assert.equal(await page.locator("#cube").getAttribute("data-solved"), "false");
   assert.deepEqual(errors, []);
   console.log("PASS browser: 390px phone layout, touch-sized controls and no browser errors");
-  console.log(`Screenshots: ${path.relative(root, screens)}/{cube,search}-{1280x800,390x844}.png`);
+  console.log(`Screenshots: ${path.relative(root, screens)}/{cube,search,cfop}-{1280x800,390x844}.png`);
 } finally {
   if (context) await context.close();
   if (server && server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }

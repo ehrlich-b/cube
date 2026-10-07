@@ -143,18 +143,28 @@ E follows D. Load-bearing conservation and inverse invariants remain intact.
 
 ## Remaining work
 
-CFOP remains an empty API stub; the CLI rejects it instead of
-emitting misleading empty solutions. The engine supports larger cubes, but
-beginner solving and lessons support 3×3 only. `solving_db.go` remains
-experimental unwired code; the algorithm database has five verification
-patterns. Generic NxN solving, stronger deep optimal search and human usability work
-remain future milestones.
+CFOP now solves a complete 3×3 using `FindPattern` for an optimal white cross,
+paired database F2L insertions with search fallback, and OLL/PLL pattern matching
+with AUF. The imported database supplies all last-layer moves; reverse Dijkstra
+composes valid algorithms into complete 216-orientation and 288-permutation
+recognition tables when the raw cases are incomplete. Cross/F2L search uses
+admissible fixed four-edge and corner-edge pair bounds. Every checkpoint and
+full solution are replayed, and the site exposes the same seven named stages.
+The 200-state Go oracle measures 57.405 mean and 73 maximum turns; see README
+for stage lengths and measured timings.
+
+CFOP color neutrality, extended cross and F2L look-ahead remain future work.
+The engine supports larger cubes, but full solving and lessons support 3×3 only.
+`solving_db.go` remains an unwired historical experiment. All 131 database
+entries carry inverse-to-solved verification patterns; 15 raw rows are quarantined.
+Generic NxN solving, stronger deep optimal search and human usability work remain
+future milestones.
 
 ## Verification
 
 ```sh
 make build-all-local test-all test-first-layer test-beginner
-make test-kociemba
+make test-kociemba test-cfop
 make fmt vet
 go test ./internal/cube -run '^$' -bench '^BenchmarkBeginnerFull$' -benchmem
 ```

@@ -81,7 +81,7 @@ function refreshPlayback() {
   if (!sequence) return;
   $("progress").textContent = `${sequence.index} / ${sequence.moves.length}`;
   $("scrubber").value = sequence.index;
-  [...$("sequence-moves").children].forEach((button, index) => {
+  [...$("sequence-moves").querySelectorAll("button")].forEach((button, index) => {
     button.classList.toggle("done", index < sequence.index);
     button.classList.toggle("current", index === sequence.index);
     if (index === sequence.index) button.setAttribute("aria-current", "step");
@@ -90,7 +90,7 @@ function refreshPlayback() {
   updateControls();
 }
 
-function prepareSequence(moves, kind, title, expected) {
+function prepareSequence(moves, kind, title, expected, stages = []) {
   const frames = [state];
   for (const move of moves) frames.push(engine({ op: "twist", cfen: frames.at(-1).cfen, moves: move }).state);
   if (expected && frames.at(-1).cfen !== expected) throw new Error("Sequence did not reach its verified checkpoint.");
@@ -100,13 +100,32 @@ function prepareSequence(moves, kind, title, expected) {
   $("sequence-count").textContent = `${moves.length} moves`;
   $("scrubber").max = moves.length;
   $("sequence-moves").replaceChildren();
-  moves.forEach((move, index) => {
+  $("sequence-moves").classList.toggle("grouped", stages.length > 0);
+  const appendMove = (parent, move, index) => {
     const button = document.createElement("button");
     button.textContent = move;
     button.title = `Jump to after move ${index + 1}`;
     button.addEventListener("click", () => jump(index + 1));
-    $("sequence-moves").append(button);
-  });
+    parent.append(button);
+  };
+  if (stages.length) {
+    if (stages.flatMap(stage => stage.moves).join(" ") !== moves.join(" ")) throw new Error("Stage moves differ from the verified solution.");
+    let index = 0;
+    for (const stage of stages) {
+      const group = document.createElement("section");
+      group.className = "sequence-stage";
+      group.dataset.stage = stage.name;
+      const heading = document.createElement("h3");
+      heading.textContent = `${stage.name} · ${stage.turns} turns`;
+      const cases = document.createElement("p");
+      cases.className = "case-name";
+      cases.textContent = stage.cases.join(" + ");
+      const buttons = document.createElement("div");
+      group.append(heading, cases, buttons);
+      for (const move of stage.moves) appendMove(buttons, move, index++);
+      $("sequence-moves").append(group);
+    }
+  } else moves.forEach((move, index) => appendMove($("sequence-moves"), move, index));
   $("playback").hidden = false;
   refreshPlayback();
 }
@@ -189,7 +208,7 @@ function setMode(mode) {
 async function solve() {
   clearSequence();
   const result = await compute({ op: "solve", cfen: state.cfen, method: $("solve-method").value }, "Finding a verified solution…");
-  prepareSequence(result.moves, "SOLUTION", `Your path to solved · ${result.method}`, result.state.cfen);
+  prepareSequence(result.moves, "SOLUTION", `Your path to solved · ${result.method}`, result.state.cfen, result.stages);
   notice(result.moves.length ? "Solution ready. Play, step through, or drag the slider to explore." : "Your cube is already solved.");
 }
 

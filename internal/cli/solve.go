@@ -14,9 +14,10 @@ var solveCmd = newSolveCommand()
 func newSolveCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "solve [scramble]",
-		Short: "Solve a 3x3 cube with Kociemba or the beginner method",
+		Short: "Solve a 3x3 cube with Kociemba, beginner or CFOP",
 		Long: `Solve a physical 3x3 using Kociemba's two-phase method (default).
 Select --method beginner for the complete beginner layer-by-layer method.
+Select --method cfop for verified Cross, F2L 1-4, OLL and PLL stages with case names.
 Use cube learn with the same input for checkpoints and instructions.
 Use --goal first-layer to stop after the white cross and corners.
 With --start, the optional scramble is applied after the saved CFEN state.
@@ -45,9 +46,6 @@ Use --headless for space-separated solution moves, or --cfen for final state.`,
 			solver, err := cube.GetSolver(algorithm)
 			if err != nil {
 				return err
-			}
-			if algorithm == "cfop" {
-				return fmt.Errorf("CFOP full-cube solver is not implemented; use --method beginner or kociemba")
 			}
 			if optimal && (cmd.Flags().Changed("algorithm") || cmd.Flags().Changed("method")) && algorithm != "kociemba" {
 				return fmt.Errorf("--optimal cannot be combined with --method %s", algorithm)
@@ -91,22 +89,25 @@ Use --headless for space-separated solution moves, or --cfen for final state.`,
 				fmt.Fprintln(out, "Solving 3x3x3 cube with scramble:", scramble)
 				fmt.Fprintln(out, "Using algorithm:", algorithm)
 				fmt.Fprintln(out, "Solution:", cube.FormatMoves(result.Solution))
+				for _, stage := range result.Stages {
+					fmt.Fprintf(out, "%s: %s (%d turns)\n  %s\n", stage.Name, stage.CaseName(), cube.TurnCount(stage.Moves), cube.FormatMoves(stage.Moves))
+				}
 				fmt.Fprintln(out, "Steps:", result.Steps)
 				fmt.Fprintln(out, "Time:", time.Since(started))
 				color, _ := cmd.Flags().GetBool("color")
 				letters, _ := cmd.Flags().GetBool("letters")
 				printLessonState(out, c, color, color && !letters, "full")
-				fmt.Fprintln(out, "Use cube learn with the same input for the complete lesson.")
+				fmt.Fprintln(out, "Use cube learn with the same input for the complete beginner lesson.")
 			}
 			return nil
 		},
 	}
 	cmd.Flags().String("goal", "full", "Solving goal: full cube or first-layer (3x3 beginner)")
-	cmd.Flags().StringP("algorithm", "a", "kociemba", "Solver: kociemba or beginner")
-	cmd.Flags().String("method", "kociemba", "Solving method (alias for --algorithm): kociemba or beginner")
+	cmd.Flags().StringP("algorithm", "a", "kociemba", "Solver: kociemba, beginner or cfop")
+	cmd.Flags().String("method", "kociemba", "Solving method (alias for --algorithm): kociemba, beginner or cfop")
 	cmd.Flags().Bool("optimal", false, "Prove a shortest 3x3 solution with IDA* (errors if the time limit expires)")
 	cmd.Flags().Duration("time-limit", time.Second, "Time limit for --optimal, including table initialization")
-	cmd.Flags().IntP("dimension", "d", 3, "Cube dimension (beginner solver supports 3 only)")
+	cmd.Flags().IntP("dimension", "d", 3, "Cube dimension (full solving supports 3 only)")
 	cmd.Flags().BoolP("color", "c", false, "Use colored output (Unicode blocks by default)")
 	cmd.Flags().Bool("letters", false, "Use letters instead of Unicode blocks with --color")
 	cmd.Flags().Bool("headless", false, "Output only solution moves")

@@ -233,7 +233,7 @@ def check_invalid_full_inputs(binary):
     wrong_centers[0], wrong_centers[3] = wrong_centers[3], wrong_centers[0]
     invalid = [
         ["solve", "R3", "--headless"], ["solve", "R", "--dimension", "4"],
-        ["solve", "R", "--algorithm", "cfop"], ["solve", "R", "--method", "invalid"],
+        ["solve", "R", "--algorithm", "missing"], ["solve", "R", "--method", "invalid"],
         ["solve", "R", "--goal", "typo"], ["learn", "R", "--goal", "typo"],
         ["solve", "--start", "YB|Y999999999/R9/B9/W9/O9/G9", "--cfen"],
         ["solve", "--start", "YB|?9/R9/B9/W9/O9/G9", "--cfen"],
