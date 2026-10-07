@@ -66,6 +66,15 @@ async function stickerPoint(page, face, index) {
   return point;
 }
 
+async function blackInterior(page) {
+  assert.equal(await page.locator("#cube .face:empty").evaluateAll(faces =>
+    faces.length > 0 && faces.every(face => getComputedStyle(face).backgroundColor === "rgb(17, 17, 17)")), true,
+  "exposed interior surfaces are black");
+  assert.equal(await page.locator("#cube .sticker").evaluateAll(stickers =>
+    stickers.every(sticker => getComputedStyle(sticker).backfaceVisibility === "hidden")), true,
+  "colored sticker backs do not show through the turning layer");
+}
+
 async function dragSticker(page, { face, index, dx, dy, move, screenshot, cancel = false, reverse = false }) {
   const before = await page.locator("#cfen").inputValue();
   const expected = await page.evaluate(({ cfen, moves }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves }))).data.state,
@@ -79,6 +88,7 @@ async function dragSticker(page, { face, index, dx, dy, move, screenshot, cancel
   assert.equal(await page.locator("#reset").isDisabled(), true);
   assert.equal(await page.locator("#cube .layer .cubie").count(), 9);
   assert.notEqual(await page.locator("#cube .layer").evaluate(layer => getComputedStyle(layer).transform), "none");
+  await blackInterior(page);
   assert.equal(await page.locator("#cfen").inputValue(), before, "preview does not mutate the engine");
   if (screenshot) await page.screenshot({ path: path.join(screens, screenshot) });
   await page.mouse.move(point.x + dx, point.y + dy, { steps: 8 });
