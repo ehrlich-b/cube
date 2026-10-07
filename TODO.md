@@ -216,7 +216,12 @@ acceptance gate for Phase 4 — a non-empty solution must actually solve the cub
 - [ ] Implement progress tracking and hints
 
 ### 7.3 Integration
-- [ ] Web API for solving service
+- [x] Static interactive website backed by the Go WASM engine (3D/net, playback,
+      lessons, worker pattern search, CFEN and URL sharing; `make web`)
+- [x] Node WASM API regression tests and headless Chromium smoke (`make test-web`,
+      `make test-web-smoke`)
+- [ ] Configure and publish GitHub Pages (manual; documented in README)
+- [ ] Web API for solving service (the static website does not require a service)
 - [ ] Export solutions in standard notation
 - [ ] Competition timer integration
 

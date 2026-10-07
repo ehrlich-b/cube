@@ -37,3 +37,6 @@ Thumbs.db
 dist/
 *.log
 __pycache__/
+web/cube.wasm
+web/wasm_exec.js
+web/node_modules/
