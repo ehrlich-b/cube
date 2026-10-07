@@ -2,8 +2,59 @@ package cube
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 )
+
+func TestCubieAliasesMatchStickerLayout(t *testing.T) {
+	all := []int{0, 1, 2, 3, 4, 5, 6, 7, 8}
+	corners := []int{0, 2, 6, 8}
+	edges := []int{1, 3, 5, 7}
+	cross := []int{1, 3, 4, 5, 7}
+	middle := []int{3, 5}
+	type faceSet struct {
+		face      Face
+		positions []int
+	}
+	cases := map[string][]faceSet{
+		"TL": {{Up, all}}, "BL": {{Down, all}},
+		"TC": {{Up, corners}}, "TE": {{Up, edges}},
+		"BC": {{Down, corners}}, "BE": {{Down, edges}},
+		"ML": {{Front, middle}, {Back, middle}, {Left, middle}, {Right, middle}},
+		"ME": {{Front, middle}, {Back, middle}, {Left, middle}, {Right, middle}},
+		"UF": {{Up, all}}, "LF": {{Left, all}}, "FF": {{Front, all}},
+		"RF": {{Right, all}}, "BF": {{Back, all}}, "DF": {{Down, all}},
+		"WC": {{Down, cross}}, "WF": {{Down, all}},
+		"YC": {{Up, cross}}, "YF": {{Up, all}},
+	}
+	if len(cases) != len(Get3x3SpecificPositions()) {
+		t.Fatal("test must cover every alias")
+	}
+	c := NewCube(3)
+	for alias, sets := range cases {
+		t.Run(alias, func(t *testing.T) {
+			got, err := ParseCubieSpec(alias, 3)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var want []CubieAddress
+			for _, set := range sets {
+				for _, pos := range set.positions {
+					addr := CubieAddress(int(set.face)*9 + pos + 1)
+					want = append(want, addr)
+					if c.GetCubieColor(addr) != c.Faces[set.face][pos/3][pos%3] {
+						t.Fatal("address disagrees with sticker layout")
+					}
+				}
+			}
+			slices.Sort(got)
+			slices.Sort(want)
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("alias %s = %v, sticker layout requires %v", alias, got, want)
+			}
+		})
+	}
+}
 
 // TestCubieFacePosRoundTrip verifies that CubieToFacePos and FacePosToCubie are
 // exact inverses for every address across several cube sizes.
@@ -41,7 +92,7 @@ func TestGet3x3SpecificPositions(t *testing.T) {
 		t.Errorf("Get3x3SpecificPositions() has %d keys, want 18", len(positions))
 	}
 
-	wantTC := []CubieAddress{1, 3, 7, 9}
+	wantTC := []CubieAddress{37, 39, 43, 45}
 	if got := positions["TC"]; !reflect.DeepEqual(got, wantTC) {
 		t.Errorf("TC = %v, want %v", got, wantTC)
 	}
@@ -80,8 +131,8 @@ func assertParseCubieSpec(t *testing.T, spec string, size int, want []CubieAddre
 func TestParseCubieSpecBasic(t *testing.T) {
 	assertParseCubieSpec(t, "1,2,3", 3, []CubieAddress{1, 2, 3}, false)
 	assertParseCubieSpec(t, "1-9", 3, []CubieAddress{1, 2, 3, 4, 5, 6, 7, 8, 9}, false)
-	assertParseCubieSpec(t, "TC,BC", 3, []CubieAddress{1, 3, 7, 9, 46, 48, 52, 54}, false)
-	assertParseCubieSpec(t, "1,TC,5-7", 3, []CubieAddress{1, 1, 3, 7, 9, 5, 6, 7}, false)
+	assertParseCubieSpec(t, "TC,BC", 3, []CubieAddress{37, 39, 43, 45, 46, 48, 52, 54}, false)
+	assertParseCubieSpec(t, "1,TC,5-7", 3, []CubieAddress{1, 37, 39, 43, 45, 5, 6, 7}, false)
 	assertParseCubieSpec(t, "5,5", 3, []CubieAddress{5, 5}, false)
 	assertParseCubieSpec(t, " 1 , 2 ", 3, []CubieAddress{1, 2}, false)
 }

@@ -26,11 +26,11 @@ import (
 //               13 14 15 16
 //
 // 3D cube numbering (example for 3x3):
-// Up face (U):    1-9     (Yellow in canonical orientation)
-// Left face (L):  10-18   (Orange in canonical orientation)
-// Front face (F): 19-27   (Blue in canonical orientation)
+// Front face (F): 1-9     (Blue in canonical orientation)
+// Back face (B):  10-18   (Green in canonical orientation)
+// Left face (L):  19-27   (Orange in canonical orientation)
 // Right face (R): 28-36   (Red in canonical orientation)
-// Back face (B):  37-45   (Green in canonical orientation)
+// Up face (U):    37-45   (Yellow in canonical orientation)
 // Down face (D):  46-54   (White in canonical orientation)
 
 type CubieAddress int
@@ -53,16 +53,16 @@ func Get3x3SpecificPositions() map[string][]CubieAddress {
 	if size := 3; size == 3 {
 		return map[string][]CubieAddress{
 			// Layer aliases for 3x3
-			"TL": GetFacePositions(Up, 3),          // Top Layer
-			"BL": GetFacePositions(Down, 3),        // Bottom Layer
-			"ML": {12, 16, 21, 25, 30, 34, 39, 43}, // Middle layer edges for 3x3
+			"TL": GetFacePositions(Up, 3),        // Top Layer
+			"BL": GetFacePositions(Down, 3),      // Bottom Layer
+			"ML": {4, 6, 13, 15, 22, 24, 31, 33}, // Middle layer edges for 3x3
 
 			// Piece type aliases for 3x3
-			"TC": {1, 3, 7, 9},                     // Top corners
-			"TE": {2, 4, 6, 8},                     // Top edges
-			"ME": {12, 16, 21, 25, 30, 34, 39, 43}, // Middle edges
-			"BC": {46, 48, 52, 54},                 // Bottom corners
-			"BE": {47, 49, 51, 53},                 // Bottom edges
+			"TC": {37, 39, 43, 45},               // Top corners
+			"TE": {38, 40, 42, 44},               // Top edges
+			"ME": {4, 6, 13, 15, 22, 24, 31, 33}, // Middle edges
+			"BC": {46, 48, 52, 54},               // Bottom corners
+			"BE": {47, 49, 51, 53},               // Bottom edges
 
 			// Face aliases for 3x3
 			"UF": GetFacePositions(Up, 3),
@@ -73,10 +73,10 @@ func Get3x3SpecificPositions() map[string][]CubieAddress {
 			"DF": GetFacePositions(Down, 3),
 
 			// Special combinations for 3x3
-			"WC": {2, 4, 6, 8, 50},          // White cross (edges + center)
-			"WF": GetFacePositions(Up, 3),   // White face
-			"YC": {47, 49, 51, 53, 5},       // Yellow cross (edges + center)
-			"YF": GetFacePositions(Down, 3), // Yellow face
+			"WC": {47, 49, 50, 51, 53},      // White cross (edges + center)
+			"WF": GetFacePositions(Down, 3), // White face
+			"YC": {38, 40, 41, 42, 44},      // Yellow cross (edges + center)
+			"YF": GetFacePositions(Up, 3),   // Yellow face
 		}
 	}
 	return make(map[string][]CubieAddress)
