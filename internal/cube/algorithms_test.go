@@ -35,102 +35,56 @@ func expectAlgNames(t *testing.T, got []Algorithm, want []string) {
 	}
 }
 
-func TestLookupAlgorithm_SubstringMatchesSuneAndAntiSune(t *testing.T) {
-	got := LookupAlgorithm("sune")
-	expectAlgNames(t, got, []string{"Sune", "Anti-Sune"})
+// Lookup semantics use a controlled corpus so new imports cannot make a
+// substring assertion accidentally depend on unrelated algorithm text.
+func lookupFixture(t *testing.T) {
+	t.Helper()
+	saved := AlgorithmDatabase
+	AlgorithmDatabase = []Algorithm{
+		{Name: "Sune", CaseID: "OLL-27", Category: "OLL", Moves: "R U R' U R U2 R'", MoveCount: 7, Description: "Orient corners"},
+		{Name: "Anti-Sune", CaseID: "OLL-26", Category: "OLL", Moves: "R U2 R' U' R U' R'"},
+		{Name: "Cross OLL", CaseID: "OLL-CROSS", Category: "OLL", Moves: "F R U R' U' F'"},
+		{Name: "T-Perm", CaseID: "PLL-T", Category: "PLL", Moves: "R U R' F' R U R' U' R' F R2 U' R'"},
+		{Name: "Sexy Move", CaseID: "TRIG-1", Category: "Trigger", Moves: "R U R' U'", Aliases: []string{"Original trigger name"}},
+		{Name: "Pair", CaseID: "F2L-1", Category: "F2L", Moves: "U R U' R'"},
+	}
+	t.Cleanup(func() { AlgorithmDatabase = saved })
 }
 
-func TestLookupAlgorithm_SubstringByMoves(t *testing.T) {
-	// "U R U2 R'" is a substring (in token terms) of Sune's moves
-	// "R U R' U R U2 R'", and does not appear in any other live algorithm.
-	got := LookupAlgorithm("U R U2 R'")
-	expectAlgNames(t, got, []string{"Sune"})
-}
-
-func TestLookupAlgorithm_SubstringByMovesCaseInsensitive(t *testing.T) {
-	// Lowercased query matches lowercased move strings. "R U R'" (uppercased)
-	// appears in Sune, Sexy Move, Cross OLL, and T-Perm — but NOT in
-	// Anti-Sune (whose moves start "R U2 ..."). The query itself is
-	// lowercase, proving case-insensitive matching.
-	got := LookupAlgorithm("r u r'")
-	expectAlgNames(t, got, []string{"Sune", "Sexy Move", "Cross OLL", "T-Perm"})
-}
-
-func TestLookupAlgorithm_SubstringByDescription(t *testing.T) {
-	// Only Sune's description contains "orient corners".
-	got := LookupAlgorithm("orient corners")
-	expectAlgNames(t, got, []string{"Sune"})
-}
-
-func TestLookupAlgorithm_SubstringByCaseID(t *testing.T) {
-	// Query is lowercased by LookupAlgorithm; "oll-27" appears only in Sune's
-	// CaseID ("OLL-27").
-	got := LookupAlgorithm("oll-27")
-	expectAlgNames(t, got, []string{"Sune"})
-}
-
-func TestLookupAlgorithm_NoMatch(t *testing.T) {
-	got := LookupAlgorithm("zzz-nonexistent")
-	if len(got) != 0 {
-		t.Fatalf("expected 0 results, got %d: %v", len(got), algNames(got))
+func TestLookupAlgorithmSemantics(t *testing.T) {
+	lookupFixture(t)
+	for _, test := range []struct {
+		query string
+		want  []string
+	}{
+		{"sune", []string{"Sune", "Anti-Sune"}},
+		{"U R U2 R'", []string{"Sune"}},
+		{"r u r'", []string{"Sune", "Sexy Move", "Cross OLL", "T-Perm"}},
+		{"orient corners", []string{"Sune"}},
+		{"oll-27", []string{"Sune"}},
+		{"Original trigger name", []string{"Sexy Move"}},
+		{"zzz-nonexistent", nil},
+	} {
+		expectAlgNames(t, LookupAlgorithm(test.query), test.want)
 	}
 }
 
-func TestLookupByMoves_ExactMatchSune(t *testing.T) {
-	got := LookupByMoves("R U R' U R U2 R'")
-	expectAlgNames(t, got, []string{"Sune"})
+func TestLookupByMovesSemantics(t *testing.T) {
+	lookupFixture(t)
+	expectAlgNames(t, LookupByMoves("R U R' U R U2 R'"), []string{"Sune"})
+	expectAlgNames(t, LookupByMoves("U R U2 R'"), nil)
 }
 
-func TestLookupByMoves_SubstringIsNotExact(t *testing.T) {
-	// "U R U2 R'" is only a substring of Sune's moves, not the full string, so
-	// an exact-match lookup must return nothing.
-	got := LookupByMoves("U R U2 R'")
-	if len(got) != 0 {
-		t.Fatalf("expected exact-match lookup of a substring to return 0 results, got %d: %v", len(got), algNames(got))
+func TestGetByCategorySemantics(t *testing.T) {
+	lookupFixture(t)
+	for _, category := range []string{"OLL", "oll", " OLL "} {
+		expectAlgNames(t, GetByCategory(category), []string{"Sune", "Anti-Sune", "Cross OLL"})
 	}
-}
-
-func TestGetByCategory_OLL(t *testing.T) {
-	got := GetByCategory("OLL")
-	expectAlgNames(t, got, []string{"Sune", "Anti-Sune", "Cross OLL"})
-}
-
-func TestGetByCategory_OLLLowercase(t *testing.T) {
-	got := GetByCategory("oll")
-	expectAlgNames(t, got, []string{"Sune", "Anti-Sune", "Cross OLL"})
-}
-
-func TestGetByCategory_PLL(t *testing.T) {
-	got := GetByCategory("PLL")
-	expectAlgNames(t, got, []string{"T-Perm"})
-}
-
-func TestGetByCategory_TriggerIsUnreachable(t *testing.T) {
-	// SURPRISING (pinned, not fixed): Sexy Move's stored Category is the
-	// mixed-case string "Trigger", but GetByCategory uppercases the query to
-	// "TRIGGER" before doing an exact compare. So Sexy Move can never be found
-	// via GetByCategory — not even with "TRIGGER" or "trigger" — and is only
-	// reachable through LookupAlgorithm / LookupByMoves. This is a data bug in
-	// the live server (the task's claim that all stored Categories are already
-	// uppercase does not hold).
-	if got := GetByCategory("Trigger"); len(got) != 0 {
-		t.Fatalf("GetByCategory(%q) = %v, want 0 results (exact-match against uppercased query)", "Trigger", algNames(got))
+	expectAlgNames(t, GetByCategory("PLL"), []string{"T-Perm"})
+	for _, category := range []string{"Trigger", "TRIGGER", "trigger"} {
+		expectAlgNames(t, GetByCategory(category), []string{"Sexy Move"})
 	}
-	if got := GetByCategory("TRIGGER"); len(got) != 0 {
-		t.Fatalf("GetByCategory(%q) = %v, want 0 results (stored category is 'Trigger', not 'TRIGGER')", "TRIGGER", algNames(got))
-	}
-	// Confirms Sexy Move IS in the live database and findable by moves.
-	if got := LookupByMoves("R U R' U'"); len(got) != 1 || got[0].Name != "Sexy Move" {
-		t.Fatalf("Sexy Move should be present in the live database, LookupByMoves returned %v", algNames(got))
-	}
-}
-
-func TestGetByCategory_F2L(t *testing.T) {
-	// There are no F2L entries in the live database today.
-	got := GetByCategory("F2L")
-	if len(got) != 0 {
-		t.Fatalf("expected 0 F2L results, got %d: %v", len(got), algNames(got))
-	}
+	expectAlgNames(t, GetByCategory("F2L"), []string{"Pair"})
 }
 
 func TestCalculateMoveCount_KnownAlgorithms(t *testing.T) {
@@ -189,6 +143,7 @@ func TestUpdateMoveCount_InvalidMovesPropagatesError(t *testing.T) {
 }
 
 func TestLookupReturnsCopies_ValueSemantics(t *testing.T) {
+	lookupFixture(t)
 	// LookupAlgorithm / LookupByMoves / GetByCategory range over
 	// AlgorithmDatabase by value and append copies. Mutating a returned
 	// algorithm must NOT affect the slice returned on a later lookup, nor the
@@ -240,20 +195,28 @@ func TestLookupAlgorithm_MovesQueryIsCaseInsensitiveOnWholeSequence(t *testing.T
 }
 
 func TestAlgorithmDatabaseSanity(t *testing.T) {
-	// The whole point of this task: the live database is exactly the 5 entries
-	// after the "Temporarily commenting out" marker, no matter how many dead
-	// entries hide inside /* ... */. Pin the constituent sets for the
-	// categories reachable via GetByCategory today (Trigger is unreachable —
-	// see TestGetByCategory_TriggerIsUnreachable).
-	oll := algNames(GetByCategory("OLL"))
-	pll := algNames(GetByCategory("PLL"))
-	if strings.Join(oll, ",") != "Anti-Sune,Cross OLL,Sune" {
-		t.Fatalf("OLL set = %v, want [Sune Anti-Sune Cross OLL]", oll)
+	if len(AlgorithmDatabase) < 100 {
+		t.Fatal("comprehensive database was not loaded")
 	}
-	if strings.Join(pll, ",") != "T-Perm" {
-		t.Fatalf("PLL set = %v, want [T-Perm]", pll)
+	ids := map[string]bool{}
+	for _, a := range AlgorithmDatabase {
+		if ids[a.CaseID] || a.CaseID == "" {
+			t.Fatal("duplicate or empty case ID", a.CaseID)
+		}
+		ids[a.CaseID] = true
+		if a.Pattern == "" || a.Dimension < 2 || len(a.Sources) == 0 {
+			t.Fatal("missing recognition/provenance", a.CaseID)
+		}
+		if strings.Contains(a.Recognition, "contentReference") {
+			t.Fatal("unstripped citation", a.CaseID)
+		}
 	}
-	if len(AlgorithmDatabase) != 5 {
-		t.Fatalf("AlgorithmDatabase has %d live entries, want 5 (the TODO.md count of 63 includes the commented-out block)", len(AlgorithmDatabase))
+	for _, category := range []string{"OLL", "PLL", "F2L", "Trigger", "2x2-CLL", "4x4-PARITY"} {
+		if len(GetByCategory(category)) == 0 {
+			t.Fatal("missing category", category)
+		}
+	}
+	if a := LookupAlgorithm("OLL-27"); len(a) != 1 || a[0].InverseID != "OLL-26" {
+		t.Fatal("Sune inverse relationship missing", a)
 	}
 }

@@ -1,0 +1,3371 @@
+[
+  {
+    "Name": "Sune",
+    "CaseID": "OLL-27",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "builtin",
+      "cfop_oll.csv:27"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": [
+      "OLL-27",
+      "Sune"
+    ],
+    "InverseID": "OLL-26",
+    "Moves": "R U R' U R U2 R'",
+    "MoveCount": 7,
+    "Pattern": "YB|RYBY5O/G2YR6/GBYB6/W9/BR2O6/O2YG6",
+    "Description": "Orient corners when one is correctly oriented",
+    "Recognition": "One corner oriented, headlights on left",
+    "Probability": 4.63,
+    "Variants": null,
+    "Inverse": "R U2 R' U' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Anti-Sune",
+    "CaseID": "OLL-26",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "builtin",
+      "cfop_oll.csv:26"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": [
+      "OLL-26",
+      "Anti-Sune"
+    ],
+    "InverseID": "OLL-27",
+    "Moves": "R U2 R' U' R U' R'",
+    "MoveCount": 7,
+    "Pattern": "YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6",
+    "Description": "Orient corners with the inverse of Sune",
+    "Recognition": "One corner oriented, headlights on right",
+    "Probability": 4.63,
+    "Variants": null,
+    "Inverse": "R U R' U R U2 R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Cross OLL",
+    "CaseID": "OLL-CROSS",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "builtin"
+    ],
+    "References": null,
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F R U R' U' F'",
+    "MoveCount": 6,
+    "Pattern": "YB|RBY4R2Y/BG2R6/BYOB6/W9/YOYO6/OYG7",
+    "Description": "Form yellow cross on top face",
+    "Recognition": "Need yellow cross (dot, line, or L-shape)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F U R U' R' F'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "T-Perm",
+    "CaseID": "PLL-T",
+    "Category": "PLL",
+    "Categories": [
+      "ROUX-CMLL"
+    ],
+    "Dimension": 3,
+    "Sources": [
+      "builtin",
+      "roux.csv:1"
+    ],
+    "References": [
+      "rouxers.com"
+    ],
+    "Aliases": [
+      "ROUX-CMLL-1",
+      "CMLL U-case"
+    ],
+    "InverseID": "",
+    "Moves": "R U R' F' R U R' U' R' F R2 U' R'",
+    "MoveCount": 13,
+    "Pattern": "YB|Y9/RO2R6/OB8/W9/G3O6/BR2G6",
+    "Description": "Swaps two adjacent corners and two edges",
+    "Recognition": "Headlights with opposite edge swap",
+    "Probability": 4.17,
+    "Variants": null,
+    "Inverse": "R U R2 F' R U R U' R' F R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Sexy Move",
+    "CaseID": "TRIG-1",
+    "Category": "Trigger",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "builtin",
+      "triggers.csv:1"
+    ],
+    "References": [
+      "ruwix.com"
+    ],
+    "Aliases": [
+      "TRIG-1",
+      "Sexy Move"
+    ],
+    "InverseID": "F2L-1",
+    "Moves": "R U R' U'",
+    "MoveCount": 4,
+    "Pattern": "YB|RBY6R/WG2R6/B5YB2Y/W2BW6/YO8/ORG7",
+    "Description": "Most common trigger in cubing",
+    "Recognition": "F2L pair building/breaking trigger",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "U R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Ortega OLL 1",
+    "CaseID": "2x2-OLL-1",
+    "Category": "2x2-OLL",
+    "Categories": [
+      "2x2-CLL"
+    ],
+    "Dimension": 2,
+    "Sources": [
+      "2x2.csv:1",
+      "2x2.csv:8"
+    ],
+    "References": [
+      "jperm.net",
+      "algdb.net"
+    ],
+    "Aliases": [
+      "2x2-CLL-Sune1",
+      "UNK"
+    ],
+    "InverseID": "2x2-CLL-H1",
+    "Moves": "R U R' U R U2 R'",
+    "MoveCount": 7,
+    "Pattern": "YB|RBYO/GYR2/GYB2/W4/BRO2/OYG2",
+    "Description": "Solve 2x2 OLL (e.g. Sune)",
+    "Recognition": "Orient last-layer corners (step 1 of Ortega)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U2 R' U' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Ortega PBL Adj.",
+    "CaseID": "2x2-PBL-1",
+    "Category": "2x2-PBL",
+    "Categories": null,
+    "Dimension": 2,
+    "Sources": [
+      "2x2.csv:2"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "2x2-PBL-1",
+    "Moves": "R U' R F2 R' U R'",
+    "MoveCount": 7,
+    "Pattern": "YB|Y4/RGRO/B2GB/W4/GO2R/ORBG",
+    "Description": "Swap 2 layers (adjacent swap)",
+    "Recognition": "Permutation of both layers (Ortega step 2)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R F2 R' U R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Ortega PBL Diag.",
+    "CaseID": "2x2-PBL-2",
+    "Category": "2x2-PBL",
+    "Categories": null,
+    "Dimension": 2,
+    "Sources": [
+      "2x2.csv:3"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F R U' R' U' R U R' F'",
+    "MoveCount": 9,
+    "Pattern": "YB|YBGY/GYR2/YRB2/W4/RO3/OBG2",
+    "Description": "Swap 2 layers (diagonal swap)",
+    "Recognition": "Diagonal corner swap on 2x2",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R U' R' U R U R' F'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "UNK",
+    "CaseID": "2x2-CLL-H1",
+    "Category": "2x2-CLL",
+    "Categories": null,
+    "Dimension": 2,
+    "Sources": [
+      "2x2.csv:4",
+      "2x2.csv:9"
+    ],
+    "References": [
+      "algdb.net"
+    ],
+    "Aliases": [
+      "2x2-CLL-ASune1",
+      "UNK"
+    ],
+    "InverseID": "2x2-OLL-1",
+    "Moves": "R U2 R' U' R U' R'",
+    "MoveCount": 7,
+    "Pattern": "YB|BYRG/YOR2/YOB2/W4/YGO2/BRG2",
+    "Description": "Solves 2x2 H case (all corners oriented)",
+    "Recognition": "Headlights on both sides (H pattern)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U R U2 R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "UNK",
+    "CaseID": "2x2-CLL-H2",
+    "Category": "2x2-CLL",
+    "Categories": null,
+    "Dimension": 2,
+    "Sources": [
+      "2x2.csv:5"
+    ],
+    "References": [
+      "algdb.net"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R' U2 R U R' U R",
+    "MoveCount": 7,
+    "Pattern": "YB|RBGY/OYR2/RGB2/W4/BYO2/OYG2",
+    "Description": "Solves H case variant",
+    "Recognition": "Headlights on both sides (mirror)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' U' R U' R' U2 R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "UNK",
+    "CaseID": "2x2-CLL-Pi1",
+    "Category": "2x2-CLL",
+    "Categories": null,
+    "Dimension": 2,
+    "Sources": [
+      "2x2.csv:6"
+    ],
+    "References": [
+      "algdb.net"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' U R' F R F'",
+    "MoveCount": 8,
+    "Pattern": "YB|GBOY/RWOR/YB2Y/WGW2/RBO2/RYG2",
+    "Description": "Solves Pi case (two opposite oriented)",
+    "Recognition": "Pi pattern (Bruno) on top",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R U' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "UNK",
+    "CaseID": "2x2-CLL-Pi2",
+    "Category": "2x2-CLL",
+    "Categories": null,
+    "Dimension": 2,
+    "Sources": [
+      "2x2.csv:7"
+    ],
+    "References": [
+      "algdb.net"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R' U' R U' R' F' R F",
+    "MoveCount": 8,
+    "Pattern": "YB|YROB/YW2O/GR2B/WOWB/GYOB/GRYG",
+    "Description": "Solves Pi case variant",
+    "Recognition": "Pi pattern mirror",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' R' F R U R' U R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "UNK",
+    "CaseID": "2x2-CLL-T1",
+    "Category": "2x2-CLL",
+    "Categories": null,
+    "Dimension": 2,
+    "Sources": [
+      "2x2.csv:10"
+    ],
+    "References": [
+      "algdb.net"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' U' R' F R F'",
+    "MoveCount": 8,
+    "Pattern": "YB|BYRY/RGR2/YB3/W4/OGO2/OYG2",
+    "Description": "Solves T case",
+    "Recognition": "T pattern on top layer",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R U R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "EG-1 Case",
+    "CaseID": "2x2-EG1-1",
+    "Category": "2x2-EG1",
+    "Categories": null,
+    "Dimension": 2,
+    "Sources": [
+      "2x2.csv:11"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' F R' F' R",
+    "MoveCount": 7,
+    "Pattern": "YB|B2YR/BYR2/OYBG/WYW2/RGO2/OWG2",
+    "Description": "Solves last layer with one face done",
+    "Recognition": "One face solved, adjacent swap needed",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' F R F' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "EG-2 Case",
+    "CaseID": "2x2-EG2-1",
+    "Category": "2x2-EG2",
+    "Categories": null,
+    "Dimension": 2,
+    "Sources": [
+      "2x2.csv:12"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U' R' U R' F R2 U' R' U' R U R' F'",
+    "MoveCount": 14,
+    "Pattern": "YB|YBRG/YWYR/YOBO/WBW2/RGO2/RBG2",
+    "Description": "Solves LL with no face pre-solved",
+    "Recognition": "No face solved, uses EG-2 algorithm",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R U' R' U R U R2 F' R U' R U R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "OLL Parity",
+    "CaseID": "4x4-OLL-PARITY",
+    "Category": "4x4-PARITY",
+    "Categories": null,
+    "Dimension": 4,
+    "Sources": [
+      "big_cubes.csv:1"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Rw U2 x R U R' U' R U R' U' Rw' U2 Rw U2 Rw' x'",
+    "MoveCount": 17,
+    "Pattern": "YB|GOYGW2Y2W2Y2W2B2/WR2YOR2WOR2BOR2Y/B2O2B2Y2B2Y2B2Y2/Y2G2W2BGW2BGW2BO/WR3O3RO3RO3R/RGBRG4WG3BYG2",
+    "Description": "Fixes 4x4 OLL parity (flipped edge)",
+    "Recognition": "One dedge (edge-pair) oriented incorrectly",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "x Rw U2 Rw' U2 Rw U R U' R' U R U' R' x' U2 Rw'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "PLL Parity",
+    "CaseID": "4x4-PLL-PARITY",
+    "Category": "4x4-PARITY",
+    "Categories": null,
+    "Dimension": 4,
+    "Sources": [
+      "big_cubes.csv:2"
+    ],
+    "References": [
+      "kewbz.co.uk"
+    ],
+    "Aliases": null,
+    "InverseID": "4x4-PLL-PARITY",
+    "Moves": "Rw2 U2 Rw2 Uw2 Rw2 Uw2",
+    "MoveCount": 6,
+    "Pattern": "YB|Y16/R8O4R4/B16/W16/O4R4O8/G16",
+    "Description": "Fixes 4x4 PLL parity (swap two dedges)",
+    "Recognition": "Two edge-pairs swapped (unsolvable 3x3 state)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Uw2 Rw2 Uw2 Rw2 U2 Rw2",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "5x5 OLL Parity",
+    "CaseID": "5x5-OLL-PARITY",
+    "Category": "5x5-PARITY",
+    "Categories": null,
+    "Dimension": 5,
+    "Sources": [
+      "big_cubes.csv:3"
+    ],
+    "References": [
+      "kewbz.co.uk"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Rw2 B2 U2 Lw U2 Rw' U2 Rw U2 F2 Rw F2 Lw' B2 Rw2",
+    "MoveCount": 15,
+    "Pattern": "YB|Y20B2YB2/O4R21/Y2BY2B20/W25/OR4O20/G25",
+    "Description": "Fixes 5x5 OLL parity (flipped edge pair)",
+    "Recognition": "Two adjacent wing edges flipped (like 4x4 OLL parity)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Rw2 B2 Lw F2 Rw' F2 U2 Rw' U2 Rw U2 Lw' U2 B2 Rw2",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "6x6 Edge Parity (Lucas)",
+    "CaseID": "6x6-Edge-PARITY",
+    "Category": "6x6-PARITY",
+    "Categories": null,
+    "Dimension": 6,
+    "Sources": [
+      "big_cubes.csv:5"
+    ],
+    "References": [
+      "kewbz.co.uk"
+    ],
+    "Aliases": null,
+    "InverseID": "6x6-Edge-PARITY",
+    "Moves": "2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2",
+    "MoveCount": 15,
+    "Pattern": "YB|Y31BY2BY/R36/BYB2YB31/W36/O36/G36",
+    "Description": "Fixes 6x6 last two edge parity",
+    "Recognition": "Two opposite edge pairs mispaired",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "2R2 B2 2L F2 2R' F2 U2 2R' U2 2R U2 2L' U2 B2 2R2",
+    "Mirror": "6x6-Edge-PARITY",
+    "Related": null
+  },
+  {
+    "Name": "Basic Case 1",
+    "CaseID": "F2L-1",
+    "Category": "F2L",
+    "Categories": [
+      "Trigger"
+    ],
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:1",
+      "triggers.csv:4"
+    ],
+    "References": [
+      "cubingcheatsheet.com",
+      "ruwix.com"
+    ],
+    "Aliases": [
+      "TRIG-4",
+      "Reverse Sexy"
+    ],
+    "InverseID": "TRIG-1",
+    "Moves": "U R U' R'",
+    "MoveCount": 4,
+    "Pattern": "YB|Y2OY2BY2B/R2YGR2YR2/B2WB2YB3/W2RW6/GO8/GR2G6",
+    "Description": "Insert paired corner-edge into right-front slot",
+    "Recognition": "Corner-edge already paired in correct orientation",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Basic Case 2",
+    "CaseID": "F2L-2",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:2"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U' F' U F",
+    "MoveCount": 4,
+    "Pattern": "YB|Y6GR2/WR2YR5/YB4OB2Y/W2BW6/B2O7/G2OG6",
+    "Description": "Insert paired corner-edge into front-left slot",
+    "Recognition": "Corner-edge paired, left slot",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U' F U",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Basic Case 3",
+    "CaseID": "F2L-3",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:3"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F' U' F",
+    "MoveCount": 3,
+    "Pattern": "YB|RY2RY4B/RG2YR2YR2/B2WB2RB2R/W2GW6/B2O7/O2YG6",
+    "Description": "Insert edge into left slot",
+    "Recognition": "Edge in top, corner in slot (insert edge)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U F",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Basic Case 4",
+    "CaseID": "F2L-4",
+    "Category": "F2L",
+    "Categories": [
+      "Trigger"
+    ],
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:4",
+      "triggers.csv:6"
+    ],
+    "References": [
+      "cubingcheatsheet.com",
+      "speedsolving.com"
+    ],
+    "Aliases": [
+      "TRIG-6",
+      "Keyhole Insertion"
+    ],
+    "InverseID": "",
+    "Moves": "R U R'",
+    "MoveCount": 3,
+    "Pattern": "YB|B2Y6R/WR2BR2BR2/O2B3YB2Y/W2OW6/YG2O6/GR2G6",
+    "Description": "Insert edge into right slot",
+    "Recognition": "Edge in top, corner in slot (insert edge)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #1",
+    "CaseID": "F2L-5",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:5"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U' R U R' U' R U2 R'",
+    "MoveCount": 8,
+    "Pattern": "YB|B2RY3OYB/ROGR3OR2/GBWB2YB3/W2YW6/YGYO6/YR2G6",
+    "Description": "Pair and insert corner+edge from top layer",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U2 R' U R U' R' U",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #2",
+    "CaseID": "F2L-6",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:6"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U F' U' F U F' U2 F",
+    "MoveCount": 8,
+    "Pattern": "YB|RYGRY2BYR/WROYR5/OGB6G/W2YW6/B2YO6/YOYG6",
+    "Description": "Pair and insert from top (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U2 F U' F' U F U'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #3",
+    "CaseID": "F2L-7",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:7"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U' R U2 R' U' R U2 R'",
+    "MoveCount": 8,
+    "Pattern": "YB|RY2BY2OYB/R2G2R2YR2/YBWB2YB3/W2RW6/YRBO6/O2G7",
+    "Description": "Pair and insert (edge oriented differently)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U2 R' U R U2 R' U",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #4",
+    "CaseID": "F2L-8",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:8"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U F' U2 F U F' U2 F",
+    "MoveCount": 8,
+    "Pattern": "YB|BRGY5R/WRY2R5/OB4OB2Y/W2BW6/OG2O6/RBYG6",
+    "Description": "Pair and insert (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U2 F U' F' U2 F U'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #5",
+    "CaseID": "F2L-9",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:9"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U F' U' F U' F' U' F",
+    "MoveCount": 8,
+    "Pattern": "YB|YR2Y3OYB/RG2YR5/GRWB2OB2Y/W2BW6/B2YO6/YBOG6",
+    "Description": "Edge flipped in top, pair then insert",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U F U F' U F U'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #6",
+    "CaseID": "F2L-10",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:10"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U' R U R' U R U R'",
+    "MoveCount": 8,
+    "Pattern": "YB|Y2GBY2BYR/WBOGR2YR2/O2B3YB3/W2RW6/GRYO6/YR2G6",
+    "Description": "Edge flipped in top (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R' U' R U' R' U",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #7",
+    "CaseID": "F2L-11",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:11"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U' R U2 R' Dw R' U' R",
+    "MoveCount": 8,
+    "Pattern": "YB|BG2Y2GRYR/GROBG2BG2/YRWR2YR2Y/W2OW6/YOGB6/Y2RO6",
+    "Description": "Special insert with rotation",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' U R Dw' R U2 R' U",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #8",
+    "CaseID": "F2L-12",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:12"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Dw R' U2 R Dw' R U R'",
+    "MoveCount": 8,
+    "Pattern": "YB|GYRBY2B2R/WRY2R2YR2/ORB3GB2G/W2OW6/RY2O6/BOYG6",
+    "Description": "Special insert (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R' Dw R' U2 R Dw'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #9",
+    "CaseID": "F2L-13",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:13"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U F' U F U' F' U' F",
+    "MoveCount": 8,
+    "Pattern": "YB|Y2OY3R2B/RGBYR2OR2/B2WB5Y/W2GW6/GOYO6/YR2G6",
+    "Description": "Corner in top, edge in slot (complex)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U F U F' U' F U'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #10",
+    "CaseID": "F2L-14",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:14"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U' R U' R' U R U R'",
+    "MoveCount": 8,
+    "Pattern": "YB|Y2BY2BGYR/WR5YR2/ROB3YB2G/W2OW6/B2YO6/YGOG6",
+    "Description": "Corner in top, edge in slot (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R' U' R U R' U",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #11",
+    "CaseID": "F2L-15",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:15"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F' U F U' Dw' F U F'",
+    "MoveCount": 8,
+    "Pattern": "YB|Y2OY2OYO2/BY3B2YB2/RBWO2BO3/W2BW6/G2BG6/GR8",
+    "Description": "Corner in top, edge in wrong slot",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F U' F' Dw U F' U' F",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in Top #12",
+    "CaseID": "F2L-16",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:16"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U' R' U Dw R' U' R",
+    "MoveCount": 8,
+    "Pattern": "YB|Y5G4/WRBRG5/Y2R3YR2Y/W2RW6/B2OB6/RO8",
+    "Description": "Corner in top, edge in wrong slot (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' U R Dw' U' R U R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner Point Up #1",
+    "CaseID": "F2L-17",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:17"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U2 R' U' R U R'",
+    "MoveCount": 7,
+    "Pattern": "YB|Y2BY2BRYW/BR2OR2OR2/YGRB2YB2Y/W2GW6/B2GO6/YROG6",
+    "Description": "Corner in top (sticker up), edge in U layer",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R' U R U2 R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner Point Up #2",
+    "CaseID": "F2L-18",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:18"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F' U2 F U F' U' F",
+    "MoveCount": 7,
+    "Pattern": "YB|Y2BY3R2W/BOY2R2YR2/B2RB2GB2G/W2OW6/GBYO6/OR2G6",
+    "Description": "Corner in top (sticker up), edge in U (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U F U' F' U2 F",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner Point Up #3",
+    "CaseID": "F2L-19",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:19"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U R U2 R' U R U' R'",
+    "MoveCount": 8,
+    "Pattern": "YB|OB2Y3BYW/BRYOR2GR2/YGRB2YB2Y/W2RW6/GBRO6/ORYG6",
+    "Description": "Corner in top (sticker up), edge in U oriented",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U' R U2 R' U'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner Point Up #4",
+    "CaseID": "F2L-20",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:20"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U' F' U2 F U' F' U F",
+    "MoveCount": 8,
+    "Pattern": "YB|GYR2Y2RYW/BOY2R2YR2/YBRB2GB2O/W2BW6/YBGO6/BROG6",
+    "Description": "Corner in top (sticker up), edge in U oriented (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U' F U F' U2 F U",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner Point Up #5",
+    "CaseID": "F2L-21",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:21"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U2 R U R' U R U' R'",
+    "MoveCount": 8,
+    "Pattern": "YB|Y3BY2OYW/BR2BR2BR2/G2RB2YB2Y/W2OW6/R2YO6/GOBG6",
+    "Description": "Corner in top (sticker up), edge in slot",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U' R U' R' U2",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner Point Up #6",
+    "CaseID": "F2L-22",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:22"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U2 F' U' F U' F' U F",
+    "MoveCount": 8,
+    "Pattern": "YB|YRGY5W/BO2YR2YR2/B2RB2RB2R/W2GW6/RGO7/YB2G6",
+    "Description": "Corner in top, edge in slot (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U' F U F' U F U2",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner Point Up #7",
+    "CaseID": "F2L-23",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:23"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' U' U' R U R' U' R U R'",
+    "MoveCount": 12,
+    "Pattern": "YB|GY5B2W/BG2BR2YR2/OR2B2YB3/W2RW6/ROYO6/ORYG6",
+    "Description": "Corner in top, edge in incorrect spot",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R' U R U' R' U U R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner Point Up #8",
+    "CaseID": "F2L-24",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:24"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F' U' F U F' U F U' F' U2 F",
+    "MoveCount": 11,
+    "Pattern": "YB|YRY4RYR/BG2YR2OR2/WRYB2OB3/W2YW6/GB2O6/OBRG6",
+    "Description": "Corner in top, edge in wrong slot (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U2 F U F' U' F U' F' U F",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner in Slot, Edge in U #1",
+    "CaseID": "F2L-25",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:25"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "y' U R' U' R y R U' R'",
+    "MoveCount": 9,
+    "Pattern": "YB|Y2BY2BG2B/R3YR2YR2/Y2WB2RB2R/W2GW6/B2O7/YO2G6",
+    "Description": "Take edge out and insert",
+    "Recognition": "Corner already in place, edge in top",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' y' R' U R U' y",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner in Slot, Edge in U #2",
+    "CaseID": "F2L-26",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:26"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "y U' R U R' y' R' U R",
+    "MoveCount": 9,
+    "Pattern": "YB|B2GY2GY2G/R5YR2Y/O2YB6/W8B/OG2O6/WY2RG2RG2",
+    "Description": "Take edge out (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' U' R y R U' R' U y'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner in Slot, Edge in U #3",
+    "CaseID": "F2L-27",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:27"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "y R U R' y' R' F R F'",
+    "MoveCount": 9,
+    "Pattern": "YB|Y2GRYRBYR/Y2RYRBYRB/O2GB6/W2RW6/OGYO6/WG2RG2RG2",
+    "Description": "Edge in top, corner in wrong slot",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R y R U' R' y'",
+    "Mirror": "F2L-28",
+    "Related": null
+  },
+  {
+    "Name": "Corner in Slot, Edge in U #4",
+    "CaseID": "F2L-28",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:28"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "y' L' U' L y L F' L' F",
+    "MoveCount": 9,
+    "Pattern": "YB|GY2OYO2YB/YGR7/GR2B6/OW8/OY2BOYBOY/G2WG2OG2O",
+    "Description": "Edge in top, corner in wrong slot (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' L F L' y' L' U L y",
+    "Mirror": "F2L-27",
+    "Related": null
+  },
+  {
+    "Name": "Both in Slot (Mis slotted)",
+    "CaseID": "F2L-29",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:29"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R' F R F' U2 R U' R'",
+    "MoveCount": 8,
+    "Pattern": "YB|OBRY3WB2/YG2YR2YR2/BYRB2OB2O/W2BW6/GR2O6/YRYG6",
+    "Description": "Both pieces in slot incorrectly",
+    "Recognition": "Needs edge flip or reposition",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U2 F R' F' R",
+    "Mirror": "F2L-30",
+    "Related": null
+  },
+  {
+    "Name": "Both in Slot (Mis slotted) 2",
+    "CaseID": "F2L-30",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:30"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "L F' L' F U2 L' U L",
+    "MoveCount": 8,
+    "Pattern": "YB|OBRY3B2W/O2GR6/OYBRB2RB2/BW8/G2YO2YO2Y/YOYG6",
+    "Description": "Both pieces in slot (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "L' U' L U2 F' L F L'",
+    "Mirror": "F2L-29",
+    "Related": null
+  },
+  {
+    "Name": "Edge in Slot, Corner in U #1",
+    "CaseID": "F2L-31",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:31"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U R U' R' U2 R U' R'",
+    "MoveCount": 8,
+    "Pattern": "YB|BYGY5B/YGOR3YR2/GORB5O/W2BW6/R3O6/YBWG6",
+    "Description": "Edge solved, corner in top",
+    "Recognition": "Corner above solved edge (insert with setup)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U2 R U R' U'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Edge in Slot, Corner in U #2",
+    "CaseID": "F2L-32",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:32"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "U' F' U F U2 F' U F",
+    "MoveCount": 8,
+    "Pattern": "YB|RY5OYR/BGOR3GR2/GOYB5Y/W2RW6/WRYO6/B3G6",
+    "Description": "Edge solved, corner in top (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U' F U2 F' U' F U",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Edge in Slot, Corner in U #3",
+    "CaseID": "F2L-33",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:33"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U' R' U R U' R'",
+    "MoveCount": 7,
+    "Pattern": "YB|Y2OY2B2YG/R2YR3BR2/YGYB2YB2W/W2RW6/B2RO6/GO2G6",
+    "Description": "Edge solved, corner in U (variation)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U' R U R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Edge in Slot, Corner in U #4",
+    "CaseID": "F2L-34",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:34"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F' U F U' F' U F",
+    "MoveCount": 7,
+    "Pattern": "YB|Y2RY3GRO/YOY2R2WR2/YB7R/W2BW6/G2O7/BR2G6",
+    "Description": "Edge solved, corner in U (mirror variation)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U' F U F' U' F",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in wrong slots #1",
+    "CaseID": "F2L-35",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:35"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' U R U' R'",
+    "MoveCount": 7,
+    "Pattern": "YB|WYOY2BY3/R2YBR2BR2/GOB3YB2Y/W2OW6/BR2O6/G2RG6",
+    "Description": "Swap with adjacent slot",
+    "Recognition": "Corner-edge in wrong place (simple)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U' R U' R'",
+    "Mirror": "F2L-36",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in wrong slots #2",
+    "CaseID": "F2L-36",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:36"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "L' U' L U' L' U L",
+    "MoveCount": 7,
+    "Pattern": "YB|RYWBY5/O2BR6/BRGYB2YB2/RW8/YO4BO2B/OG8",
+    "Description": "Swap with adjacent slot (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "L' U' L U L' U L",
+    "Mirror": "F2L-35",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in wrong slots #3",
+    "CaseID": "F2L-37",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:37"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U' R' U R U R'",
+    "MoveCount": 7,
+    "Pattern": "YB|B2RY5G/ROBR3YR2/B2YB2YB2G/W2OW6/YGO7/WR2G6",
+    "Description": "Swap with opposite slot",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R' U' R U R'",
+    "Mirror": "F2L-38",
+    "Related": null
+  },
+  {
+    "Name": "Corner \u0026 Edge in wrong slots #4",
+    "CaseID": "F2L-38",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:38"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "L' U L U' L' U' L",
+    "MoveCount": 7,
+    "Pattern": "YB|OB2Y3GY2/RGYR6/YB2YB2GB2/RW8/BRO6Y/O2WG6",
+    "Description": "Swap with opposite slot (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "L' U L U L' U' L",
+    "Mirror": "F2L-37",
+    "Related": null
+  },
+  {
+    "Name": "Edge flipped in slot #1",
+    "CaseID": "F2L-39",
+    "Category": "F2L",
+    "Categories": [
+      "OLL"
+    ],
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:39",
+      "cfop_oll.csv:24"
+    ],
+    "References": [
+      "speedsolving.com",
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": [
+      "OLL-24",
+      "T"
+    ],
+    "InverseID": "",
+    "Moves": "Rw U R' U' Rw' F R F'",
+    "MoveCount": 8,
+    "Pattern": "YB|BY5RY2/R2GR6/YB8/W9/O2GO6/OGYG6",
+    "Description": "Flip paired edge in place (sledge)",
+    "Recognition": "Edge oriented wrong in slot",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' Rw U R U' Rw'",
+    "Mirror": "F2L-40",
+    "Related": null
+  },
+  {
+    "Name": "Edge flipped in slot #2",
+    "CaseID": "F2L-40",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:40"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "OLL-25",
+    "Moves": "Lw' U' L U Lw F' L' F",
+    "MoveCount": 8,
+    "Pattern": "YB|Y2BY5O/GR8/B2YB6/W9/GO8/YGRG6",
+    "Description": "Flip paired edge (mirror)",
+    "Recognition": "UNK",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' L F Lw' U' L' U Lw",
+    "Mirror": "F2L-39",
+    "Related": null
+  },
+  {
+    "Name": "Edge flipped in slot #3",
+    "CaseID": "F2L-41",
+    "Category": "F2L",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_f2l.csv:41"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U' R' Dw R' U' R U' R' U' R",
+    "MoveCount": 11,
+    "Pattern": "YB|BYGY4BR/BO2RG2RG2/GY2R2GR2W/W2GW6/OGRB6/YRYO6",
+    "Description": "Flip edge with rotation setup",
+    "Recognition": "Edge flipped, need rotation to solve",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' U R U R' U R Dw' R U R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Runway",
+    "CaseID": "OLL-1",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:1"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U2 R2 F R F' U2 R' F R F'",
+    "MoveCount": 11,
+    "Pattern": "YB|GOBGYBR3/Y3R6/BYGB6/W9/Y3O6/OYOG6",
+    "Description": "Orients edges and corners (dot case)",
+    "Recognition": "No top-layer edges oriented (dot)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R U2 F R' F' R2 U2 R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Zamboni",
+    "CaseID": "OLL-2",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:2"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F R U R' U' F' Fw R U R' U' Fw'",
+    "MoveCount": 12,
+    "Pattern": "YB|GORGYB2R2/BYGR6/OY2B6/W9/Y3O6/Y2OG6",
+    "Description": "Orients edges and corners (dot case)",
+    "Recognition": "No edges oriented (dot), specific corner arrangement",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Fw U R U' R' Fw' F U R U' R' F'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Anti-Mouse",
+    "CaseID": "OLL-3",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:3"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Fw R U R' U' Fw' U' F R U R' U' F'",
+    "MoveCount": 13,
+    "Pattern": "YB|G2ROYBORY/BY2R6/GYOB6/W9/RY2O6/BY2G6",
+    "Description": "Orients edges and corners (dot case)",
+    "Recognition": "No edges oriented, “Anti-mouse” pattern",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F U R U' R' F' U Fw U R U' R' Fw'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Mouse",
+    "CaseID": "OLL-4",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:4"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Fw R U R' U' Fw' U F R U R' U' F'",
+    "MoveCount": 13,
+    "Pattern": "YB|O2YGYRB2R/Y2GR6/Y2GB6/W9/Y2RO6/OYBG6",
+    "Description": "Orients edges and corners (dot case)",
+    "Recognition": "No edges oriented, “Mouse” pattern",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F U R U' R' F' U' Fw U R U' R' Fw'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Tank",
+    "CaseID": "OLL-5",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:5"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' U R' F R F' U2 R' F R F'",
+    "MoveCount": 13,
+    "Pattern": "YB|YGB2YOBRY/OYR7/OYGB6/W9/GY2O6/Y2RG6",
+    "Description": "Orients edges and corners (dot case)",
+    "Recognition": "No edges oriented, shape looks like a tank",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R U2 F R' F' R U' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Streetlights",
+    "CaseID": "OLL-6",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:6"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "y' Rw U R' U R U2 Rw2 U' R U' R' U2 Rw",
+    "MoveCount": 14,
+    "Pattern": "YB|OGYRYORBY/GYG7/BYR7/W9/Y3B6/OYBO6",
+    "Description": "Orients edges and corners (dot case)",
+    "Recognition": "No edges oriented, two opposite corner blocks",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Rw' U2 R U R' U Rw2 U2 R' U' R U' Rw' y",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Butterfly",
+    "CaseID": "OLL-7",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:7",
+      "cfop_oll.csv:17"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": [
+      "OLL-17",
+      "Big Lightning"
+    ],
+    "InverseID": "",
+    "Moves": "Rw' R U R U R' U' Rw R2 F R F'",
+    "MoveCount": 12,
+    "Pattern": "YB|YOYBYGBR2/Y2BR6/OYGB6/W9/OY2O6/RYG7",
+    "Description": "Orients edges and corners (dot case)",
+    "Recognition": "No edges oriented, “Butterfly” pattern",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R2 Rw' U R U' R' U' R' Rw",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Bolt",
+    "CaseID": "OLL-8",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:8",
+      "cfop_oll.csv:19"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": [
+      "OLL-19",
+      "Little Lightning"
+    ],
+    "InverseID": "",
+    "Moves": "M U R U R' U' M' R' F R F'",
+    "MoveCount": 11,
+    "Pattern": "YB|YOYBYGBR2/Y2BR6/OYGB6/W9/OY2O6/RYG7",
+    "Description": "Orients edges and corners (dot case)",
+    "Recognition": "No edges oriented, M-slice shape",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R M U R U' R' U' M'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "T",
+    "CaseID": "OLL-12",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:12",
+      "cfop_oll.csv:33"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": [
+      "OLL-33",
+      "Shoelaces"
+    ],
+    "InverseID": "",
+    "Moves": "R U R' U' R' F R F'",
+    "MoveCount": 8,
+    "Pattern": "YB|B2Y4R2Y/RG2R6/Y2B7/W9/O2GO6/OY2G6",
+    "Description": "Orients edges and corners (L shape)",
+    "Recognition": "T-shape on top layer",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R U R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Gun",
+    "CaseID": "OLL-13",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:13"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F U R U' R2 F' R U R U' R'",
+    "MoveCount": 11,
+    "Pattern": "YB|B2GY4RO/G2YR6/RY2B6/W9/O2BO6/RY2G6",
+    "Description": "Orients edges and corners (L shape)",
+    "Recognition": "“Gun” shape (large L) on top",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U' R' F R2 U R' U' F'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Anti-Gun",
+    "CaseID": "OLL-14",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:14"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R' F R U R' F' R y' R U' R'",
+    "MoveCount": 11,
+    "Pattern": "YB|GRBY3OGY/GORG6/Y2R7/W9/YB8/Y2O7",
+    "Description": "Orients edges and corners (L shape)",
+    "Recognition": "Mirror of Gun case",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' y R' F R U' R' F' R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Squeegee",
+    "CaseID": "OLL-15",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:15"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Rw' U' Rw R' U' R U Rw' U Rw",
+    "MoveCount": 10,
+    "Pattern": "YB|R2BY3G2Y/OBYR6/RYGB6/W9/BOYO6/OY2G6",
+    "Description": "Orients edges and corners (L shape)",
+    "Recognition": "Squares pattern (large L)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Rw' U' Rw U' R' U R Rw' U Rw",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Anti-Squeegee",
+    "CaseID": "OLL-16",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:16"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Rw U Rw' R U R' U' Rw U' Rw'",
+    "MoveCount": 10,
+    "Pattern": "YB|B2Y4R2G/YGOR6/Y2OB6/W9/YOGO6/BYRG6",
+    "Description": "Orients edges and corners (L shape)",
+    "Recognition": "Mirror of Squeegee case",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Rw U Rw' U R U' R' Rw U' Rw'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Big Lightning (mirror)",
+    "CaseID": "OLL-18",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:18"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F R U R' U' F' R U2 R2 F R F' R U2 R'",
+    "MoveCount": 15,
+    "Pattern": "YB|YBYGYRGOG/Y2OR6/RYOB6/W9/RY2O6/BYBG6",
+    "Description": "Orients edges and one corner",
+    "Recognition": "Lightning bolt mirrored",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U2 R' F R' F' R2 U2 R' F U R U' R' F'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Double Sune",
+    "CaseID": "OLL-21",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:21"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' U R U' R' U R U2 R'",
+    "MoveCount": 11,
+    "Pattern": "YB|GYGY3BYB/YOYR6/OBRB6/W9/YGYO6/R2OG6",
+    "Description": "Orients all corners (edges oriented)",
+    "Recognition": "All edges oriented (cross)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U2 R' U' R U R' U' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Pi (Bruno)",
+    "CaseID": "OLL-22",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:22"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U2 R2 U' R2 U' R2 U2 R",
+    "MoveCount": 9,
+    "Pattern": "YB|BYOY3GYO/GRBR6/RGYB6/W9/YBYO6/YORG6",
+    "Description": "Orients all corners (edges oriented)",
+    "Recognition": "All edges oriented, Pi-shape (two opposite corners oriented)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' U2 R2 U R2 U R2 U2 R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Headlights",
+    "CaseID": "OLL-23",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:23"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R2 D R' U2 R D' R' U2 R'",
+    "MoveCount": 9,
+    "Pattern": "YB|Y6RYB/ORBR6/YBYB6/W9/O2GO6/RG8",
+    "Description": "Orients all corners (edges oriented)",
+    "Recognition": "All edges oriented, two adjacent corners (headlights)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U2 R D R' U2 R D' R2",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Bowtie",
+    "CaseID": "OLL-25",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:25"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "F2L-40",
+    "Moves": "F' Rw U R' U' Rw' F R",
+    "MoveCount": 8,
+    "Pattern": "YB|BY7G/R2GR6/B2YB6/W9/YO8/OGRG6",
+    "Description": "Orients all corners (edges oriented)",
+    "Recognition": "All edges oriented, bowtie shape",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' F' Rw U R U' Rw' F",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Stealth",
+    "CaseID": "OLL-28",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:28"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "OLL-57",
+    "Moves": "Rw U R' U' M U R U' R'",
+    "MoveCount": 9,
+    "Pattern": "YB|Y5BYGY/RYR7/BYB7/W9/O9/GRG7",
+    "Description": "Orients three corners",
+    "Recognition": "Edges oriented, “Stealth” corner pattern",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U' M' U R U' Rw'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Spotted Chameleon",
+    "CaseID": "OLL-29",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:29"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "y R U R' U' R U' R' F' U' F R U R'",
+    "MoveCount": 14,
+    "Pattern": "YB|YBY3R2YR/Y2OB6/BOGO6/W9/OGYG6/BYGR6",
+    "Description": "Orients three corners",
+    "Recognition": "Edges oriented, “chameleon” (one oriented corner diagonal from another)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R' F' U F R U R' U R U' R' y'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Anti Chameleon",
+    "CaseID": "OLL-30",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:30"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "y' F U R U2 R' U' R U2 R' U' F'",
+    "MoveCount": 12,
+    "Pattern": "YB|Y2BOY3B2/OR2G6/GY2R6/W9/OYRB6/YG2O6",
+    "Description": "Orients three corners",
+    "Recognition": "Edges oriented, chameleon mirror",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F U R U2 R' U R U2 R' U' F' y",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Couch",
+    "CaseID": "OLL-31",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:31"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R' U' F U R U' R' F' R",
+    "MoveCount": 9,
+    "Pattern": "YB|GY2GY2OBY/R2GR6/Y2B7/W9/RYBO6/O2YG6",
+    "Description": "Orients three corners",
+    "Recognition": "Edges oriented, 2x1 block + one oriented corner",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' F R U R' U' F' U R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Anti-Couch",
+    "CaseID": "OLL-32",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:32"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "S R U R' U' R' F R Fw'",
+    "MoveCount": 9,
+    "Pattern": "YB|B2YGY2RY2/R2GR6/YOB7/W9/OYGO6/OY2G6",
+    "Description": "Orients three corners",
+    "Recognition": "Edges oriented, mirror of Couch",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Fw R' F' R U R U' R' S'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "City",
+    "CaseID": "OLL-34",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:34"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R2 U' R' F R U R U' F'",
+    "MoveCount": 11,
+    "Pattern": "YB|RB2Y4RY/RGYR6/OYB7/W9/YOGO6/OYG7",
+    "Description": "Orients two corners",
+    "Recognition": "Edges oriented, “C” shape (city)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F U R' U' R' F' R U R2 U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Bowtie (mirror)",
+    "CaseID": "OLL-35",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:35",
+      "cfop_oll.csv:48"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": [
+      "OLL-48",
+      "Anti-Breakneck"
+    ],
+    "InverseID": "",
+    "Moves": "F' L' U' L U L' U' L U F",
+    "MoveCount": 10,
+    "Pattern": "YB|OYGBY2OGB/YRYR6/Y2RB6/W9/GYBO6/ROYG6",
+    "Description": "Orients two corners",
+    "Recognition": "Edges oriented, bowtie mirrored",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U' L' U L U' L' U L F",
+    "Mirror": "OLL-47",
+    "Related": null
+  },
+  {
+    "Name": "Wario",
+    "CaseID": "OLL-36",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:36"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R' U' R U' R' U R U Lw U' R' U x",
+    "MoveCount": 13,
+    "Pattern": "YB|YROY2GRY2/RY2R6/YOB7/W9/B2GO6/GYOG6",
+    "Description": "Orients two corners",
+    "Recognition": "Edges oriented, W-shape (left headlights)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "x' U' R U Lw' U' R' U' R U R' U R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Mario",
+    "CaseID": "OLL-37",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:37"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' U R U' R' U' R' F R F'",
+    "MoveCount": 12,
+    "Pattern": "YB|RY4BYRO/Y2R7/OYB7/W9/BG2O6/GOYG6",
+    "Description": "Orients two corners",
+    "Recognition": "Edges oriented, W-shape mirror",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R U R U R' U' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Mounted Fish",
+    "CaseID": "OLL-38",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:38"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F R U' R' U' R U R' F'",
+    "MoveCount": 9,
+    "Pattern": "YB|Y2BY2BG2Y/GY2R6/Y2RB6/W9/R2O7/O2BG6",
+    "Description": "Orients two corners",
+    "Recognition": "Edges oriented, fish shape",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R U' R' U R U R' F'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Awkward Fish",
+    "CaseID": "OLL-41",
+    "Category": "OLL",
+    "Categories": [
+      "Advanced"
+    ],
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:41",
+      "coll_zbll_etc.csv:3"
+    ],
+    "References": [
+      "cubingcheatsheet.com",
+      "speedsolving.com"
+    ],
+    "Aliases": [
+      "WV-1",
+      "Winter Variation"
+    ],
+    "InverseID": "",
+    "Moves": "R U R' U R U2 R' F R U R' U' F'",
+    "MoveCount": 13,
+    "Pattern": "YB|BYBY2BYRY/GYR7/OYRB6/W9/OG2O6/YOYG6",
+    "Description": "Orients one corner",
+    "Recognition": "Edges oriented, “awkward” fish pattern",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F U R U' R' F' R U2 R' U' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Awkward Fish (L)",
+    "CaseID": "OLL-42",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:42"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R' U' R U' R' U2 R F R U R' U' F'",
+    "MoveCount": 13,
+    "Pattern": "YB|YBY3RGYG/RYBR6/YOYB6/W9/BGO7/RYOG6",
+    "Description": "Orients one corner",
+    "Recognition": "Edges oriented, mirror awkward fish",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F U R U' R' F' R' U2 R U R' U R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Anti-P",
+    "CaseID": "OLL-43",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:43"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Fw' L' U' L U Fw",
+    "MoveCount": 6,
+    "Pattern": "YB|YBOY2GY2O/Y3R6/R2B7/W9/GOBO6/GYRG6",
+    "Description": "Orients all edges, two corners",
+    "Recognition": "All edges oriented, “anti-P” pattern",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Fw' U' L' U L Fw",
+    "Mirror": "OLL-44",
+    "Related": null
+  },
+  {
+    "Name": "P",
+    "CaseID": "OLL-44",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:44"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Fw R U R' U' Fw'",
+    "MoveCount": 6,
+    "Pattern": "YB|RBYGY2RY2/BRGR6/BO2B6/W9/Y3O6/OYG7",
+    "Description": "Orients all edges, two corners",
+    "Recognition": "All edges oriented, P-shape (two adjacent oriented corners)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Fw U R U' R' Fw'",
+    "Mirror": "OLL-43",
+    "Related": null
+  },
+  {
+    "Name": "Breakneck",
+    "CaseID": "OLL-47",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:47"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F R U R' U' R U R' U' F'",
+    "MoveCount": 10,
+    "Pattern": "YB|GYRY2B2GR/BYGR6/OY2B6/W9/YOYO6/YROG6",
+    "Description": "Orients edges (L-case)",
+    "Recognition": "No corners oriented, L-shape “breakneck”",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F U R U' R' U R U' R' F'",
+    "Mirror": "OLL-35",
+    "Related": null
+  },
+  {
+    "Name": "Right Back Squeezy",
+    "CaseID": "OLL-49",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:49"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "OLL-50",
+    "Moves": "Rw U' Rw2 U Rw2 U Rw2 U' Rw",
+    "MoveCount": 9,
+    "Pattern": "YB|BYOGY2GO2/GRBR6/RY2B6/W9/Y3O6/YBRG6",
+    "Description": "Orients edges (L-case)",
+    "Recognition": "No corners oriented, requires wide moves",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Rw' U Rw2 U' Rw2 U' Rw2 U Rw'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Right Front Squeezy",
+    "CaseID": "OLL-50",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:50"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "OLL-49",
+    "Moves": "Rw' U Rw2 U' Rw2 U' Rw2 U Rw'",
+    "MoveCount": 9,
+    "Pattern": "YB|BO2BY2GYO/GRBR6/RGYB6/W9/Y3O6/Y2RG6",
+    "Description": "Orients edges (L-case)",
+    "Recognition": "No corners oriented, wide moves mirror",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Rw U' Rw2 U Rw2 U Rw2 U' Rw",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Bottlecap",
+    "CaseID": "OLL-51",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:51"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Fw R U R' U' R U R' U' Fw'",
+    "MoveCount": 10,
+    "Pattern": "YB|GORY3BGR/BRGR6/OY2B6/W9/YBYO6/Y2OG6",
+    "Description": "Orients edges (T-case)",
+    "Recognition": "Edges oriented, symmetric “cap” pattern",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Fw U R U' R' U R U' R' Fw'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Rice Cooker",
+    "CaseID": "OLL-52",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:52"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' U R Dw' R U' R' F'",
+    "MoveCount": 10,
+    "Pattern": "YB|RYG2YBOYG/Y3B6/YO8/W9/BYBG6/R2YR6",
+    "Description": "Orients edges (T-case)",
+    "Recognition": "Edges oriented, asymmetric T pattern",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R U R' Dw R' U' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Frying Pan",
+    "CaseID": "OLL-53",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:53"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Rw' U' R U' R' U R U' R' U2 Rw",
+    "MoveCount": 11,
+    "Pattern": "YB|GRG2Y2BYB/YOYR6/OBRB6/W9/Y3O6/RYOG6",
+    "Description": "Orients edges (T-case)",
+    "Recognition": "Edges oriented, “frying pan” shape",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Rw' U2 R U R' U' R U R' U Rw",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Anti-Frying Pan",
+    "CaseID": "OLL-54",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:54"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Rw U R' U R U' R' U R U2 Rw'",
+    "MoveCount": 11,
+    "Pattern": "YB|GYGBY2BRB/YOYR6/OYRB6/W9/Y3O6/RGOG6",
+    "Description": "Orients edges (T-case)",
+    "Recognition": "Edges oriented, frying pan mirror",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Rw U2 R' U' R U R' U' R U' Rw'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Highway",
+    "CaseID": "OLL-55",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:55"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "y R' F R U R U' R2 F' R2 U' R' U R U R'",
+    "MoveCount": 16,
+    "Pattern": "YB|GYGBYRBYB/Y3B6/OGRO6/W9/Y3G6/RO2R6",
+    "Description": "Orients edges (I-case)",
+    "Recognition": "Edges oriented, line through top pattern",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R' U' R U R2 F R2 U R' U' R' F' R y'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Streetlights",
+    "CaseID": "OLL-56",
+    "Category": "OLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:56"
+    ],
+    "References": [
+      "cubingcheatsheet.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "F R U R' U' R F' Rw U R' U' Rw'",
+    "MoveCount": 12,
+    "Pattern": "YB|RBRY3BRG/YGYR6/OYOB6/W9/YOYO6/BYG7",
+    "Description": "Orients edges (I-case)",
+    "Recognition": "Edges oriented, two opposite blocks",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Rw U R U' Rw' F R' U R U' R' F'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Mummy",
+    "CaseID": "OLL-57",
+    "Category": "OLL",
+    "Categories": [
+      "ROUX-CMLL"
+    ],
+    "Dimension": 3,
+    "Sources": [
+      "cfop_oll.csv:57",
+      "roux.csv:2"
+    ],
+    "References": [
+      "cubingcheatsheet.com",
+      "rouxers.com"
+    ],
+    "Aliases": [
+      "ROUX-CMLL-2",
+      "CMLL T-case"
+    ],
+    "InverseID": "OLL-28",
+    "Moves": "R U R' U' M' U R U' Rw'",
+    "MoveCount": 9,
+    "Pattern": "YB|YBY5RY/RGR7/BYB7/W9/O9/GYG7",
+    "Description": "Orients edges (I-case)",
+    "Recognition": "Edges oriented, “mummy” pattern (horizontal lines)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Rw U R' U' M U R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Aa Permutation",
+    "CaseID": "PLL-Aa",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:1"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "x R' U R' D2 R U' R' D2 R2 x'",
+    "MoveCount": 11,
+    "Pattern": "YB|Y9/ORBR6/B2GB6/W9/GO8/RGRG6",
+    "Description": "Swaps 2 corner pairs (diagonal swap)",
+    "Recognition": "One set of headlights present, edges solved",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "x R2 D2 R U R' D2 R U' R x'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Ab Permutation",
+    "CaseID": "PLL-Ab",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:2"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "x R D' R U2 R' D R U2 R2 x'",
+    "MoveCount": 11,
+    "Pattern": "YB|Y9/GROR6/RBRB6/W9/O2BO6/BG8",
+    "Description": "Swaps 2 corner pairs (diagonal swap)",
+    "Recognition": "No headlights (opposite corners swap), edges solved",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "x R2 U2 R' D' R U2 R' D R' x'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "F Permutation",
+    "CaseID": "PLL-F",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:4"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R' U2 R' Dw' R' F' R2 U' R' U R' F R U' F",
+    "MoveCount": 15,
+    "Pattern": "YB|Y9/OGB7/BOGO6/W9/GBOG6/R9",
+    "Description": "Swaps one corner/edge block with another",
+    "Recognition": "1x1 block and adjacent corner swap",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U R' F' R U' R U R2 F R Dw R U2 R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "H Permutation",
+    "CaseID": "PLL-H",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:5"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "PLL-H",
+    "Moves": "M2 U M2 U2 M2 U M2",
+    "MoveCount": 7,
+    "Pattern": "YB|Y9/ROR7/BGB7/W9/ORO7/GBG7",
+    "Description": "Swaps opposite edges (double swap)",
+    "Recognition": "Opposite edges swapped, corners solved",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "M2 U' M2 U2 M2 U' M2",
+    "Mirror": "PLL-H",
+    "Related": null
+  },
+  {
+    "Name": "Z Permutation",
+    "CaseID": "PLL-Z",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:6"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "PLL-Z",
+    "Moves": "M2 U M2 U M' U2 M2 U2 M'",
+    "MoveCount": 9,
+    "Pattern": "YB|Y9/OGOR6/GOGB6/W9/RBRO6/BRBG6",
+    "Description": "Swaps two edges sets (adjacent swap)",
+    "Recognition": "Two diagonal edge swaps (zigzag pattern), corners solved",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "M U2 M2 U2 M U' M2 U' M2",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "U Permutation (A)",
+    "CaseID": "PLL-Ua",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:7"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "PLL-Ub",
+    "Moves": "R U' R U R U R U' R' U' R2",
+    "MoveCount": 11,
+    "Pattern": "YB|Y9/ROR7/BRB7/W9/OBO7/G9",
+    "Description": "Cycles 3 edges clockwise",
+    "Recognition": "One 3-edge cycle, no corners moved",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R2 U R U R' U' R' U' R' U R'",
+    "Mirror": "PLL-Ub",
+    "Related": null
+  },
+  {
+    "Name": "U Permutation (B)",
+    "CaseID": "PLL-Ub",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:8"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "PLL-Ua",
+    "Moves": "R2 U R U R' U' R' U' R' U R'",
+    "MoveCount": 11,
+    "Pattern": "YB|Y9/RBR7/BOB7/W9/ORO7/G9",
+    "Description": "Cycles 3 edges counterclockwise",
+    "Recognition": "Opposite of Ua perm (3-edge cycle CCW)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' R U R U R U' R' U' R2",
+    "Mirror": "PLL-Ua",
+    "Related": null
+  },
+  {
+    "Name": "V Permutation",
+    "CaseID": "PLL-V",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:9"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R' U R' U' y R' F' R2 U' R' U R' F R F",
+    "MoveCount": 15,
+    "Pattern": "YB|Y9/GRB7/O2RO6/W9/BG8/RBOR6",
+    "Description": "Cycles 3 corners + 3 edges",
+    "Recognition": "No headlights, 2x1 block plus one misoriented corner",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' R' F' R U' R U R2 F R y' U R U' R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Y Permutation",
+    "CaseID": "PLL-Y",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:10",
+      "cfop_pll.csv:14"
+    ],
+    "References": [
+      "algdb.net"
+    ],
+    "Aliases": [
+      "PLL-Ra",
+      "R Permutation A"
+    ],
+    "InverseID": "PLL-Y",
+    "Moves": "F R U' R' U' R U R' F' R U R' U' R' F R F'",
+    "MoveCount": 17,
+    "Pattern": "YB|Y9/OR8/B2GB6/W9/RGO7/GOBG6",
+    "Description": "Swaps two corners and two edges (diagonal)",
+    "Recognition": "“Headlights” on one side, opposite corner-edge block",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R U R U' R' F R U' R' U R U R' F'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "T Permutation",
+    "CaseID": "PLL-T-CSV",
+    "Category": "PLL",
+    "Categories": [
+      "Advanced"
+    ],
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:11",
+      "coll_zbll_etc.csv:2",
+      "coll_zbll_etc.csv:8"
+    ],
+    "References": [
+      "jperm.net",
+      "algdb.net",
+      "speedsolving.com"
+    ],
+    "Aliases": [
+      "PLL-T",
+      "COLL-T1",
+      "TOLL (T-COLL)",
+      "VLS-1",
+      "VLS"
+    ],
+    "InverseID": "PLL-T-CSV",
+    "Moves": "R U R' U' R' F R2 U' R' U' R U R' F'",
+    "MoveCount": 14,
+    "Pattern": "YB|Y9/GOBR6/B2RB6/W9/ORO7/RG8",
+    "Description": "Swaps 2 adjacent corners and 2 edges",
+    "Recognition": "2x2 solved block plus headlights on one face",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R U' R' U R U R2 F' R U R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "J Permutation A",
+    "CaseID": "PLL-Ja",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:12"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "x R2 F R F' R U2 Rw' U Rw U2",
+    "MoveCount": 11,
+    "Pattern": "YB|G9/W2YR6/Y2RY6/B9/O9/R2W7",
+    "Description": "Cycles 3 corners \u0026 3 edges",
+    "Recognition": "1x3 block and 1x2 block present",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "U2 Rw' U' Rw U2 R' F R' F' R2 x'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "R Permutation B",
+    "CaseID": "PLL-Rb",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:15"
+    ],
+    "References": [
+      "algdb.net"
+    ],
+    "Aliases": null,
+    "InverseID": "PLL-Rb",
+    "Moves": "R' U2 R U2 R' F R U R' U' R' F' R2 U'",
+    "MoveCount": 14,
+    "Pattern": "YB|Y9/RBGR6/BRB7/W9/GO8/OGRG6",
+    "Description": "Swaps 3 corners + 1 edge pair",
+    "Recognition": "Headlights + one 1x2 block (block on left)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "U R2 F R U R U' R' F' R U2 R' U2 R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "N Permutation A",
+    "CaseID": "PLL-Na",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:16"
+    ],
+    "References": [
+      "algdb.net"
+    ],
+    "Aliases": null,
+    "InverseID": "PLL-Na",
+    "Moves": "L U' R U2 L' U R' L U' R U2 L' U R'",
+    "MoveCount": 14,
+    "Pattern": "YB|Y9/BG2R6/RO2B6/W9/GB2O6/OR2G6",
+    "Description": "Cycles 4 corners + 2 edges",
+    "Recognition": "No headlights, multiple 1x2 blocks",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U' L U2 R' U L' R U' L U2 R' U L'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "G Permutation A",
+    "CaseID": "PLL-Ga",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:18"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "PLL-Gb",
+    "Moves": "R2 Uw R' U R' U' R Uw' R2 y' R' U R",
+    "MoveCount": 13,
+    "Pattern": "YB|Y9/GOBG6/BR8/W9/OGOB6/RBGO6",
+    "Description": "Cycles corners \u0026 edges (G pattern)",
+    "Recognition": "1x2 block and headlights (block on right, adjacent color)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' U' R y R2 Uw R' U R U' R Uw' R2",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "G Permutation B",
+    "CaseID": "PLL-Gb",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:19"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "PLL-Ga",
+    "Moves": "R' U' R y R2 Uw R' U R U' R Uw' R2",
+    "MoveCount": 13,
+    "Pattern": "YB|Y9/GB8/BGRO6/W9/OROG6/ROGR6",
+    "Description": "Cycles corners \u0026 edges (G pattern)",
+    "Recognition": "1x2 block and headlights (block on left, adjacent color)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R2 Uw R' U R' U' R Uw' R2 y' R' U R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "G Permutation C",
+    "CaseID": "PLL-Gc",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:20"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "PLL-Gd",
+    "Moves": "R2 Uw' R U' R U R' Uw R2 y R U' R'",
+    "MoveCount": 13,
+    "Pattern": "YB|Y9/GOB7/BGRO6/W9/OBOG6/R2GR6",
+    "Description": "Cycles corners \u0026 edges (G pattern)",
+    "Recognition": "1x2 block and headlights (block on right, opposite color)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' y' R2 Uw' R U' R' U R' Uw R2",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "G Permutation D",
+    "CaseID": "PLL-Gd",
+    "Category": "PLL",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "cfop_pll.csv:21"
+    ],
+    "References": [
+      "jperm.net"
+    ],
+    "Aliases": null,
+    "InverseID": "PLL-Gc",
+    "Moves": "R U R' y' R2 Uw' R U' R' U R' Uw R2",
+    "MoveCount": 13,
+    "Pattern": "YB|Y9/G2BG6/BOR7/W9/OROB6/RBGO6",
+    "Description": "Cycles corners \u0026 edges (G pattern)",
+    "Recognition": "1x2 block and headlights (block on left, opposite color)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R2 Uw' R U' R U R' Uw R2 y R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "ULL (Corners Oriented)",
+    "CaseID": "COLL-U1",
+    "Category": "Advanced",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "coll_zbll_etc.csv:1"
+    ],
+    "References": [
+      "algdb.net"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U2 R' U' R U' R2 U2 R U R' U R",
+    "MoveCount": 13,
+    "Pattern": "YB|GYGY6/RBYR6/BRB7/W9/YGO7/RO2G6",
+    "Description": "Orients and permutes corners in 'U' OLL case",
+    "Recognition": "Edges remain oriented (COLL subset)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' U' R U' R' U2 R2 U R' U R U2 R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Summer Variation",
+    "CaseID": "SV-1",
+    "Category": "Advanced",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "coll_zbll_etc.csv:4"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "Rw U' Rw' U' Rw U Rw' F' U F",
+    "MoveCount": 10,
+    "Pattern": "YB|RBOY4OG/R2YR6/BY2B6/W9/BGO7/GY2G6",
+    "Description": "Inserts last pair while orienting LL corners",
+    "Recognition": "Used when one slot left, corners unoriented",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F' U' F Rw U' Rw' U Rw U Rw'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "ZBLL (Sune)",
+    "CaseID": "ZBLL-AS1",
+    "Category": "Advanced",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "coll_zbll_etc.csv:5"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' U R U' R' U R U2 R' U' R U' R'",
+    "MoveCount": 15,
+    "Pattern": "YB|WYBY2BGYR/YRYGR2YR2/YRGB2YB3/W2RW6/B2O7/O2RG6",
+    "Description": "Solves last layer with edges oriented (Sune case)",
+    "Recognition": "Edges pre-oriented (ZZ method)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U R U2 R' U' R U R' U' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "ZBLL (H)",
+    "CaseID": "ZBLL-H1",
+    "Category": "Advanced",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "coll_zbll_etc.csv:6"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R' U R U' Lw U' R' U R U' R' U2 R Lw'",
+    "MoveCount": 14,
+    "Pattern": "YB|RYRY5G/YGYR2OR2G/B2OB6/W6R2W/YO2WO2WO2/BRG4OG2",
+    "Description": "Solves LL with edges oriented (H case)",
+    "Recognition": "Edges oriented (cross on top)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "Lw R' U2 R U R' U' R U Lw' U R' U' R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "OLLCP",
+    "CaseID": "OLLCP-1",
+    "Category": "Advanced",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "coll_zbll_etc.csv:7"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U R' U R U' R' U R U' R'",
+    "MoveCount": 11,
+    "Pattern": "YB|RYGBY2OYB/RGYBR2BR2/GOWB2YB2Y/W2OW6/BRYO6/R2YG6",
+    "Description": "Orients last layer and permutes corners simultaneously",
+    "Recognition": "Leads to corner skip in PLL",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R U R' U' R U R' U' R U' R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "LSE EO",
+    "CaseID": "ROUX-LSE-1",
+    "Category": "ROUX-LSE",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "roux.csv:3"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "M U M U M U2 M' U M'",
+    "MoveCount": 9,
+    "Pattern": "YB|YWY2BY4/B3R6/OROBWB2WB/WGW2GW2OW/G3O6/RBRGYG2YG",
+    "Description": "Orients last six edges (Roux)",
+    "Recognition": "M-slice edges misoriented (do M U until solved)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "M U' M U2 M' U' M' U' M'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "LSE Ulti",
+    "CaseID": "ROUX-LSE-2",
+    "Category": "ROUX-LSE",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "roux.csv:4"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "M2 U M2 U M2",
+    "MoveCount": 5,
+    "Pattern": "YB|Y4WY4/OBOR6/GOGBGB2GB/W4YW4/RGRO6/BRBGBG2BG",
+    "Description": "Permutes last four edges (Roux)",
+    "Recognition": "Solves remaining M-slice edges (endgame)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "M2 U' M2 U' M2",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Sledgehammer",
+    "CaseID": "TRIG-2",
+    "Category": "Trigger",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "triggers.csv:2"
+    ],
+    "References": [
+      "ruwix.com"
+    ],
+    "Aliases": null,
+    "InverseID": "TRIG-3",
+    "Moves": "R' F R F'",
+    "MoveCount": 4,
+    "Pattern": "YB|Y2OY2BR2B/R2BYR2YR2/Y2WB6/W2RW6/O2GO6/YG8",
+    "Description": "Inverse of Sexy (used in F2L)",
+    "Recognition": "Common for inserting pairs or OLL cases",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "F R' F' R",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Hedgeslammer",
+    "CaseID": "TRIG-3",
+    "Category": "Trigger",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "triggers.csv:3"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "TRIG-2",
+    "Moves": "F R' F' R",
+    "MoveCount": 4,
+    "Pattern": "YB|Y2BY2BGR2/WY2R6/RB4YB2Y/W2BW6/O2YO6/OG8",
+    "Description": "Reverse of Sledgehammer",
+    "Recognition": "Used to insert F2L pairs from front side",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "R' F R F'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "Niklas",
+    "CaseID": "TRIG-5",
+    "Category": "Trigger",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "triggers.csv:5"
+    ],
+    "References": [
+      "speedsolving.com"
+    ],
+    "Aliases": null,
+    "InverseID": "",
+    "Moves": "R U' L' U R' U' L",
+    "MoveCount": 7,
+    "Pattern": "YB|GYBY5O/G2YR6/R2YB6/W9/RB2O6/O2YG6",
+    "Description": "3-corner cycle commutator",
+    "Recognition": "Used to twist 3 corners (beginner LL)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "L' U R U' L U R'",
+    "Mirror": "",
+    "Related": null
+  },
+  {
+    "Name": "U2 Double Turn",
+    "CaseID": "TRIG-7",
+    "Category": "Trigger",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "triggers.csv:7"
+    ],
+    "References": [
+      "notation guide"
+    ],
+    "Aliases": null,
+    "InverseID": "TRIG-7",
+    "Moves": "U2",
+    "MoveCount": 1,
+    "Pattern": "YB|Y9/O3R6/G3B6/W9/R3O6/B3G6",
+    "Description": "180° turn of U layer",
+    "Recognition": "Common in many algorithms (denoted U2)",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "U2",
+    "Mirror": "TRIG-7",
+    "Related": null
+  },
+  {
+    "Name": "M2 Slice",
+    "CaseID": "TRIG-9",
+    "Category": "Trigger",
+    "Categories": null,
+    "Dimension": 3,
+    "Sources": [
+      "triggers.csv:9"
+    ],
+    "References": [
+      "notation guide"
+    ],
+    "Aliases": null,
+    "InverseID": "TRIG-9",
+    "Moves": "M2",
+    "MoveCount": 1,
+    "Pattern": "YB|YWY2WY2WY/R9/BGB2GB2GB/WYW2YW2YW/O9/GBG2BG2BG",
+    "Description": "180° middle slice turn",
+    "Recognition": "Used in H perm, Z perm etc",
+    "Probability": 0,
+    "Variants": null,
+    "Inverse": "M2",
+    "Mirror": "TRIG-9",
+    "Related": null
+  }
+]

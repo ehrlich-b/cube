@@ -1,0 +1,197 @@
+[
+  {
+    "Source": "big_cubes.csv:4",
+    "Row": [
+      "5x5-Edge-PARITY",
+      "5x5 Edge Parity",
+      "5x5-PARITY",
+      "(apply 4x4 OLL parity alg)",
+      "Fixes odd-parity in edge pairing",
+      "Single wing flip or swap on 5x5",
+      "speedsolving.com"
+    ],
+    "Reason": "unresolved reference or invalid move \"apply\""
+  },
+  {
+    "Source": "big_cubes.csv:6",
+    "Row": [
+      "7x7-Parity",
+      "7x7 Parity",
+      "7x7-PARITY",
+      "(similar algorithms as 5x5/6x6)",
+      "Any parity on 7x7 (multiple types)",
+      "Multiple wing swaps or flips",
+      "speedsolving.com"
+    ],
+    "Reason": "unresolved reference or invalid move \"similar\""
+  },
+  {
+    "Source": "cfop_oll.csv:9",
+    "Row": [
+      "OLL-9",
+      "Fish Hook",
+      "CFOP-OLL",
+      "(y) R' U' F' U F R U R' U' R U' R'",
+      "Orients edges and corners (L shape)",
+      "One edge oriented (L-shaped pattern)",
+      "speedsolving.com"
+    ],
+    "Reason": "claimed OLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_oll.csv:10",
+    "Row": [
+      "OLL-10",
+      "Anti Fish Hook",
+      "CFOP-OLL",
+      "(y2) F (U R U' R') F' U R U' R' U' R U' R'",
+      "Orients edges and corners (L shape)",
+      "One edge oriented (L-shape mirrored)",
+      "speedsolving.com"
+    ],
+    "Reason": "claimed OLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_oll.csv:11",
+    "Row": [
+      "OLL-11",
+      "Headlights",
+      "CFOP-OLL",
+      "(R U R' U')^2 (R' F R F')^2",
+      "Orients edges and corners (L shape)",
+      "Two adjacent corners oriented (headlights):contentReference[oaicite:2]{index=2}",
+      "cubingcheatsheet.com"
+    ],
+    "Reason": "claimed OLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_oll.csv:20",
+    "Row": [
+      "OLL-20",
+      "Little Lightning (mirror)",
+      "CFOP-OLL",
+      "M U (R U R' U') r",
+      "Orients edges and one corner",
+      "Small bolt mirrored",
+      "speedsolving.com"
+    ],
+    "Reason": "claimed OLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_oll.csv:39",
+    "Row": [
+      "OLL-39",
+      "Freak",
+      "CFOP-OLL",
+      "(R U R' U') M (U R U' R')",
+      "Orients one corner",
+      "One edge and one corner oriented",
+      "speedsolving.com"
+    ],
+    "Reason": "claimed OLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_oll.csv:40",
+    "Row": [
+      "OLL-40",
+      "Freak (mirror)",
+      "CFOP-OLL",
+      "(R U R' U') r'",
+      "Orients one corner",
+      "Mirror of Freak case",
+      "speedsolving.com"
+    ],
+    "Reason": "claimed OLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_oll.csv:45",
+    "Row": [
+      "OLL-45",
+      "Slash",
+      "CFOP-OLL",
+      "(y2) r' U2 r U r' U' r",
+      "Orients edges (line case)",
+      "No corners oriented, line on top",
+      "speedsolving.com"
+    ],
+    "Reason": "claimed OLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_oll.csv:46",
+    "Row": [
+      "OLL-46",
+      "Slash (mirror)",
+      "CFOP-OLL",
+      "(y2) x' L' U L F L' U' L x",
+      "Orients edges (line case)",
+      "No corners oriented, line mirrored",
+      "speedsolving.com"
+    ],
+    "Reason": "claimed OLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_pll.csv:3",
+    "Row": [
+      "PLL-E",
+      "E Permutation",
+      "CFOP-PLL",
+      "x' R U' R D R' U R D' R' U R D R' U' R D' x",
+      "Cycle 4 corners (alternating)",
+      "No headlights, no 2x2 blocks, edges solved",
+      "speedsolving.com"
+    ],
+    "Reason": "claimed PLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_pll.csv:13",
+    "Row": [
+      "PLL-Jb",
+      "J Permutation B",
+      "CFOP-PLL",
+      "(x) R U R' F' R U R' U' R' F R2 U' R' U'",
+      "Cycles 3 corners \u0026 3 edges",
+      "Mirror of Ja (blocks on opposite side)",
+      "jperm.net"
+    ],
+    "Reason": "claimed PLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_pll.csv:17",
+    "Row": [
+      "PLL-Nb",
+      "N Permutation B",
+      "CFOP-PLL",
+      "r' U R' U' r L' U R U' l' R",
+      "Cycles 4 corners + 2 edges",
+      "No headlights, multiple 1x2 blocks (mirror of Na)",
+      "algdb.net"
+    ],
+    "Reason": "claimed PLL algorithm disturbs the first two layers"
+  },
+  {
+    "Source": "cfop_pll.csv:22",
+    "Row": [
+      "PLL-Aa*",
+      "PLL Skip",
+      "CFOP-PLL",
+      "(no algorithm needed)",
+      "Already solved last layer",
+      "All last-layer pieces solved",
+      "n/a"
+    ],
+    "Reason": "unresolved reference or invalid move \"no\""
+  },
+  {
+    "Source": "triggers.csv:8",
+    "Row": [
+      "TRIG-8",
+      "Cube Rotation x",
+      "Trigger",
+      "(turn cube on x-axis)",
+      "Reorient cube for algorithm",
+      "Not a face turn – cube rotation",
+      "notation guide"
+    ],
+    "Reason": "unresolved reference or invalid move \"turn\""
+  }
+]

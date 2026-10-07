@@ -41,9 +41,9 @@ func main() {
 	// Update move count
 	algorithm.UpdateMoveCount()
 
-	// Use solved cube as start state for pattern verification
-	startCFEN := "YB|Y9/R9/B9/W9/O9/G9" // Solved cube
-	targetCFEN := algorithm.Pattern     // Expected pattern after applying algorithm
+	// Pattern is the recognition state that this algorithm solves.
+	startCFEN := algorithm.Pattern
+	targetCFEN, _ := cfen.GenerateCFEN(cube.NewCube(algorithm.Dimension))
 
 	// Perform verification
 	err := verifyAlgorithm(algorithm, startCFEN, targetCFEN, verbose)

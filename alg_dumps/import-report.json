@@ -1,0 +1,28 @@
+{
+  "Files": 9,
+  "Rows": 159,
+  "Imported": 144,
+  "Merged": 18,
+  "Quarantined": 15,
+  "Verified3x3": 117,
+  "VerifiedOther": 14,
+  "Categories": {
+    "2x2-CLL": 6,
+    "2x2-EG1": 1,
+    "2x2-EG2": 1,
+    "2x2-OLL": 1,
+    "2x2-PBL": 2,
+    "4x4-PARITY": 2,
+    "5x5-PARITY": 1,
+    "6x6-PARITY": 1,
+    "Advanced": 7,
+    "F2L": 41,
+    "OLL": 46,
+    "PLL": 18,
+    "ROUX-CMLL": 2,
+    "ROUX-LSE": 2,
+    "Trigger": 8
+  },
+  "InversePairs": 21,
+  "MirrorPairs": 12
+}

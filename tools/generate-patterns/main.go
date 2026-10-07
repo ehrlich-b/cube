@@ -35,7 +35,7 @@ func main() {
 	fmt.Printf("Move Count: %d\n", len(parsedMoves))
 }
 
-// generatePattern creates a CFEN pattern by applying algorithm to solved cube
+// generatePattern creates a CFEN recognition pattern by applying the inverse to solved
 func generatePattern(moves string) (string, error) {
 	// Create solved cube in canonical YB orientation
 	c := cube.NewCube(3)
@@ -46,9 +46,11 @@ func generatePattern(moves string) (string, error) {
 		return "", err
 	}
 
-	// Apply moves
-	for _, move := range parsedMoves {
-		c.ApplyMove(move)
+	// Apply the inverse so the supplied algorithm solves its recognition state.
+	for i := len(parsedMoves) - 1; i >= 0; i-- {
+		m := parsedMoves[i]
+		m.Clockwise = !m.Clockwise
+		c.ApplyMove(m)
 	}
 
 	// Get after state as CFEN

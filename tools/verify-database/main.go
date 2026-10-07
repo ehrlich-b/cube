@@ -65,8 +65,8 @@ func main() {
 		fmt.Printf("[%d/%d] Testing %s (%s)...", i+1, totalCount, alg.Name, alg.CaseID)
 
 		// Set up start and target CFENs
-		startCFEN := "YB|Y9/R9/B9/W9/O9/G9" // Always start from solved cube
-		targetCFEN := alg.Pattern           // Expected pattern after applying algorithm
+		startCFEN := alg.Pattern
+		targetCFEN, _ := cfen.GenerateCFEN(cube.NewCube(alg.Dimension))
 
 		// Perform verification
 		err := verifyAlgorithm(alg, startCFEN, targetCFEN, false)

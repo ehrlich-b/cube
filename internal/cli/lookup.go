@@ -73,13 +73,17 @@ Examples:
 
 			fmt.Printf("Moves: %s\n", alg.Moves)
 			fmt.Printf("Description: %s\n", alg.Description)
+			fmt.Printf("Dimension: %dx%d\n", alg.Dimension, alg.Dimension)
+			if len(alg.Aliases) > 0 {
+				fmt.Printf("Aliases: %s\n", strings.Join(alg.Aliases, ", "))
+			}
 
 			// Show a preview if color is enabled
 			useColor, _ := cmd.Flags().GetBool("color")
 			preview, _ := cmd.Flags().GetBool("preview")
 			if preview {
 				fmt.Println("\nPreview (applied to solved cube):")
-				previewAlgorithm(alg.Moves, useColor)
+				previewAlgorithm(alg, useColor)
 			}
 		}
 
@@ -89,9 +93,9 @@ Examples:
 	},
 }
 
-func previewAlgorithm(moves string, useColor bool) {
-	c := cube.NewCube(3)
-	parsedMoves, err := cube.ParseScramble(moves)
+func previewAlgorithm(algorithm cube.Algorithm, useColor bool) {
+	c := cube.NewCube(algorithm.Dimension)
+	parsedMoves, err := cube.ParseScramble(algorithm.Moves)
 	if err != nil {
 		fmt.Printf("Error parsing moves: %v\n", err)
 		return
@@ -101,8 +105,8 @@ func previewAlgorithm(moves string, useColor bool) {
 
 	// Show only the top face for OLL/PLL preview
 	fmt.Println("Top face after algorithm:")
-	for row := 0; row < 3; row++ {
-		for col := 0; col < 3; col++ {
+	for row := 0; row < c.Size; row++ {
+		for col := 0; col < c.Size; col++ {
 			color := c.Faces[4][row][col] // Up face
 			if useColor {
 				fmt.Print(color.ColoredString())
