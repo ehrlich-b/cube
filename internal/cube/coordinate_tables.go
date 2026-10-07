@@ -6,7 +6,7 @@ import (
 	"encoding/gob"
 	"os"
 	"path/filepath"
-	"sync"
+	"time"
 )
 
 // Small, exact pattern databases provide admissible bounds in the face-turn
@@ -18,45 +18,100 @@ type coordinateTables struct {
 	TwistSlice, FlipSlice, CornerSlice, EdgeSlice, CornerDistance []uint8
 }
 
-var tablesOnce sync.Once
+var tablesLock = make(chan struct{}, 1)
 var tables *coordinateTables
 
 var phase2Moves = []int{1, 4, 7, 10, 12, 13, 14, 15, 16, 17}
 
 func solverTables() *coordinateTables {
-	tablesOnce.Do(func() {
-		if cached := loadCoordinateTables(); cached != nil {
-			tables = cached
-			return
+	return solverTablesLimit(time.Time{})
+}
+
+func tableDeadlineExceeded(deadline time.Time) bool {
+	return !deadline.IsZero() && !time.Now().Before(deadline)
+}
+
+// A timed caller can also stop waiting for another caller's initialization.
+func lockSearchTables(lock chan struct{}, deadline time.Time) bool {
+	if tableDeadlineExceeded(deadline) {
+		return false
+	}
+	if deadline.IsZero() {
+		lock <- struct{}{}
+		return true
+	}
+	timer := time.NewTimer(time.Until(deadline))
+	defer timer.Stop()
+	select {
+	case lock <- struct{}{}:
+		if tableDeadlineExceeded(deadline) {
+			<-lock
+			return false
 		}
-		t := &coordinateTables{}
-		t.Twist = makeMoveTable(2187, twistCubie, func(s cubie) int { return s.twist() }, false)
-		t.Flip = makeMoveTable(2048, flipCubie, func(s cubie) int { return s.flip() }, false)
-		t.Slice = makeMoveTable(495, sliceCubie, func(s cubie) int { return s.slice() }, false)
-		t.Corner = makeMoveTable(40320, func(x int) cubie { s := identityCubie(); setPermutation(s.cp[:], x); return s }, func(s cubie) int { return permutationRank(s.cp[:]) }, false)
-		t.Edge2 = makeMoveTable(40320, func(x int) cubie { s := identityCubie(); setPermutation(s.ep[:8], x); return s }, func(s cubie) int { return permutationRank(s.ep[:8]) }, true)
-		t.Slice2 = makeMoveTable(24, func(x int) cubie {
-			s := identityCubie()
-			setPermutation(s.ep[8:], x)
-			for i := 8; i < 12; i++ {
-				s.ep[i] += 8
-			}
-			return s
-		}, func(s cubie) int { return permutationRank(s.ep[8:]) }, true)
-		t.TwistSlice = pairPruning(t.Twist, t.Slice, 495, false)
-		t.FlipSlice = pairPruning(t.Flip, t.Slice, 495, false)
-		t.CornerSlice = pairPruning(t.Corner, t.Slice2, 24, true)
-		t.EdgeSlice = pairPruning(t.Edge2, t.Slice2, 24, true)
-		t.CornerDistance = pairPruning(t.Corner, make([]uint16, 18), 1, false)
-		tables = t
+		return true
+	case <-timer.C:
+		return false
+	}
+}
+
+func solverTablesLimit(deadline time.Time) *coordinateTables {
+	if !lockSearchTables(tablesLock, deadline) {
+		return nil
+	}
+	defer func() { <-tablesLock }()
+	if tables != nil {
+		return tables
+	}
+	if cached := loadCoordinateTablesLimit(deadline); cached != nil {
+		if tableDeadlineExceeded(deadline) {
+			return nil
+		}
+		tables = cached
+		return tables
+	}
+	t := &coordinateTables{}
+	t.Twist = makeMoveTable(2187, twistCubie, func(s cubie) int { return s.twist() }, false, deadline)
+	t.Flip = makeMoveTable(2048, flipCubie, func(s cubie) int { return s.flip() }, false, deadline)
+	t.Slice = makeMoveTable(495, sliceCubie, func(s cubie) int { return s.slice() }, false, deadline)
+	t.Corner = makeMoveTable(40320, func(x int) cubie { s := identityCubie(); setPermutation(s.cp[:], x); return s }, func(s cubie) int { return permutationRank(s.cp[:]) }, false, deadline)
+	t.Edge2 = makeMoveTable(40320, func(x int) cubie { s := identityCubie(); setPermutation(s.ep[:8], x); return s }, func(s cubie) int { return permutationRank(s.ep[:8]) }, true, deadline)
+	t.Slice2 = makeMoveTable(24, func(x int) cubie {
+		s := identityCubie()
+		setPermutation(s.ep[8:], x)
+		for i := 8; i < 12; i++ {
+			s.ep[i] += 8
+		}
+		return s
+	}, func(s cubie) int { return permutationRank(s.ep[8:]) }, true, deadline)
+	if tableDeadlineExceeded(deadline) {
+		return nil
+	}
+	t.TwistSlice = pairPruning(t.Twist, t.Slice, 495, false, deadline)
+	t.FlipSlice = pairPruning(t.Flip, t.Slice, 495, false, deadline)
+	t.CornerSlice = pairPruning(t.Corner, t.Slice2, 24, true, deadline)
+	t.EdgeSlice = pairPruning(t.Edge2, t.Slice2, 24, true, deadline)
+	t.CornerDistance = pairPruning(t.Corner, make([]uint16, 18), 1, false, deadline)
+	if tableDeadlineExceeded(deadline) {
+		return nil
+	}
+	// Publish only complete tables so a cancelled build can be retried.
+	tables = t
+	// Optional disk persistence must not extend a timed solve's setup.
+	if deadline.IsZero() {
 		saveCoordinateTables(t)
-	})
+	}
 	return tables
 }
 
-func makeMoveTable(size int, decode func(int) cubie, encode func(cubie) int, phase2 bool) []uint16 {
+func makeMoveTable(size int, decode func(int) cubie, encode func(cubie) int, phase2 bool, deadline time.Time) []uint16 {
+	if tableDeadlineExceeded(deadline) {
+		return nil
+	}
 	t := make([]uint16, size*18)
 	for x := 0; x < size; x++ {
+		if x&255 == 0 && tableDeadlineExceeded(deadline) {
+			return nil
+		}
 		s := decode(x)
 		for m := range cubieMoves {
 			if phase2 && m < 12 && m%3 != 1 {
@@ -68,7 +123,10 @@ func makeMoveTable(size int, decode func(int) cubie, encode func(cubie) int, pha
 	return t
 }
 
-func pairPruning(a, b []uint16, bSize int, phase2 bool) []uint8 {
+func pairPruning(a, b []uint16, bSize int, phase2 bool, deadline time.Time) []uint8 {
+	if tableDeadlineExceeded(deadline) {
+		return nil
+	}
 	dist := make([]uint8, len(a)/18*bSize)
 	for i := range dist {
 		dist[i] = 255
@@ -81,6 +139,9 @@ func pairPruning(a, b []uint16, bSize int, phase2 bool) []uint8 {
 		moves = phase2Moves
 	}
 	for head := 0; head < len(queue); head++ {
+		if head&1023 == 0 && tableDeadlineExceeded(deadline) {
+			return nil
+		}
 		x := int(queue[head])
 		ax, bx := x/bSize*18, x%bSize*18
 		for _, m := range moves {
@@ -107,16 +168,20 @@ func coordinateCachePath() string {
 }
 
 func loadCoordinateTables() *coordinateTables {
+	return loadCoordinateTablesLimit(time.Time{})
+}
+
+func loadCoordinateTablesLimit(deadline time.Time) *coordinateTables {
 	data, err := os.ReadFile(coordinateCachePath())
-	if err != nil || len(data) < 32 || len(data) > 16<<20 {
+	if err != nil || len(data) < 32 || len(data) > 16<<20 || tableDeadlineExceeded(deadline) {
 		return nil
 	}
 	sum := sha256.Sum256(data[32:])
-	if !bytes.Equal(data[:32], sum[:]) {
+	if !bytes.Equal(data[:32], sum[:]) || tableDeadlineExceeded(deadline) {
 		return nil
 	}
 	var t coordinateTables
-	if gob.NewDecoder(bytes.NewReader(data[32:])).Decode(&t) != nil {
+	if gob.NewDecoder(bytes.NewReader(data[32:])).Decode(&t) != nil || tableDeadlineExceeded(deadline) {
 		return nil
 	}
 	if len(t.Twist) != 2187*18 || len(t.Flip) != 2048*18 || len(t.Slice) != 495*18 || len(t.Corner) != 40320*18 || len(t.Edge2) != 40320*18 || len(t.Slice2) != 24*18 || len(t.TwistSlice) != 2187*495 || len(t.FlipSlice) != 2048*495 || len(t.CornerSlice) != 40320*24 || len(t.EdgeSlice) != 40320*24 || len(t.CornerDistance) != 40320 {

@@ -1,9 +1,6 @@
 package cube
 
-import (
-	"sync"
-	"time"
-)
+import "time"
 
 // Four labeled edges occupy 12P4 positions with 2^4 orientations. The three
 // disjoint groups share the same transitions and have separate solved goals.
@@ -12,7 +9,7 @@ type edgePatterns struct {
 	distance [3][]uint8
 }
 
-var edgeOnce sync.Once
+var edgeLock = make(chan struct{}, 1)
 var edgeDB *edgePatterns
 
 func edgeRank(pos [4]uint8, flip int) int {
@@ -70,7 +67,15 @@ func edgeCoordinate(s cubie, group int) int {
 }
 
 func searchEdgePatterns() *edgePatterns {
-	edgeOnce.Do(func() {
+	return searchEdgePatternsLimit(time.Time{})
+}
+
+func searchEdgePatternsLimit(deadline time.Time) *edgePatterns {
+	if !lockSearchTables(edgeLock, deadline) {
+		return nil
+	}
+	defer func() { <-edgeLock }()
+	if edgeDB == nil {
 		const size = 190080
 		db := &edgePatterns{moves: make([]uint32, size*18)}
 		var dest [18][12]uint8
@@ -80,6 +85,9 @@ func searchEdgePatterns() *edgePatterns {
 			}
 		}
 		for x := 0; x < size; x++ {
+			if x&255 == 0 && tableDeadlineExceeded(deadline) {
+				return nil
+			}
 			pos, flip := edgeUnrank(x)
 			for m, state := range cubieMoves {
 				var next [4]uint8
@@ -101,6 +109,9 @@ func searchEdgePatterns() *edgePatterns {
 			queue := make([]uint32, 1, size)
 			queue[0] = uint32(goal)
 			for head := 0; head < len(queue); head++ {
+				if head&1023 == 0 && tableDeadlineExceeded(deadline) {
+					return nil
+				}
 				x := queue[head]
 				for _, y := range db.moves[int(x)*18 : int(x)*18+18] {
 					if d[y] == 255 {
@@ -111,8 +122,11 @@ func searchEdgePatterns() *edgePatterns {
 			}
 			db.distance[g] = d
 		}
+		if tableDeadlineExceeded(deadline) {
+			return nil
+		}
 		edgeDB = db
-	})
+	}
 	return edgeDB
 }
 
@@ -216,11 +230,22 @@ func exactCoordinateSearch(state cubie, moves []Move, maxDepth int) ([]Move, boo
 }
 
 func exactCoordinateSearchLimit(state cubie, moves []Move, maxDepth int, deadline time.Time) ([]Move, bool, bool) {
+	if tableDeadlineExceeded(deadline) {
+		return nil, false, true
+	}
 	if state == identityCubie() {
 		return []Move{}, true, false
 	}
 	indices, _ := coordinateMoveIndices(moves)
-	s := exactSearch{t: solverTables(), edges: searchEdgePatterns(), allowed: indices, deadline: deadline}
+	t := solverTablesLimit(deadline)
+	if t == nil {
+		return nil, false, true
+	}
+	edges := searchEdgePatternsLimit(deadline)
+	if edges == nil {
+		return nil, false, true
+	}
+	s := exactSearch{t: t, edges: edges, allowed: indices, deadline: deadline}
 	for _, m := range indices {
 		s.present[m] = true
 	}
@@ -236,6 +261,9 @@ func exactCoordinateSearchLimit(state cubie, moves []Move, maxDepth int, deadlin
 		}
 		s.path = make([]int, depth)
 		if s.dfs(co, eo, sl, cp, e, depth, 0, -1) {
+			if tableDeadlineExceeded(deadline) {
+				return nil, false, true
+			}
 			result := make([]Move, depth)
 			for i, m := range s.path {
 				result[i] = coordinateMoves[m]
