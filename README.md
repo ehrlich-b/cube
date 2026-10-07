@@ -107,6 +107,11 @@ starts Python on a random loopback port, stops it on exit, and saves
 Chromium on macOS; elsewhere install Chromium with `cd web && npx playwright
 install chromium`. All test temporary files stay in `.scratch/`.
 
+If an execution sandbox denies loopback sockets, `taskpolicy -b nice -n 15
+node web/test/smoke.mjs --in-memory` runs the same browser assertions using
+local-file request routing. This alternate transport does not check Python
+serving; the normal smoke target continues to require the Python server.
+
 To publish, run this **single command yourself** from the repository root:
 
 ```bash

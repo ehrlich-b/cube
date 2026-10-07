@@ -32,7 +32,7 @@ async function cachedChromium() {
   throw new Error("No cached Playwright Chromium found. Install it with npx playwright install chromium.");
 }
 
-const port = randomInt(49152, 65536);
+let port = process.argv.includes("--in-memory") ? randomInt(49152, 65536) : 0;
 // Optional local-file transport can exercise the same browser assertions when
 // an execution sandbox denies loopback sockets. The default still tests Python.
 const inMemory = process.argv.includes("--in-memory");
@@ -57,11 +57,18 @@ async function runAlgorithm(page, moves) {
 try {
   if (server) await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`HTTP server did not start: ${serverLog}`)), 10000);
-    server.stdout.on("data", chunk => { if (String(chunk).includes("Serving HTTP")) { clearTimeout(timer); resolve(); } });
+    server.stdout.on("data", chunk => {
+      const match = String(chunk).match(/Serving HTTP .* port (\d+)/);
+      if (match) { port = Number(match[1]); clearTimeout(timer); resolve(); }
+    });
     server.on("error", error => { clearTimeout(timer); reject(error); });
     server.on("exit", code => { clearTimeout(timer); reject(new Error(`HTTP server exited ${code}: ${serverLog}`)); });
   });
   context = await chromium.launchPersistentContext(profile, { executablePath: await cachedChromium(), headless: true, viewport: { width: 1280, height: 800 }, args: ["--disable-gpu"], reducedMotion: "no-preference" });
+  // Exercise copy actions without changing Bryan's desktop clipboard.
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: async text => { globalThis.copiedText = text; } } });
+  });
   if (inMemory) {
     const types = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".wasm": "application/wasm", ".svg": "image/svg+xml" };
     await context.route(`http://127.0.0.1:${port}/**`, async route => {
@@ -141,6 +148,8 @@ try {
   await page.locator("#cfen").fill(beforeImport);
   await page.locator("#import").click();
   assert.equal(await page.locator("#cfen").inputValue(), beforeImport);
+  await page.locator("#export").click();
+  assert.equal(await page.evaluate(() => globalThis.copiedText), beforeImport);
   console.log("PASS browser: keyboard/prime, advanced animated turns, undo/redo, net, CFEN import rejection/recovery");
 
   await page.locator("#reset").click();
@@ -196,6 +205,7 @@ try {
   await page.locator("#share").click();
   assert.match(page.url(), /scramble=R\+U/);
   assert.match(page.url(), /alg=/);
+  assert.equal(await page.evaluate(() => globalThis.copiedText), page.url());
   console.log("PASS browser: relative-path hosting and shareable scramble/algorithm hash");
 
   await page.goto(`http://127.0.0.1:${port}/web/`);
