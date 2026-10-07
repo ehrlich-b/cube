@@ -14,7 +14,7 @@
     <header>
       <a class="brand" href="./" aria-label="Cube home"><img src="./icon.svg" alt="" width="30" height="30">cube<span class="brand-dot">.</span></a>
       <span class="header-note">A hands-on cube playground</span>
-      <button id="share" class="quiet">Share ↗</button>
+      <div class="header-actions"><button id="help-toggle" class="quiet" popovertarget="keyboard-help" aria-label="Keyboard help">Keys <kbd>?</kbd></button><button id="share" class="quiet">Share ↗</button></div>
     </header>
     <main>
       <div class="intro">
@@ -24,9 +24,9 @@
       <div class="workspace">
         <section class="cube-card" aria-label="Interactive cube">
           <div class="card-top"><span id="state-label" class="state-badge">Loading engine…</span><div class="view-toggle" aria-label="Cube view"><button id="view-3d" aria-pressed="true">3D cube</button><button id="view-net" aria-pressed="false">2D net</button></div></div>
-          <div id="stage" class="stage" aria-label="3D cube; drag to change your view" tabindex="0"><div class="cube-shadow"></div><div id="camera" class="camera"><div id="cube" class="cube"></div></div></div>
+          <div id="stage" class="stage" aria-label="3D cube; drag stickers to turn layers, or the background to orbit" aria-describedby="view-hint" tabindex="0"><div class="cube-shadow"></div><div id="camera" class="camera"><div id="cube" class="cube"></div></div></div>
           <div id="net" class="net" hidden aria-label="Unfolded cube net"></div>
-          <div class="viewer-foot"><span id="view-hint">Drag to look around</span><button id="home-view" class="text-button">Center view ↺</button></div>
+          <div class="viewer-foot"><span id="view-hint">Drag stickers to turn · background to orbit</span><button id="home-view" class="text-button">Center view ↺</button></div>
           <div class="main-actions"><button id="scramble" class="secondary" disabled>↝ &nbsp; Scramble</button><div class="solve-actions"><label class="sr-only" for="solve-method">Solve method</label><select id="solve-method" disabled><option value="kociemba" selected>Kociemba</option><option value="beginner">Beginner</option><option value="cfop">CFOP</option></select><button id="solve" class="primary" disabled>Solve this cube <span>→</span></button></div></div>
           <div class="history-bar"><div><button id="undo" aria-label="Undo last move" disabled>↶ Undo</button><button id="redo" aria-label="Redo last move" disabled>↷ Redo</button></div><button id="reset" disabled>Reset cube</button></div>
           <div class="scramble-line"><span>SCRAMBLE</span><output id="scramble-text">Start solved, or mix things up.</output></div>
@@ -66,6 +66,18 @@
       <p id="notice" class="notice" role="status" aria-live="polite">Loading the cube engine…</p>
     </main>
     <footer><span>Six faces. Endless possibilities.</span><span>WCA notation · No account needed</span></footer>
+  </div>
+  <div id="keyboard-help" class="keyboard-help" popover role="dialog" aria-labelledby="help-title">
+    <div class="help-heading"><h2 id="help-title">Make a move</h2><button class="text-button" popovertarget="keyboard-help" popovertargetaction="hide" aria-label="Close keyboard help">Close ×</button></div>
+    <dl>
+      <dt><kbd>R</kbd> <kbd>L</kbd> <kbd>U</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>B</kbd></dt><dd>Right, left, up, down, front, back</dd>
+      <dt><kbd>M</kbd> <kbd>E</kbd> <kbd>S</kbd></dt><dd>Middle slices, like L, D, F</dd>
+      <dt><kbd>X</kbd> <kbd>Y</kbd> <kbd>Z</kbd></dt><dd>Rotate the whole cube, like R, U, F</dd>
+      <dt><kbd>Shift</kbd> + move key</dt><dd>Reverse the turn (prime)</dd>
+      <dt><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd></dt><dd>Orbit while the cube has focus</dd>
+      <dt><kbd>?</kbd> / <kbd>Esc</kbd></dt><dd>Toggle help / close or cancel a drag</dd>
+    </dl>
+    <p>Drag a sticker along its face to twist a layer. Drag farther for a half turn, or back to the start to cancel. Drag the background to look around.</p>
   </div>
   <noscript>This playground needs JavaScript and WebAssembly. The Go CLI works without a browser.</noscript>
   <script type="module" src="./app.js"></script>
