@@ -10,6 +10,10 @@ import (
 // part of the face-turn distance. A timeout is an error, never an unproved
 // "optimal" answer. Table initialization is included in the limit.
 func SolveOptimal(c *Cube, limit time.Duration) (*SolverResult, error) {
+	return solveOptimal(c, limit, nil)
+}
+
+func solveOptimal(c *Cube, limit time.Duration, stats *optimalSearchStats) (*SolverResult, error) {
 	start := time.Now()
 	if limit <= 0 {
 		return nil, fmt.Errorf("optimal search time limit must be positive")
@@ -47,7 +51,7 @@ func SolveOptimal(c *Cube, limit time.Duration) (*SolverResult, error) {
 					if optimalPhase1Tables(t, deadline) == nil {
 						timedOut = true
 					} else {
-						result, ok, timedOut = largeOptimalSearchLimit(state, t, db, deadline)
+						result, ok, timedOut = largeOptimalSearchLimitStats(state, t, db, deadline, stats)
 					}
 				}
 			}

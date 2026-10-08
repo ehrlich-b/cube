@@ -8,6 +8,17 @@ import (
 
 type axisCoordinate struct{ co, eo, sl int }
 
+type optimalSearchStats struct {
+	nodes      uint64
+	iterations []optimalIterationStats
+}
+
+type optimalIterationStats struct {
+	depth   int
+	nodes   uint64
+	elapsed time.Duration
+}
+
 type largeOptimalSearch struct {
 	t         *coordinateTables
 	db        *optimalPatterns
@@ -17,6 +28,10 @@ type largeOptimalSearch struct {
 	hugeBound [21][3]int
 	axes      [21][3]axisCoordinate
 	moveMap   [3][18]int
+	states    [21]cubie
+	frames    [3]cubie
+	frameInv  [3]cubie
+	axisMoves [3]int
 	path      [21]int
 	deadline  time.Time
 	nodes     uint64
@@ -27,6 +42,7 @@ type largeOptimalSearch struct {
 }
 
 func (s *largeOptimalSearch) initializeAxes(state cubie) {
+	s.states[0] = state
 	for axis, rotation := range []RotationType{NoRotation, X_Rotation, Z_Rotation} {
 		frame := NewCube(3)
 		if rotation != NoRotation {
@@ -34,6 +50,8 @@ func (s *largeOptimalSearch) initializeAxes(state cubie) {
 		}
 		sym := readCubie(frame)
 		inv := sym.inverse()
+		s.frames[axis], s.frameInv[axis] = sym, inv
+		s.axisMoves[axis] = 0
 		view := inv.mul(state).mul(sym)
 		s.axes[0][axis] = axisCoordinate{view.twist(), view.flip(), view.slice()}
 		if s.huge != nil {
@@ -48,11 +66,73 @@ func (s *largeOptimalSearch) initializeAxes(state cubie) {
 			for n, candidate := range cubieMoves {
 				if transformed == candidate {
 					s.moveMap[axis][m] = n
+					if n >= 12 {
+						s.axisMoves[axis] |= 1 << m
+					}
 					break
 				}
 			}
 		}
 	}
+}
+
+// Inversion preserves full-cube distance. A subgroup bound of n for the
+// inverse excludes next moves in that subgroup from any n-turn solution:
+// their inverses would be redundant last moves of the inverse solution.
+func (s *largeOptimalSearch) inverseCandidates(left, level, candidates int) int {
+	if s.huge == nil || left > optimalPhase1Cap {
+		return candidates
+	}
+	inverse := s.states[level].inverse()
+	for axis := 0; axis < 3; axis++ {
+		co, eo, sorted := s.inverseAxis(inverse, axis)
+		residue := s.huge.residue(co, eo, sorted)
+		h := optimalPhase1Cap
+		if residue != 3 {
+			// The compact bound is a lower bound for this stronger coordinate.
+			// Round upward to the known exact distance modulo three.
+			h = s.t.phase1Bound(co, eo, sorted/24)
+			h += (residue - h%3 + 3) % 3
+		}
+		if h > left {
+			return 0
+		}
+		if h == left {
+			candidates &^= s.axisMoves[axis]
+			if candidates == 0 {
+				return 0
+			}
+		}
+	}
+	return candidates
+}
+
+// Extract only the coordinates used by the inverse pruning probe. In
+// particular, neither its corner permutation nor its redundant orientations
+// need to be materialized by two full cubie multiplications.
+func (s *largeOptimalSearch) inverseAxis(inverse cubie, axis int) (int, int, int) {
+	if axis == 0 {
+		return inverse.twist(), inverse.flip(), sliceSorted(inverse)
+	}
+	frame, inv := s.frames[axis], s.frameInv[axis]
+	co, eo, mask, n := 0, 0, 0, 0
+	for i := 0; i < 7; i++ {
+		p := frame.cp[i]
+		co = co*3 + int((inv.co[inverse.cp[p]]+inverse.co[p]+frame.co[i])%3)
+	}
+	var permutation [4]uint8
+	for i, p := range frame.ep {
+		id := inv.ep[inverse.ep[p]]
+		if id >= 8 {
+			mask |= 1 << i
+			permutation[n] = id - 8
+			n++
+		}
+		if i < 11 {
+			eo = eo*2 + int(inv.eo[inverse.ep[p]]^inverse.eo[p]^frame.eo[i])
+		}
+	}
+	return co, eo, int(sliceRanks[mask])*24 + permutationRank(permutation[:])
 }
 
 func (s *largeOptimalSearch) bound(cp, e0, e1, level int) int {
@@ -116,14 +196,31 @@ func (s *largeOptimalSearch) dfs(cp, e0, e1, left, level, prev int) bool {
 	if level == 0 && s.rootMask != 0 {
 		candidates &= s.rootMask
 	}
+	candidates = s.inverseCandidates(left, level, candidates)
+	order := [3]int{0, 1, 2}
+	if s.huge != nil {
+		if s.hugeBound[level][order[1]] > s.hugeBound[level][order[0]] {
+			order[0], order[1] = order[1], order[0]
+		}
+		if s.hugeBound[level][order[2]] > s.hugeBound[level][order[1]] {
+			order[1], order[2] = order[2], order[1]
+		}
+		if s.hugeBound[level][order[1]] > s.hugeBound[level][order[0]] {
+			order[0], order[1] = order[1], order[0]
+		}
+	}
 	for ; candidates != 0; candidates &= candidates - 1 {
 		m := bits.TrailingZeros(uint(candidates))
 		pruned := false
 		var bounds [3]int
-		for axis := 0; axis < count; axis++ {
+		for i := 0; i < count; i++ {
+			axis := order[i]
 			a := s.axes[level][axis]
 			mapped := s.moveMap[axis][m]
-			next := axisCoordinate{int(s.t.Twist[a.co*18+mapped]), int(s.t.Flip[a.eo*18+mapped]), int(s.t.Slice[a.sl*18+mapped])}
+			next := axisCoordinate{co: int(s.t.Twist[a.co*18+mapped]), eo: int(s.t.Flip[a.eo*18+mapped])}
+			if s.huge == nil {
+				next.sl = int(s.t.Slice[a.sl*18+mapped])
+			}
 			s.axes[level+1][axis] = next
 			if s.huge != nil {
 				sorted := int(s.huge.sortedMove[s.sorted[level][axis]*18+mapped])
@@ -142,6 +239,7 @@ func (s *largeOptimalSearch) dfs(cp, e0, e1, left, level, prev int) bool {
 			continue
 		}
 		s.path[level] = m
+		s.states[level+1] = s.states[level].mul(cubieMoves[m])
 		a := int(s.db.moves[e0/64*18+m]) ^ (e0 & 63)
 		b := int(s.db.moves[e1/64*18+m]) ^ (e1 & 63)
 		if s.dfs(int(s.t.Corner[cp*18+m]), a, b, left-1, level+1, m) {
@@ -195,7 +293,14 @@ func (s *largeOptimalSearch) searchDepth(cp, e0, e1, depth int, parallel bool) b
 }
 
 func largeOptimalSearchLimit(state cubie, t *coordinateTables, db *optimalPatterns, deadline time.Time) ([]Move, bool, bool) {
+	return largeOptimalSearchLimitStats(state, t, db, deadline, nil)
+}
+
+func largeOptimalSearchLimitStats(state cubie, t *coordinateTables, db *optimalPatterns, deadline time.Time, stats *optimalSearchStats) ([]Move, bool, bool) {
 	s := largeOptimalSearch{t: t, db: db, phase1: phase1LargeDB.Load(), huge: optimalPhase1DB.Load(), deadline: deadline}
+	if stats != nil {
+		defer func() { stats.nodes = s.nodes }()
+	}
 	s.initializeAxes(state)
 	cp := permutationRank(state.cp[:])
 	e0, e1 := sixEdgeCoordinate(state, 0), sixEdgeCoordinate(state, 1)
@@ -216,7 +321,12 @@ func largeOptimalSearchLimit(state cubie, t *coordinateTables, db *optimalPatter
 		if tableDeadlineExceeded(deadline) {
 			return nil, false, true
 		}
-		if s.searchDepth(cp, e0, e1, depth, true) {
+		started, nodes := time.Now(), s.nodes
+		found := s.searchDepth(cp, e0, e1, depth, true)
+		if stats != nil {
+			stats.iterations = append(stats.iterations, optimalIterationStats{depth, s.nodes - nodes, time.Since(started)})
+		}
+		if found {
 			if tableDeadlineExceeded(deadline) {
 				return nil, false, true
 			}

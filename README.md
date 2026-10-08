@@ -177,7 +177,15 @@ a profiled warm search peaked at **1.20 GB RSS**.
 
 Search takes the maximum of the corner, six-edge and three oriented sorted
 phase-one bounds. Three equal positive phase-one bounds imply one additional
-turn. Forward and inverse root bounds select the search direction. At depth
+turn. Forward and inverse root bounds select the search direction. Within
+eleven remaining turns, search also probes the inverse in three orientations.
+Unknown entries give eleven; exact residues are rounded upward from the compact
+phase-one lower bound. A tight inverse bound excludes next turns on its U/D
+axis, because those turns would be redundant final subgroup moves in the
+inverse solution. This follows the inverse move pruning described in
+[Rokicki's nxopt design](https://github.com/rokicki/cube20src/blob/master/nxopt.md).
+The strongest forward axis is checked first, and the sorted coordinate replaces
+the unused slice-membership transition in the large-table path. At depth
 thirteen and above, two workers partition the eighteen root moves; both must
 finish to disprove a depth. Tables are shared and `GOMAXPROCS=2` bounds CPU work.
 Compared with the previous phase-one heuristic, completed depth-fifteen searches
@@ -187,32 +195,83 @@ were **0.306 / 0.432 s**, versus **2.78 / 3.78 s** for the smaller heuristic in
 one worker. An eight-edge pattern-table experiment reduced nodes less and
 increased elapsed time, so it is not part of the solver.
 
+Completed depth-sixteen iterations on the first four uniform fixtures visited
+**1,447,263 / 1,567,130 / 1,122,403 / 945,251 nodes**, versus
+**1,695,840 / 1,895,546 / 1,397,075 / 1,157,518** before inverse pruning:
+**14.7–19.7% fewer nodes**. The initial inverse-pruning trial took **11.25 s**
+of search versus **18.17 s** for the baseline; these short timing comparisons
+are sensitive to background scheduling and cache residency. Moving every
+corner/six-edge lookup before the large-table lookups instead took **21.10 s**
+and was dropped. The 147.5 MB exact phase-one fallback reduced visits by only
+another **1.3–3.1%** without a consistent timing gain. Dynamic inversion within
+the tree was slower (the first fixture rose from **4.07 s to 8.07 s**) and was
+also dropped. Carrying final-move restrictions did not reduce visits.
+
+A separate combined-coordinate experiment paired corner twist and U/D corner
+membership with edge flip and slice membership under sixteen symmetries.
+Its **9,930 corner classes / 10,066,636,800 entries** required
+**2,516,659,264 cache bytes**. A five-byte chunked frontier stayed within the
+memory budget, but generation hit its **40-minute limit** before finishing
+depth ten. No cache was published, and the experimental coordinate is not in
+the solver. The retained changes add no tables or cache bytes.
+
 Large generation is opt-in through deep `--optimal` calls, with a one-time
 stderr message. Ordinary solves retain the compact default tables and cache.
 Optimal setup is included in `--time-limit`; interrupted builds never publish
 partial tables. `make test-optimal` checks short distances against the separate
-IDA* finder, independently proves three fixed distances by physical-sticker
-BFS, checks deeper finder fixtures, and replays superflip in every grip.
+IDA* finder through ten turns, independently proves six fixed distances by
+physical-sticker BFS, checks deeper finder fixtures, tests 14,000 known solving
+suffixes against inverse pruning, and replays superflip in every grip.
 
 The uniform-state benchmark (seed `2026100714`, **twenty states**, two search
 workers, background QoS, no CPU profiling, **180-second limit per state**)
-proved **9/20** and timed out on **11/20**. Proven solve times, in increasing
-order, were **13.42, 13.74, 18.05, 19.04, 57.60, 60.67, 71.41, 76.94 and
-176.67 seconds**. Eight answers had optimal length **17**, and one had length
-**18**; every answer passed full-cube replay and input-immutability checks.
-**Five of twenty finished within 60 seconds. The full-sample median exceeds
-180 seconds**, because eleven observations are right-censored above that limit.
-No solved-only median is presented as the uniform-state median. On the original
-first ten fixtures, **5/10** now finish at the same budget, compared with the
-previous **0/10** profiled result. Warm benchmark RSS peaked at
-**1,193,705,472 bytes (1.19 GB)**, and cached setup took **2.01 seconds**.
+now proves **15/20**, versus **9/20** before inverse pruning. Five states remain
+right-censored at 180 seconds. **Eight of twenty finish within 60 seconds**,
+versus five previously. The **full-sample median is 91.02 seconds**, the mean of
+the tenth and eleventh observations (87.02 and 95.02 seconds); both are observed,
+so this median includes all twenty states without conditioning on success.
+Eight proven answers have distance **17**, and seven have distance **18**.
+Every answer passes full-cube replay and input-immutability checks. On the first
+ten fixtures, **8/10** now finish, versus **5/10** previously.
 
-**The practical optimal target is not met.** The median-under-60-second target
-fails in this sample; completion within ten minutes for all twenty states was
-not established by the three-minute trials. `make bench-optimal` reproduces
-the twenty fixtures and budgets. Stronger inverse-state heuristics or further
-search improvements remain necessary. The rejected eight-edge experiment and
-all generated native caches stay outside Git.
+| State | Proven FTM distance | Seconds | Large-search DFS nodes |
+| --- | --- | ---: | ---: |
+| 0 | 18 | 63.17 | 39,116,581 |
+| 1 | 18 | 114.52 | 80,292,989 |
+| 2 | 17 | 7.79 | 5,629,483 |
+| 3 | 18 | 157.99 | 83,294,939 |
+| 4 | 17 | 10.32 | 5,477,308 |
+| 5 | 18 | 151.83 | 65,663,233 |
+| 6 | 17 | 21.79 | 12,966,187 |
+| 7 | 17 | 7.69 | 4,649,875 |
+| 8 | unproved | >180 | 70,873,877 |
+| 9 | unproved | >180 | 33,948,645 |
+| 10 | unproved | >180 | 72,713,600 |
+| 11 | 18 | 115.97 | 50,712,366 |
+| 12 | 18 | 95.02 | 38,230,865 |
+| 13 | 17 | 37.05 | 17,258,922 |
+| 14 | 17 | 19.45 | 11,213,903 |
+| 15 | unproved | >180 | 78,098,880 |
+| 16 | 18 | 87.02 | 41,484,219 |
+| 17 | 17 | 42.71 | 20,484,697 |
+| 18 | unproved | >180 | 63,547,815 |
+| 19 | 17 | 12.39 | 6,028,667 |
+
+Node counts sum both workers and every IDA* iteration, including pruned DFS
+entries; they exclude table setup and the preliminary short-state finder.
+`make bench-optimal` logs each iteration's depth, visits and duration, including
+the incomplete final iteration on timeouts. Cached setup took **9.67 seconds**
+after the memory-intensive rejected table build; the timed benchmark command
+reported **1,214,332,928 bytes (1.21 GB) maximum RSS**. Existing table generation
+measurements remain **67.53 s** for corner/six-edge tables and **23m08.27s / 2.82
+GB peak RSS** for sorted phase one; this run reused both caches.
+
+**The practical optimal target is not met.** The median still exceeds sixty
+seconds, and the three-minute censored trials do not establish completion within
+ten minutes for all twenty states. `make bench-optimal` preserves the same
+fixtures and budgets. A stronger combined coordinate that can be generated and
+searched within the memory and time budgets remains useful future work. All
+generated native caches and rejected experiments stay outside Git.
 
 Superflip is recognized by exact cubie coordinates and uses
 [Reid's published 20-turn lower bound](https://www.math.rwth-aachen.de/~Martin.Schoenert/Cube-Lovers/michael_reid__superflip_requires_20_face_turns.html)
