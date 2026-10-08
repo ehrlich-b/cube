@@ -14,5 +14,6 @@
 .svg-cube{position:absolute;width:360px;height:360px;margin:-180px;overflow:visible}.svg-cube .plastic{fill:#24352e;stroke:#111;stroke-width:.7px;stroke-linejoin:round}.svg-cube .sticker{stroke:#24352e;stroke-width:1.6px;stroke-linejoin:round}.svg-cube .cap{position:static;border:0;padding:0;transform:none;background:#111;fill:#111}.turn-camera,.turn-block{position:absolute;width:0;height:0;transform-style:preserve-3d;pointer-events:none}.turn-surface{position:absolute;backface-visibility:hidden;pointer-events:none}
 
 /* Keep small control text and keyboard focus legible on the light cards. */
-.view-toggle button,.text-button,.history-bar button,.tabs button,.move-grid button.prime,.advanced summary{color:#52664c}
+.update-notice{position:sticky;top:12px;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:8px;background:#fffef9;color:#37553b;font-size:13px;line-height:1.6}
+.view-toggle button,.text-button,.history-bar button,.tabs button,.move-grid button.prime,.advanced summary,.sequence-moves button{color:#52664c}
 :is(button,a,input,textarea,select,summary,[tabindex]):focus-visible{outline-color:#42663b}

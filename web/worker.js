@@ -29,6 +29,6 @@ self.onmessage = async ({ data }) => {
     }
     self.postMessage({ ok: true, data: { ...result, computedMs } });
   } catch (error) {
-    self.postMessage({ ok: false, error: error.message });
+    self.postMessage({ ok: false, error: error.message, code: error.code });
   }
 };
