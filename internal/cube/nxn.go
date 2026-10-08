@@ -17,7 +17,8 @@ func (s *ReductionSolver) Solve(c *Cube) (*SolverResult, error) {
 
 // SolveNxN places centers, pairs each wing orbit to a legal reduced edge
 // state, and finishes through the public 3x3 solver. Options apply to that
-// final search, not the constructive reduction. Move count is slice turns.
+// final search, not the constructive reduction. Each printed turn or rotation
+// counts once, including wide turns.
 func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 	started := time.Now()
 	if err := validateNxNShape(c); err != nil {
@@ -44,8 +45,8 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 		}
 	}
 	reduced := nxnReducedSeed(work)
-	// On even cubes there is no midge. Choose unflipped edges, exchanging
-	// two if required to match corner permutation parity (PLL parity).
+	// Validate even-cube corners with hypothetical legal edges of matching
+	// parity. The actual reduced edge state is chosen later by pairing.
 	if c.Size%2 == 0 {
 		parity, err := nxnCornerParity(reduced)
 		if err != nil {
@@ -67,50 +68,23 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		// An odd wing permutation cannot be paired by 3-cycles. One inner
-		// quarter turn makes it even (OLL parity); centers are restored next.
-		// This also fixes individual inner-orbit parity on odd/larger cubes.
-		for _, o := range t.wings {
-			p, err := nxnWingPermutation(work, reduced, o)
-			if err != nil {
-				return nil, err
-			}
-			if permutationParity(p) != 0 {
-				m := Move{Face: Right, Layer: o.layer, Clockwise: true}
-				if err := work.ApplyMove(m); err != nil {
-					return nil, err
-				}
-				moves = append(moves, m)
-			}
+		part, err := nxnCenterBlocks(work, t)
+		if err != nil {
+			return nil, err
 		}
-		for _, o := range t.centers {
-			p, err := nxnCenterPermutation(work, o)
-			if err != nil {
-				return nil, err
-			}
-			part, err := nxnPlaceOrbit(work, t, o, p)
-			if err != nil {
-				return nil, err
-			}
-			moves = append(moves, part...)
+		moves = append(moves, part...)
+		part, paired, err := nxnPairWings(work, t)
+		if err != nil {
+			return nil, err
 		}
-		for _, o := range t.wings {
-			p, err := nxnWingPermutation(work, reduced, o)
-			if err != nil {
-				return nil, err
-			}
-			part, err := nxnPlaceOrbit(work, t, o, p)
-			if err != nil {
-				return nil, err
-			}
-			moves = append(moves, part...)
-		}
+		moves = append(moves, part...)
+		reduced = paired
 	}
 	finish, err := SolveKociemba(reduced, options)
 	if err != nil {
 		return nil, fmt.Errorf("reduced 3x3 solve: %w", err)
 	}
-	moves = OptimizeMoves(append(moves, finish.Solution...))
+	moves = nxnOptimizeMoves(append(moves, finish.Solution...), c.Size)
 	check := c.clone()
 	if err := check.ApplyMoves(moves); err != nil {
 		return nil, err
@@ -235,74 +209,17 @@ func nxnWingPermutation(c, reduced *Cube, o *reductionOrbit) ([]int, error) {
 	return p, nil
 }
 
-func nxnCenterPermutation(c *Cube, o *reductionOrbit) ([]int, error) {
+func nxnValidateCenterOrbit(c *Cube, o *reductionOrbit) error {
 	home := NewCube(c.Size)
-	p, used := make([]int, 24), [24]bool{}
-	for i := range p {
-		p[i] = -1
-		if nxnColor(c, o.positions[i]) == nxnColor(home, o.positions[i]) {
-			p[i], used[i] = i, true
-		}
+	var actual, expected [6]int
+	for _, pos := range o.positions {
+		actual[nxnColor(c, pos)]++
+		expected[nxnColor(home, pos)]++
 	}
-	for i, pos := range o.positions {
-		if p[i] >= 0 {
-			continue
-		}
-		for j, target := range o.positions {
-			if !used[j] && nxnColor(c, pos) == nxnColor(home, target) {
-				p[i], used[j] = j, true
-				break
-			}
-		}
-		if p[i] < 0 {
-			return nil, fmt.Errorf("incorrect color counts in a center orbit")
-		}
+	if actual != expected {
+		return fmt.Errorf("incorrect color counts in a center orbit")
 	}
-	if permutationParity(p) != 0 {
-		// Same-colored center labels are interchangeable, so choose an even
-		// labeling without changing the requested physical colors.
-		for i, pos := range o.positions {
-			for j := i + 1; j < len(o.positions); j++ {
-				if nxnColor(c, pos) == nxnColor(c, o.positions[j]) {
-					p[i], p[j] = p[j], p[i]
-					return p, nil
-				}
-			}
-		}
-	}
-	return p, nil
-}
-
-func nxnPlaceOrbit(c *Cube, t *reductionTables, o *reductionOrbit, p []int) ([]Move, error) {
-	if permutationParity(p) != 0 {
-		return nil, fmt.Errorf("odd reduction permutation after parity correction")
-	}
-	var moves []Move
-	for i := 0; i < len(p); i++ {
-		for p[i] != i {
-			j := i + 1
-			for j < len(p) && p[j] != i {
-				j++
-			}
-			k := p[i]
-			if k == j {
-				k = i + 1
-				for k < len(p) && (k == j || p[k] == k) {
-					k++
-				}
-			}
-			if j >= len(p) || k >= len(p) || k <= i {
-				return nil, fmt.Errorf("reduction permutation cannot be placed by 3-cycles")
-			}
-			part := o.cycleMoves(t, j, i, k)
-			if err := c.ApplyMoves(part); err != nil {
-				return nil, err
-			}
-			moves = append(moves, part...)
-			p[i], p[k], p[j] = p[j], p[i], p[k]
-		}
-	}
-	return moves, nil
+	return nil
 }
 
 func nxnCenterMatched(c *Cube) bool {

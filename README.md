@@ -78,20 +78,30 @@ legal states and 100 uniformly sampled single-layer scrambles per size**. States
 are generated with independent integer 3D geometry; scrambles use 40×N turns.
 The oracle covers all 24 grips, isolated and combined 4×4 OLL/PLL parity,
 printed step counts and final CFEN. Every solve runs in a fresh CLI process.
+Mean/max and times cover all 200 cases; the uniform column isolates the
+100 uniform-state cases used for the move-length targets.
 
-| Size | Mean / max moves | Fresh CLI mean / max |
-|---|---:|---:|
-| 2×2 | 19.50 / 20 | 85.24 / 231.06 ms |
-| 4×4 | 371.87 / 444 | 95.79 / 235.50 ms |
-| 5×5 | 532.82 / 611 | 182.99 / 1131.25 ms |
-| 6×6 | 1058.29 / 1169 | 145.78 / 713.70 ms |
-| 7×7 | 1378.36 / 1510 | 261.22 / 1189.32 ms |
+| Size | Mean / max moves | Uniform mean / max | Fresh CLI mean / max |
+|---|---:|---:|---:|
+| 2×2 | 18.89 / 20 | 18.78 / 20 | 76.86 / 271.37 ms |
+| 4×4 | 92.59 / 128 | 92.09 / 115 | 290.48 / 1230.35 ms |
+| 5×5 | 192.58 / 253 | 193.16 / 253 | 682.90 / 1745.57 ms |
+| 6×6 | 457.26 / 522 | 452.01 / 509 | 707.85 / 1773.85 ms |
+| 7×7 | 638.47 / 712 | 640.78 / 712 | 1217.23 / 2678.78 ms |
 
-Each numbered layer turn, half turn or grip rotation counts as one move. Times
-include process startup, 3×3 cache loading and fresh reduction setup tables;
-the 3×3 disk cache was already populated. These are sample measurements, not
-worst-case bounds. Reduction and the 2×2 corners path prioritize correctness,
-not optimal move count. `--time-limit` applies to the final Kociemba search.
+Outer, numbered-slice, wide and half turns, and grip rotations each count
+once. Times include process startup, 3×3 cache loading and fresh reduction
+tables; the 3×3 disk cache was already populated. These are sample
+measurements, not worst-case bounds. The oracle fails if either combined
+or uniform mean moves exceeds the documented value by more than 5%, or
+if this table disagrees with the solving guide. The former per-piece
+reduction averaged 371.87, 532.82, 1058.29 and 1378.36 moves on sizes 4–7.
+
+Reduction uses center block searches on 4×4/5×5, batched bar commutators on
+6×6/7×7, and slice-based edge pairing with short parity corrections.
+Adjacent turns on one axis are canceled and packed into wide blocks.
+All answers are verified, with no optimality guarantee. `--time-limit`
+applies to the final Kociemba search.
 See [the solving guide](./examples/solving.md#solve-other-sizes) for the reduction
 method, parity examples and saved-state usage.
 
@@ -355,7 +365,7 @@ internal/cube/                   # Core engine
   ring_generators.go / permutations.go  # the permutation engine
   algorithms.go                  # algorithm database
   solver.go / kociemba.go / cfop.go # full beginner, Kociemba and CFOP solvers
-  nxn.go / nxn_tables.go          # 2x2 corners and 4x4-7x7 center/edge reduction
+  nxn*.go                        # 2x2 corners, center blocks and wing pairing on 4x4-7x7
   coordinates.go / coordinate_tables.go  # cubie moves and deterministic pruning tables
   pattern_search.go / optimal_search.go  # shortest wildcard/exact search + BFS fallback
   first_layer.go / full_lesson.go / lesson_session.go  # beginner checkpoints and recovery

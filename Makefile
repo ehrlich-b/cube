@@ -118,4 +118,5 @@ test-cfop: build
 
 # Fresh-process, independent geometry replay of uniform NxN states and scrambles.
 test-nxn: build
+	python3 -m unittest discover -s test -p 'nxn_oracle_test.py'
 	python3 test/nxn_oracle.py
