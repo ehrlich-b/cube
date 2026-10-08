@@ -90,7 +90,9 @@ func TestOptimalLargeTableOracle(t *testing.T) {
 		t.Fatal("large pruning table generation failed")
 	}
 	t.Logf("large table generation/load: %v; corner %d bytes; edges %d + %d bytes; transitions %d bytes; cache %d bytes", time.Since(started), len(db.corners), len(db.edges[0]), len(db.edges[1]), len(db.moves)*4, optimalCacheBytes)
-	cachedPhase1PatternTables(tables, time.Time{})
+	if optimalPhase1Tables(tables, time.Time{}) == nil {
+		t.Fatal("sorted phase-one tables failed")
+	}
 	r := rand.New(rand.NewSource(2026100713))
 	for trial := 0; trial < 1000; trial++ {
 		state := identityCubie()
@@ -132,11 +134,11 @@ func TestOptimalLargeTableOracle(t *testing.T) {
 			}
 		}
 	}
-	for _, text := range []string{"R U F2 L' B D2 R F U2 B' L2 U", "F2 R U' L2 D B R2 U F' D2 L B2"} {
+	for _, text := range []string{"R U F2 L' B D2 R F U2 B' L2 U", "F2 R U' L2 D B R2 U F' D2 L B2", "R U F2 L' B D2 R F U2 B' L2 U R2", "F2 R U' L2 D B R2 U F' D2 L B2 U R"} {
 		c := NewCube(3)
 		scramble, _ := ParseMoves(text)
 		c.ApplyMoves(scramble)
-		want, found, timedOut := exactCoordinateSearchLimit(readCubie(c), nil, 12, time.Now().Add(20*time.Second))
+		want, found, timedOut := exactCoordinateSearchLimit(readCubie(c), nil, len(scramble), time.Now().Add(2*time.Minute))
 		if !found || timedOut {
 			t.Fatal("deep finder oracle did not complete", text)
 		}
@@ -176,7 +178,7 @@ func TestOptimalUniformBenchmark(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	cases := 10
+	cases := 20
 	if text := os.Getenv("CUBE_OPTIMAL_CASES"); text != "" {
 		var err error
 		cases, err = strconv.Atoi(text)
@@ -186,8 +188,7 @@ func TestOptimalUniformBenchmark(t *testing.T) {
 	}
 	tables := solverTables()
 	started := time.Now()
-	cachedPhase1PatternTables(tables, time.Time{})
-	if optimalPatternTables(tables, time.Time{}) == nil {
+	if optimalPatternTables(tables, time.Time{}) == nil || optimalPhase1Tables(tables, time.Time{}) == nil {
 		t.Fatal("large tables failed")
 	}
 	t.Logf("large table generation/load: %v; %d uniform states; per-state limit %v", time.Since(started), cases, limit)
@@ -218,4 +219,45 @@ func TestOptimalUniformBenchmark(t *testing.T) {
 		t.Logf("state %d: proved %d turns in %v", i, TurnCount(result.Solution), elapsed)
 	}
 	t.Logf("uniform distribution: %d/%d proved, %d/%d timed out at %v", solved, cases, timedOut, cases, limit)
+}
+
+// Compare completed IDA* iterations on identical states. Node counts isolate
+// heuristic strength from elapsed-time changes caused by background scheduling.
+func TestOptimalHeuristicBenchmark(t *testing.T) {
+	if os.Getenv("CUBE_OPTIMAL_COMPARE") != "1" {
+		t.Skip("CUBE_OPTIMAL_COMPARE=1")
+	}
+	tables := solverTables()
+	db := optimalPatternTables(tables, time.Time{})
+	phase1 := phase1PatternTables(tables)
+	huge := optimalPhase1Tables(tables, time.Time{})
+	if db == nil || phase1 == nil || huge == nil {
+		t.Fatal("optimal tables unavailable")
+	}
+	r := rand.New(rand.NewSource(2026100714))
+	for trial := 0; trial < 2; trial++ {
+		state := uniformCubie(r)
+		for _, depth := range []int{14, 15} {
+			for _, variant := range []int{0, 1, 2} {
+				var pattern *optimalPhase1
+				if variant > 0 {
+					pattern = huge
+				}
+				start := time.Now()
+				s := largeOptimalSearch{t: tables, db: db, phase1: phase1, huge: pattern, deadline: start.Add(time.Minute)}
+				s.initializeAxes(state)
+				found := s.searchDepth(permutationRank(state.cp[:]), sixEdgeCoordinate(state, 0), sixEdgeCoordinate(state, 1), depth, variant == 2)
+				if found {
+					c := cubeFromCoordinates(state)
+					for _, m := range s.path[:depth] {
+						c.ApplyMove(coordinateMoves[m])
+					}
+					if !c.IsSolved() {
+						t.Fatal("comparison solver contract")
+					}
+				}
+				t.Logf("state %d, depth %d, sorted phase one %v, two workers %v: %d nodes, %v, found %v, censored %v", trial, depth, pattern != nil, variant == 2, s.nodes, time.Since(start), found, s.timedOut)
+			}
+		}
+	}
 }

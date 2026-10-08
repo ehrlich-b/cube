@@ -228,6 +228,22 @@ func loadPackedPattern(filename string, size int) []uint8 {
 }
 
 func loadPackedPatternLimit(filename string, size int, deadline time.Time) []uint8 {
+	d := loadPatternBytes(filename, size, deadline)
+	if d == nil || d[0]&15 != 0 {
+		return nil
+	}
+	for i, value := range d {
+		if i&65535 == 0 && tableDeadlineExceeded(deadline) {
+			return nil
+		}
+		if value&15 == 15 || value>>4 == 15 {
+			return nil
+		}
+	}
+	return d
+}
+
+func loadPatternBytes(filename string, size int, deadline time.Time) []uint8 {
 	if tableDeadlineExceeded(deadline) {
 		return nil
 	}
@@ -268,36 +284,10 @@ func loadPackedPatternLimit(filename string, size int, deadline time.Time) []uin
 	if n, err := f.Read(extra[:]); n != 0 || err != io.EOF {
 		return nil
 	}
-	if !bytes.Equal(header[:32], hash.Sum(nil)) || d[0]&15 != 0 || tableDeadlineExceeded(deadline) {
+	if !bytes.Equal(header[:32], hash.Sum(nil)) || tableDeadlineExceeded(deadline) {
 		return nil
-	}
-	for i, value := range d {
-		if i&65535 == 0 && tableDeadlineExceeded(deadline) {
-			return nil
-		}
-		if value&15 == 15 || value>>4 == 15 {
-			return nil
-		}
 	}
 	return d
-}
-
-// Deep optimal searches can reuse an existing native phase-one cache, but do
-// not start a second expensive generation when that optional cache is absent.
-func cachedPhase1PatternTables(t *coordinateTables, deadline time.Time) *phase1Patterns {
-	if db := phase1LargeDB.Load(); db != nil {
-		return db
-	}
-	if runtime.GOARCH == "wasm" || tableDeadlineExceeded(deadline) {
-		return nil
-	}
-	db := phase1SymmetryCoordinates(t)
-	db.distance = loadPackedPatternLimit("phase1-sym8-v1.bin", len(db.reps)*flipSliceStates/2, deadline)
-	if db.distance == nil {
-		return nil
-	}
-	phase1LargeDB.CompareAndSwap(nil, db)
-	return phase1LargeDB.Load()
 }
 
 func savePackedPattern(filename string, data []uint8) {
