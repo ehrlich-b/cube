@@ -1,0 +1,120 @@
+{
+  "reference": "lilborgo/min2phaseCXX master source read 2026-10-07",
+  "source_url": "https://github.com/lilborgo/min2phaseCXX",
+  "source_manifest_sha256": "fed15f859eb29bd29172e0f37230625d68e56f5dc8ed66480b81ddad27fe42fa",
+  "source_sha256": {
+    "include/min2phase/min2phase.h": "2d44a6c3d1c9a265a2e1da8ddfa22de92b418866b7c61afbe299c14eb25c258c",
+    "src/CubieCube.cpp": "c74035dd73acbcf121f98bbeb50c829585cf65c2d6e4efd9cb9637d4450e52fe",
+    "src/CubieCube.h": "a794c69e4a0260f8716741a1ecf85cd8056bc2cbea4b2153e2a82dd82ce8549a",
+    "src/Search.cpp": "3a91ff99654a947395c0895a598c19e93473a75b155f768259cdedc00ca36f31",
+    "src/Search.h": "21f4defec9799865c77797728c9aa75c1e2db2e3b57f7571f6a50492790d0dc4",
+    "src/coords.cpp": "180d05ecf32c468c96293cea896e7d023532886e047a9d3c6a3e132072ac1325",
+    "src/coords.h": "94ec55b603b0004f412b27ee04518443eda1e34e08430cde2a5671db1ab4045d",
+    "src/info.cpp": "6e2f03ccba8438a601eef49035286e5906c1a9bb099f8996ab077996d400934e",
+    "src/info.h": "48a47a571fea88ed986ff6413da15066117fb9b1d0f2ca3ae508677680e52340"
+  },
+  "compiler": "installed clang++ -std=c++14 -O3",
+  "process_policy": "taskpolicy -b nice -n 15, one search thread",
+  "configuration": {
+    "maxDepth": 20,
+    "probeMax": 100000000,
+    "probeMin": 0,
+    "verbose": 0
+  },
+  "dataset": {
+    "seed": 2026100709,
+    "count": 1000,
+    "order": "URFDLB",
+    "sha256": "f29439c1d9bd35a44324e0d7c59a385d659b66c391dce660883ce5a0d7b5bf8e"
+  },
+  "physical_replays_passed": 1000,
+  "warm_mean_ms": 5.28427131,
+  "warm_p99_ms": 53.21675,
+  "warm_max_ms": 316.63725,
+  "mean_turns": 19.746,
+  "max_turns": 20,
+  "length_histogram": {
+    "15": 1,
+    "17": 8,
+    "18": 26,
+    "19": 173,
+    "20": 792
+  },
+  "cold_cached_process_ms": 24.732208345085382,
+  "initial_setup": "setup_ms 156.135 cache_bytes 991712 cached 0",
+  "cold_cached_setup": "setup_ms 6.70479 cache_bytes 991712 cached 1",
+  "engine": {
+    "commit": "a5fb820",
+    "warm_mean_ms": 5.683276,
+    "warm_p99_ms": 57.216375,
+    "warm_max_ms": 187.940125,
+    "mean_turns": 19.932,
+    "max_turns": 20,
+    "at_most_20": 1000,
+    "cold_cached_process_ms": 625.884334,
+    "length_histogram": {
+      "18": 2,
+      "19": 64,
+      "20": 934
+    },
+    "phase1_packed_bytes": 147502080,
+    "phase1_generation_seconds": 120.988897458,
+    "cold_cached_process_kind": "Go test executable, TestTwoPhaseColdBenchmark",
+    "independent_cli_oracle": {
+      "cases": 200,
+      "all_at_most_20": true,
+      "mean_turns": 19.935,
+      "max_turns": 20,
+      "process_mean_ms": 558.76,
+      "process_max_ms": 890.13
+    }
+  },
+  "optimal": {
+    "dataset_seed": 2026100714,
+    "cases": 10,
+    "per_state_limit_seconds": 180,
+    "proved": 0,
+    "timeouts": 10,
+    "profiling_enabled": true,
+    "observed_return_seconds": [
+      180.001814166,
+      180.208706708,
+      180.004325333,
+      180.005169417,
+      180.004151083,
+      180.042945792,
+      180.004613916,
+      180.003481,
+      180.00247475,
+      180.124889209
+    ],
+    "corner_bytes": 44089920,
+    "edge_group_bytes": [
+      21288960,
+      21288960
+    ],
+    "transition_bytes": 47900160,
+    "generation_seconds": 67.531018875,
+    "generation_process_peak_rss_bytes": 665354240
+  },
+  "cached_reference_physical_replay_passed": true,
+  "validation": {
+    "go_test": "passed",
+    "go_vet": "passed",
+    "e2e_passed": 133,
+    "e2e_failed": 0,
+    "make_targets_passed": [
+      "test-kociemba",
+      "test-cfop",
+      "test-beginner",
+      "test-first-layer",
+      "test-web",
+      "test-phase1-tables",
+      "test-optimal",
+      "bench-kociemba",
+      "export-reference-fixtures"
+    ],
+    "optimal_benchmark": "complete, CPU profiling enabled, all ten observations censored at 180 seconds",
+    "load_bearing_tests_unchanged": true
+  }
+}

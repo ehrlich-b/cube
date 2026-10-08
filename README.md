@@ -48,13 +48,15 @@ stickers and the input is checked for mutation.
 | Two-phase search | Mean turns | Max | ≤20 turns | Warm mean | Warm p99 | Warm max |
 |---|---:|---:|---:|---:|---:|---:|
 | c862379 (CPU profile enabled) | 19.801 | 21 | 98.8% | 88.80 ms | 1000.08 ms | 1000.52 ms |
-| Symmetry-reduced phase one | **19.932** | **20** | **100%** | **6.37 ms** | **73.39 ms** | **252.56 ms** |
+| Symmetry-reduced phase one | **19.932** | **20** | **100%** | **5.68 ms** | **57.22 ms** | **187.94 ms** |
 
-A **fresh process with cached tables took 885.49 ms**, including a solve of the
+A **fresh Go benchmark subprocess with cached tables took 625.88 ms**, including a solve of the
 first uniform fixture. These are seeded sample measurements, not worst-case
 bounds. `make bench-kociemba` reproduces the warm sample and cold cached process;
 `make test-kociemba` independently constructs and physically replays 200 states
 in Python, including all 24 grips, and requires every answer to be ≤20 turns.
+That CLI oracle measured **19.935 mean / 20 max turns**, with **558.76 ms process
+mean / 890.13 ms maximum**, including cached table setup in every process.
 
 The native search uses an exact phase-one database with **295,004,160 states**:
 291 corner-orientation classes under eight U/D-axis rotations, paired with
@@ -68,8 +70,21 @@ and descending witnesses through the whole distance range (maximum 12).
 Three axes, inverse views and one pre-move share a resumable search budget.
 Phase two uses corner/slice, edge/slice and edge/corner-combination-plus-parity
 bounds, including inverse pruning. The move and pruning strategy is informed
-by [min2phase](https://github.com/cs0x7f/min2phase); paired timings against
-min2phase/Cube Explorer and nissy/vcube remain to be measured on this machine.
+by [min2phase](https://github.com/cs0x7f/min2phase). A paired reference run used
+[min2phaseCXX](https://github.com/lilborgo/min2phaseCXX), built with the installed
+Clang compiler (`-std=c++14 -O3`) in ignored scratch files, on the identical
+1,000 fixtures under the same process policy. It returned **19.746 mean / 20 max
+turns, 100% at ≤20**, with **5.28 ms warm mean / 53.22 ms p99 / 316.64 ms max**.
+Every reference answer passed the independent Python physical replay. Its
+**991,712-byte cache**, **156.14 ms generation** and **24.73 ms fresh cached
+process** are substantially smaller/faster than this engine's large native
+phase-one table. Warm latency is close; the cache and cold-start tradeoff remains.
+
+[Benchmark receipt](./test/solver_benchmark_20261007.json) records the fixture
+SHA-256, source-content hashes, options, both distributions and optimal timeouts.
+`make export-reference-fixtures` writes the same 1,000 two-phase and ten optimal
+URFDLB inputs into `.scratch/` without fetching reference code or dependencies.
+Cube Explorer and nissy/vcube paired timings remain outstanding.
 
 Tables are generated deterministically and cached in the user's cache directory
 (`cube/coordinates-v4.gob`, `cube/phase1-sym8-v1.bin`); `CUBE_CACHE_DIR` overrides
@@ -87,13 +102,24 @@ states lazily build full-corner and two disjoint six-edge databases:
 use **47,900,160 bytes** rather than expanding all 64 orientation masks. The
 checksummed `optimal-v1.bin` is **134,568,064 bytes (128.33 MiB)**. Generation took
 **67.53 seconds**, with **665 MB peak RSS** in the measured table-oracle process.
-Loading the optimal cache took **382.43 ms** in a separate run. With both large
+Loading the optimal cache took **393.25 ms** in a separate run. With both large
 caches and the small search tables loaded, allow about **300 MiB** of resident
 table data. An existing phase-one cache strengthens optimal search in all three
 axes; optimal search does not generate that additional cache when it is absent.
 Optimal setup is included in `--time-limit`, and interrupted builds never publish
 partial tables. `make test-optimal` checks distances against the exact IDA* finder
 and independently replays short states and superflip in every grip.
+
+The uniform-state benchmark (seed `2026100714`, ten states, one search thread,
+background QoS, CPU profiling enabled) returned **0/10 proven solutions** and
+**10/10 timeouts at 180 seconds**; observed return times were **180.002–180.209 s**.
+All ten observations are censored above three minutes, so no uncensored mean,
+median or p99 is claimed. **The few-minute random-state optimal target is not
+met.** `make bench-optimal` reproduces the same ten states and three-minute
+budgets without profiling. The two fixed 12-turn finder cross-checks solved in
+**6.96 / 8.07 ms** with the larger tables; these are short-scramble results,
+separate from the uniform-state distribution. Larger or more effective optimal
+pruning remains necessary before comparing performance with nissy/vcube.
 
 Superflip is recognized by exact cubie coordinates and uses
 [Reid's published 20-turn lower bound](https://www.math.rwth-aachen.de/~Martin.Schoenert/Cube-Lovers/michael_reid__superflip_requires_20_face_turns.html)

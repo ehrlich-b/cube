@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"testing"
 	"time"
@@ -112,5 +113,52 @@ func TestTwoPhaseColdBenchmark(t *testing.T) {
 	c.ApplyMoves(result.Solution)
 	if !c.IsSolved() {
 		t.Fatal("cold cached process solver contract")
+	}
+}
+
+// Export the exact seeded benchmark populations in the standard reference
+// solver facelet order. This is a gated data-generation target, not a solver.
+func TestReferenceFixtureExport(t *testing.T) {
+	if os.Getenv("CUBE_REFERENCE_FIXTURES") != "1" {
+		t.Skip("make export-reference-fixtures")
+	}
+	home := NewCube(3)
+	order := []Face{Up, Right, Front, Down, Left, Back}
+	var letters [6]byte
+	for i, f := range order {
+		letters[home.Faces[f][1][1]] = "URFDLB"[i]
+	}
+	for _, spec := range []struct {
+		seed  int64
+		count int
+		name  string
+	}{
+		{2026100709, 1000, "reference-uniform-1000.txt"},
+		{2026100714, 10, "reference-optimal-10.txt"},
+	} {
+		r := rand.New(rand.NewSource(spec.seed))
+		data := make([]byte, 0, spec.count*55)
+		for i := 0; i < spec.count; i++ {
+			c := cubeFromCoordinates(uniformCubie(r))
+			if err := Validate3x3(c); err != nil {
+				t.Fatal(err)
+			}
+			for _, f := range order {
+				for _, row := range c.Faces[f] {
+					for _, color := range row {
+						data = append(data, letters[color])
+					}
+				}
+			}
+			data = append(data, '\n')
+		}
+		path := filepath.Join("..", "..", ".scratch", spec.name)
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("exported %d uniform URFDLB fixtures, seed %d, to %s", spec.count, spec.seed, path)
 	}
 }

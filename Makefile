@@ -1,4 +1,4 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop import-algorithms web web-pages test-web test-web-smoke bench-kociemba test-phase1-tables test-optimal bench-optimal
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop import-algorithms web web-pages test-web test-web-smoke bench-kociemba test-phase1-tables test-optimal bench-optimal export-reference-fixtures
 
 # Build the binary
 build:
@@ -116,6 +116,9 @@ test-optimal: build
 
 bench-optimal:
 	CUBE_OPTIMAL_BENCH=1 go test -p 2 ./internal/cube -run '^TestOptimalUniformBenchmark$$' -v -count=1 -timeout=45m
+
+export-reference-fixtures:
+	CUBE_REFERENCE_FIXTURES=1 go test -p 2 ./internal/cube -run '^TestReferenceFixtureExport$$' -v -count=1
 
 # Reproducible CSV import; rejected rows retain their original data and reason.
 import-algorithms:
