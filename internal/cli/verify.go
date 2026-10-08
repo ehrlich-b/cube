@@ -23,7 +23,7 @@ Examples:
 
   # Verify T-Perm (PLL case)
   cube verify "R U R' U' R' F R2 U' R' U' R U R' F'" \
-    --start "YB|Y9/?9/?9/W9/?9/?9" \
+    --start "YB|Y9/GOBR6/B2RB6/W9/ORO7/RG8" \
     --target "YB|Y9/R9/B9/W9/O9/G9"
 
   # Verify simple inverse (defaults to solved start/target)
@@ -31,7 +31,7 @@ Examples:
 
   # Verify F2L pair insertion
   cube verify "U R U' R'" \
-    --start "YB|?Y?YYY?Y?/?9/?9/W9/?9/?9" \
+    --start "YB|Y2OY2BY2B/R2YGR2YR2/B2WB2YB3/W2RW6/GO8/GR2G6" \
     --target "YB|?Y?YYY?Y?/??R??R??R/??B??B??B/W9/??O??O??O/??G??G??G"`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {

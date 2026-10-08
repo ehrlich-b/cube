@@ -65,7 +65,7 @@ var generateCfenCmd = &cobra.Command{
 Examples:
   cube generate-cfen "R U R' U'"                    # Simple scramble
   cube generate-cfen "R U R' U'" --dimension 4      # 4x4 cube
-  cube generate-cfen "R U R' U'" --start "WG|..."   # Custom starting state`,
+  cube generate-cfen "R U R' U'" --start "WG|W9/R9/G9/Y9/O9/B9"   # Custom starting state`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		scramble := args[0]
@@ -136,10 +136,10 @@ Examples:
   cube verify-cfen "R U R' U'" "U R U' R'" --target "WG|?W?WWW?W?/?9/?9/?9/?9/?9"
 
   # Verify full solve
-  cube verify-cfen "R U R' U'" "solution" --target "WG|W9/R9/G9/Y9/O9/B9"
+  cube verify-cfen "R U R' U'" "U R U' R'" --target "WG|W9/R9/G9/Y9/O9/B9"
 
   # Verify OLL completion
-  cube verify-cfen "scramble" "solution" --target "WG|Y9/?9/?9/?9/?9/?9"`,
+  cube verify-cfen "R U2 R' U' R U' R'" "R U R' U R U2 R'" --target "YB|Y9/?9/?9/?9/?9/?9"`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		scramble := args[0]
@@ -231,7 +231,7 @@ Supports wildcard matching where '?' positions are ignored.
 
 Examples:
   cube match-cfen "WG|W9/R9/G9/Y9/O9/B9" "WG|W9/R9/G9/Y9/O9/B9"     # Perfect match
-  cube match-cfen "WG|YWY..." "WG|?W?..."                             # Partial match`,
+  cube match-cfen "WG|W9/R9/G9/Y9/O9/B9" "WG|?W?WWW?W?/?9/?9/?9/?9/?9"   # White cross match`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		currentCfen := args[0]

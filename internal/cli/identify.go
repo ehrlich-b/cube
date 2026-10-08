@@ -22,7 +22,7 @@ var identifyCmd = &cobra.Command{
 	Long:  `Analyze a cube state (in CFEN format) and identify matching OLL/PLL cases or suggest applicable algorithms.`,
 	Example: `  cube identify "YB|Y9/R9/B9/W9/O9/G9"  # Solved state
   cube identify "YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6"  # Anti-Sune pattern
-  cube identify --suggest --category OLL  # Show OLL algorithms for current pattern`,
+  cube identify "YB|BY5RYG/YO2R6/YBOB6/W9/YG2O6/BR2G6" --suggest --category OLL  # Suggest Anti-Sune`,
 	Args: cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		suggest, _ := cmd.Flags().GetBool("suggest")
@@ -145,6 +145,85 @@ func findMatchingAlgorithms(inputCube *cube.Cube, pattern, categoryFilter string
 		}
 	}
 
+	// The CFOP stages already recognize OLL by orientation and PLL by
+	// permutation, including AUF. Reuse those verified choices rather than
+	// requiring the concrete inverse pattern's unrelated PLL stickers.
+	for _, match := range cfopAlgorithmMatches(inputCube, categoryFilter) {
+		duplicate := false
+		for _, existing := range matches {
+			if existing.Algorithm.CaseID == match.Algorithm.CaseID {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			matches = append(matches, match)
+		}
+	}
+
+	return matches
+}
+
+func cfopAlgorithmMatches(input *cube.Cube, categoryFilter string) []AlgorithmMatch {
+	category := strings.ToUpper(strings.TrimSpace(categoryFilter))
+	if input.Size != 3 || category != "" && category != "OLL" && category != "PLL" ||
+		!cube.WhiteCrossSolved(input) {
+		return nil
+	}
+	for slot := 0; slot < 4; slot++ {
+		if !cube.F2LSlotSolved(input, slot) {
+			return nil
+		}
+	}
+	solver, err := cube.GetSolver("cfop")
+	if err != nil {
+		return nil
+	}
+	result, err := solver.Solve(input)
+	if err != nil {
+		return nil
+	}
+	var matches []AlgorithmMatch
+	for _, stage := range result.Stages {
+		if stage.Name != "OLL" && stage.Name != "PLL" || category != "" && category != stage.Name {
+			continue
+		}
+		// A PLL stage reached after solving OLL describes a future state.
+		if stage.Name == "PLL" && !cube.OLLSolved(input) {
+			continue
+		}
+		var algorithms []cube.Algorithm
+		for _, name := range stage.Cases {
+			id, caseName, named := strings.Cut(name, " · ")
+			if !named { // Skip and AUF are alignments, not database cases.
+				continue
+			}
+			found := cube.LookupAlgorithm(id)
+			if len(found) > 0 {
+				alg := found[0]
+				alg.CaseID, alg.Name = id, caseName
+				algorithms = append(algorithms, alg)
+			}
+		}
+		if len(algorithms) == 0 {
+			continue
+		}
+		alg := algorithms[0]
+		if len(algorithms) > 1 {
+			var names, ids []string
+			for _, a := range algorithms {
+				names = append(names, a.Name)
+				ids = append(ids, a.CaseID)
+			}
+			alg.Name, alg.CaseID = strings.Join(names, " + "), strings.Join(ids, " + ")
+			alg.Description = "Apply the recognized CFOP stage sequence."
+		}
+		// Include grip setup and AUF in the suggested moves so they replay
+		// from the user's state, including cases with a composed solution.
+		moves := append(append([]cube.Move(nil), result.Stages[0].Moves...), stage.Moves...)
+		alg.Moves, alg.MoveCount, alg.Category = cube.FormatMoves(moves), len(moves), stage.Name
+		matches = append(matches, AlgorithmMatch{Algorithm: alg, MatchType: "exact_start", Confidence: 1})
+	}
 	return matches
 }
 
