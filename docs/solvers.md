@@ -1,6 +1,6 @@
 # Solver status and contracts
 
-Updated 2026-10-07.
+Updated 2026-10-08.
 
 ## Fast full-cube solving
 
@@ -23,20 +23,31 @@ and twist/flip distances. Three reduction axes and their inverses search with
 resumable DFS stacks, sharing a single budget without restarting at each switch.
 Phase-one depth increases up to 12; phase two uses at most 18 turns. Every new
 incumbent tightens the total bound to one less than its length.
-`--target-length` defaults to 20 face turns and `--time-limit` to one second.
-Search stops on reaching the target or returns its best verified solution when
-the budget expires; expiry before any solution is an explicit error. Setup is
-separate from this budget so cold WASM workers can finish initialization.
+The default Kociemba search is deterministic and has no search deadline: it
+continues until it finds a verified solution of at most 20 face turns, with
+grip rotations counted separately. Explicit `--target-length` or `--time-limit`
+flags select the timed API (20 turns and one second unless overridden).
+That API stops at the target or deadline; expiry returns a verified incumbent
+only within `max(20, --target-length)` face turns, otherwise an explicit error.
+A target below 20 is a stopping goal, so expiry may still return a ≤20-turn
+incumbent. Table setup is separate from this explicit search budget.
 `--optimal` retains its distinct timeout contract, including setup and rejecting
-unproved answers. Kociemba does not promise a globally shortest sequence or a
-20-turn answer for every state. These flags are rejected for beginner/CFOP and
+unproved answers. Kociemba does not promise a globally shortest sequence.
+These flags are rejected for beginner/CFOP and
 the partial first-layer goal rather than silently ignored.
 
-The native and WASM executables embed the engine-owned compact asset
+Native executables embed the engine-owned compact asset
 `internal/cube/tables/coordinates-v5.bin.gz` (**3,337,787 bytes**). An untimed
 first use with an empty cache copies those exact bytes to the user's cache
-directory under `cube/`; `CUBE_CACHE_DIR` overrides that directory. Ordinary
-Kociemba does not generate large tables. The cache files, including their
+directory under `cube/`; `CUBE_CACHE_DIR` overrides that directory. The browser
+WASM embeds no solver tables: Kociemba, 2×2 reduction and pattern search lazily
+fetch `coordinates-web-v1.bin.gz` (3,010,837 bytes); 4×4–7×7 reduction also
+fetches the selected size's `nxn-N-v1.bin.gz`. Basic turns, beginner/CFOP and
+solved cubes in any grip need no table download. Verified compressed assets
+stay cached for the page's lifetime (at most 4,544,007 bytes across all sizes),
+so replacing or canceling workers does not require another download. Reloading
+the page clears this memory cache. Ordinary Kociemba does not generate large
+tables. The native cache files, including their
 checksums and move-fingerprint headers, are:
 
 | File | Bytes | Used by |
@@ -53,8 +64,9 @@ data. Loaders reject non-regular files before opening them, including FIFOs and
 symlinks to FIFOs. Missing, unreadable or corrupt compact caches use the embedded
 asset; other requested databases rebuild in memory. A read-only filesystem does
 not prevent solving. Writes use temporary files in the destination directory and
-atomic rename, and failures leave any existing complete cache intact. WASM keeps
-tables in memory when filesystem caching is unavailable.
+atomic rename, and failures leave any existing complete cache intact. WASM
+verifies lazy assets against the release manifest and keeps decoded tables in
+worker memory; failed downloads preserve the cube and can be retried.
 
 `cube tables build --large` explicitly builds and persists the optional phase-one
 file, allowing a few minutes and about 1.6 GiB of temporary memory. The command

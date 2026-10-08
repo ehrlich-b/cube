@@ -478,9 +478,13 @@ The selector beside Solve defaults to Kociemba and also offers Beginner and
 CFOP. CFOP playback groups moves into Cross, F2L 1–4, OLL and PLL with case names,
 turn counts and skips; every move retains click, step and scrub playback.
 The solution heading identifies the method that ran.
-Kociemba uses the same 20-turn goal and one-second search budget as the CLI;
-each worker initializes its own tables before starting that budget. Hard states
-return the best solution found at the deadline. Browser smoke tests check that
+Kociemba uses the CLI's deterministic default search: it continues until a
+verified solution of at most 20 face turns is found, with grip rotations counted
+separately. The default has no engine search deadline. Explicit CLI time/target
+flags select the timed API; its deadline excludes table setup and returns an
+incumbent only within `max(20, target-length)` turns, otherwise an error. Browser
+computations remain cancellable and have a 30-second worker limit for 3×3.
+Browser smoke tests check that
 Solve finishes and animation frames keep running during a cold-worker solve.
 Lesson mode gives the beginner method's actual instructions and checks,
 replanning the next hint from your current state after your own turns.
@@ -547,9 +551,15 @@ no COOP/COEP headers. It verifies `crossOriginIsolated === false` and that
 workers still work. Workers receive a compiled WebAssembly module and create
 their own runtime memory; they do not share a buffer.
 
-Solver tables are separate assets. Kociemba and pattern search fetch the 3x3
-coordinates on first use; reduction also fetches only the selected 4x4–7x7
-table. Basic interaction, beginner lessons and CFOP need no table download.
+The WASM binary embeds no solver tables. Kociemba, 2x2 reduction and pattern
+search fetch the coordinates on first use; 4x4–7x7 reduction also fetches only
+the selected size's table. Basic interaction, beginner lessons, CFOP and solved
+cubes in any orientation need no table download. Verified compressed assets
+remain in a page-lifetime cache, bounded by the manifest's 4,544,007 bytes for
+all five assets. Repeat solves and returning to a loaded size work without
+another table download, including after worker cancellation; a page reload
+clears this cache. Only the active size's worker retains expanded reduction
+tables, and termination still interrupts synchronous search.
 Fetch integrity, SHA-256, sizes, coordinate dimensions and move fingerprints
 protect the data. Failed/corrupt downloads preserve the cube and allow retry.
 The browser coordinate format contains every native coordinate, with a checked

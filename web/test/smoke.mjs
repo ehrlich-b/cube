@@ -998,7 +998,7 @@ try {
   }
   console.log("PASS browser: method selector, all solver headings and verified solution replay");
 
-  // Force the default anytime budget on a hard physical state in a fresh
+  // Exercise the default <=20-turn contract on superflip in a fresh
   // worker. Animation frames must continue throughout setup and synchronous
   // WASM search, and Solve must return a sequence that completes playback.
   await page.locator("#reset").click();
@@ -1018,10 +1018,11 @@ try {
   assert.ok(Date.now() - budgetStarted < 20000, "cold worker Solve must finish before the UI's 30-second timeout");
   const frames = await page.evaluate(() => { globalThis.countSolveFrames = false; return globalThis.solveFrames; });
   assert.ok(frames >= 5, `UI stalled while Solve ran: ${frames} animation frames`);
-  assert.ok((await page.locator("#sequence-moves button").count()) > 0);
+  const coldMoves = await page.locator("#sequence-moves button").count();
+  assert.ok(coldMoves > 0 && coldMoves <= 20, "Default Kociemba returns at most 20 face turns");
   await page.locator("#scrubber").fill(await page.locator("#scrubber").getAttribute("max"));
   assert.equal(await page.locator("#cfen").inputValue(), solved);
-  console.log(`PASS browser: cold-worker budget solve and responsive UI (${frames} animation frames)`);
+  console.log(`PASS browser: cold-worker <=20-turn solve and responsive UI (${frames} animation frames)`);
 
   await page.locator("#reset").click();
   await page.locator("#stage").focus();
