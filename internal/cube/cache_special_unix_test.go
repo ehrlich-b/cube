@@ -19,6 +19,7 @@ func TestCacheLoadersRejectSpecialFiles(t *testing.T) {
 		load func() bool
 	}{
 		{"coordinates", coordinateCachePath, func() bool { return loadCoordinateTables() != nil }},
+		{"coordinates-2x2", twoByTwoCachePath, func() bool { return loadTwoByTwoTables() != nil }},
 		{"coordinates-deadline", coordinateCachePath, func() bool {
 			return loadCoordinateTablesLimit(time.Now().Add(100*time.Millisecond)) != nil
 		}},
