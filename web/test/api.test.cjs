@@ -23,6 +23,17 @@ function rejects(request, pattern) {
   const go = new Go();
   const { instance } = await WebAssembly.instantiate(fs.readFileSync(path.join(__dirname, "../cube.wasm")), go.importObject);
   go.run(instance).catch(error => { console.error(error); process.exit(1); });
+  rejects({ op: "solve", moves: "R" }, /coordinate solver asset/);
+  assert.match(globalThis.cubeLoadSolverAsset("coordinates", new Uint8Array(), ""), /length/);
+  assert.match(globalThis.cubeLoadSolverAsset("coordinates", "invalid", ""), /Uint8Array/);
+  const { solverAssets } = await import("../solver-assets.js");
+  for (const [name, asset] of Object.entries(solverAssets)) {
+    const bytes = fs.readFileSync(asset.url);
+    assert.equal(globalThis.cubeLoadSolverAsset(name, bytes, asset.digest), "");
+    const corrupt = Buffer.from(bytes);
+    corrupt[corrupt.length - 1] ^= 1;
+    assert.match(globalThis.cubeLoadSolverAsset(name, corrupt, asset.digest), /integrity/);
+  }
   const solved = call({ op: "state" }).state;
   assert.equal(solved.cfen, "YB|Y9/R9/B9/W9/O9/G9");
   assert.equal(solved.solved, true);

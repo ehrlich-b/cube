@@ -29,7 +29,11 @@ run:
 
 # Static website; no JavaScript bundler or npm build step.
 web:
-	GOOS=js GOARCH=wasm go build -p 2 -trimpath -o web/cube.wasm ./cmd/cubewasm
+	mkdir -p .scratch
+	GOOS=js GOARCH=wasm go build -p 2 -trimpath -ldflags="-s -w" -o web/cube.wasm ./cmd/cubewasm
+	node web/optimize-wasm.mjs
+	go run -p 2 ./tools/export-web-tables
+	node web/build-solver-assets.mjs
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" web/wasm_exec.js
 
 # Export only runtime assets; keep test packages out of GitHub Pages.

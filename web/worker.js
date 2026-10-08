@@ -10,6 +10,7 @@ self.onmessage = async ({ data }) => {
     const call = await engine;
     if (!data.request) return;
     const { request } = data;
+    await call.prepare(request);
     self.postMessage({ type: "progress", phase: "solving" });
     const result = call(request);
     const computedMs = performance.now() - started;

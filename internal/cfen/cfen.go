@@ -2,7 +2,6 @@ package cfen
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -182,9 +181,7 @@ func parseFaces(facesStr string) ([6]CFENFace, int, error) {
 func parseFace(faceStr string) (*CFENFace, error) {
 	var stickers []cube.Color
 
-	// Regular expression to match color+optional_count patterns
-	re := regexp.MustCompile(`([WYROGB?])(\d*)`)
-	matches := re.FindAllStringSubmatch(faceStr, -1)
+	matches := scanFaceRuns(faceStr)
 
 	if len(matches) == 0 {
 		return nil, fmt.Errorf("no valid color tokens found in '%s'", faceStr)
@@ -228,6 +225,24 @@ func parseFace(faceStr string) (*CFENFace, error) {
 	return &CFENFace{
 		Stickers: stickers,
 	}, nil
+}
+
+// Scan the same ASCII color/count tokens as ([WYROGB?])(\d*), without
+// compiling a regular expression on every face or linking it into the site.
+// Unmatched bytes are retained in the existing reconstructed-string check.
+func scanFaceRuns(text string) [][]string {
+	var matches [][]string
+	for i := 0; i < len(text); i++ {
+		if !strings.ContainsRune("WYROGB?", rune(text[i])) {
+			continue
+		}
+		start := i
+		for i+1 < len(text) && text[i+1] >= '0' && text[i+1] <= '9' {
+			i++
+		}
+		matches = append(matches, []string{text[start : i+1], text[start : start+1], text[start+1 : i+1]})
+	}
+	return matches
 }
 
 // parseColor converts a character to a Color
