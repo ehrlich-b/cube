@@ -53,15 +53,27 @@ layers can remain scrambled. See [the white-layer guide](./first-layer.md).
 ## Solve other sizes
 
 For 4×4 through 7×7, reduction solves centers and pairs every edge orbit, then
-finishes through the existing 3×3 Kociemba solver. Odd fixed centers determine
-the cube's orientation. Before solving centers, one inner turn corrects any odd
-wing permutation (OLL parity); pairing to an edge state with the corners' parity
-also handles PLL parity. Pure three-piece cycles preserve completed centers and
-other edge orbits. The 2×2 uses the same 3×3 solver's corners path.
+finishes through the public 3×3 Kociemba solver. Odd fixed centers determine
+the cube's orientation. The 2×2 uses the same solver's corners path.
 
-These are verified complete solutions, with correctness ahead of move count.
-They do not promise short or optimal sequences. `--time-limit` and
-`--target-length` control the final 3×3 search; the reduction happens first.
+On 4×4/5×5, small searches build opposite center blocks using coordinates for
+four centers of one color. After U/D, outer turns and horizontal slices preserve
+those blocks while searches complete the side centers. On 6×6/7×7, bar
+commutators place several center rows together. Color-based three-piece cycles
+finish incomplete blocks without assigning unnecessary labels to centers.
+
+Edges use [slice–extract–restore pairing](https://speedcubing.com/chris/4speedsolve21.html)
+and slice–flip–slice for the last pairs. A two-turn outer setup search chooses
+useful pairings; pure wing cycles finish remaining cases while preserving
+centers and earlier edge orbits. Even cubes keep naturally paired edges rather
+than sending every wing to a predetermined slot. Fifteen-turn OLL correction
+and a half-width PLL algorithm make that reduced edge state legal; later
+orbits match it. Odd cubes pair their wings to the central edges. Adjacent
+turns on one physical axis are canceled and packed into wide blocks.
+
+The full sequence is verified on the original cube. Solutions are not promised
+to be optimal. `--time-limit` and `--target-length` control the final 3×3 search;
+the reduction happens first.
 
 ```sh
 ./dist/cube solve "R U R' U'" --dimension 2 --headless
@@ -100,19 +112,22 @@ An optional scramble is applied after that saved state, as for 3×3 solving.
 100 uniform-move scrambles per size in fresh CLI processes. It also checks all
 24 grips, isolated/combined OLL and PLL parity, printed step counts and final
 CFEN. Background-QoS measurements on this Mac (2026-10-07), over all 200 cases
-per size, were:
+per size, were (the uniform column covers just the 100 uniform states):
 
-| Size | Mean / max moves | Fresh process mean / max |
-|---|---:|---:|
-| 2×2 | 19.50 / 20 | 85.24 / 231.06 ms |
-| 4×4 | 371.87 / 444 | 95.79 / 235.50 ms |
-| 5×5 | 532.82 / 611 | 182.99 / 1131.25 ms |
-| 6×6 | 1058.29 / 1169 | 145.78 / 713.70 ms |
-| 7×7 | 1378.36 / 1510 | 261.22 / 1189.32 ms |
+| Size | Mean / max moves | Uniform mean / max | Fresh process mean / max |
+|---|---:|---:|---:|
+| 2×2 | 18.89 / 20 | 18.78 / 20 | 76.86 / 271.37 ms |
+| 4×4 | 92.59 / 128 | 92.09 / 115 | 290.48 / 1230.35 ms |
+| 5×5 | 192.58 / 253 | 193.16 / 253 | 682.90 / 1745.57 ms |
+| 6×6 | 457.26 / 522 | 452.01 / 509 | 707.85 / 1773.85 ms |
+| 7×7 | 638.47 / 712 | 640.78 / 712 | 1217.23 / 2678.78 ms |
 
-Moves count each numbered slice turn, half turn and grip rotation once. Times
+Outer, numbered-slice, wide and half turns, and grip rotations each count once. Times
 include startup, fresh reduction setups and loading an already populated 3×3
-disk cache. These are sample results, not worst-case guarantees.
+disk cache. These are sample results, not worst-case guarantees. The oracle
+fails if the combined or uniform mean moves for any size exceeds its
+documented value by more than 5%, and requires both documentation tables
+to agree.
 
 See [advanced examples](./advanced.md) for CFEN verification and bounded search,
 and [algorithm lookup](./algorithms.md) for stored case IDs.

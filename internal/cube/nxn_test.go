@@ -165,3 +165,103 @@ func TestNxNRejectsInvalidStatesWithoutMutation(t *testing.T) {
 		}
 	}
 }
+
+func TestNxNPairingAndParityPreserveCenters(t *testing.T) {
+	for _, n := range []int{4, 5, 6, 7} {
+		tables, err := nxnTables(n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, orbit := range tables.wings {
+			for _, action := range nxnPairingActions(n, orbit) {
+				full := nxnPermutation(n, action.moves)
+				outer := nxnPermutation(n, nxnOuterMoves(action.moves))
+				if !nxnPreservesCenterColors(n, full) {
+					t.Fatalf("%dx%d pairing moved a center color: %s", n, n, FormatMoves(action.moves))
+				}
+				for _, other := range tables.wings {
+					if other == orbit {
+						continue
+					}
+					for i, pos := range other.positions {
+						if full[pos] != outer[pos] || full[other.partners[i]] != outer[other.partners[i]] {
+							t.Fatal("pairing changed another wing orbit beyond its outer turns")
+						}
+					}
+				}
+			}
+			oll := nxnOLLParity(orbit.layer)
+			if !nxnPreservesCenterColors(n, nxnPermutation(n, oll)) {
+				t.Fatalf("%dx%d OLL parity moved center colors", n, n)
+			}
+			c := NewCube(n)
+			if err := c.ApplyMoves(oll); err != nil {
+				t.Fatal(err)
+			}
+			p, err := nxnWingPermutation(c, nxnReducedSeed(c), orbit)
+			if err != nil || permutationParity(p) != 1 {
+				t.Fatalf("%dx%d OLL did not toggle wing parity: %v", n, n, err)
+			}
+		}
+		if n%2 == 0 && !nxnPreservesCenterColors(n, nxnPermutation(n, nxnPLLParity(n))) {
+			t.Fatalf("%dx%d PLL parity moved center colors", n, n)
+		}
+	}
+}
+
+func TestNxNCenterSeedsPreserveOtherCenters(t *testing.T) {
+	for _, n := range []int{4, 5, 6, 7} {
+		tables, err := nxnTables(n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, orbit := range tables.centers {
+			p := nxnPermutation(n, orbit.cycle)
+			moved := 0
+			for src, dst := range p {
+				f, r, col := indexToCoord(src, n)
+				if src == dst || isBoundaryCell(f, r, col, n) {
+					continue
+				}
+				moved++
+				found := false
+				for _, pos := range orbit.positions {
+					found = found || pos == src
+				}
+				if !found || p[p[dst]] != src {
+					t.Fatalf("%dx%d seed changed another center orbit or is not a 3-cycle", n, n)
+				}
+			}
+			if moved != 3 {
+				t.Fatalf("center seed moved %d centers", moved)
+			}
+		}
+	}
+}
+
+func TestNxNAxisOptimizationPreservesEverySticker(t *testing.T) {
+	rng := rand.New(rand.NewSource(90261007))
+	for _, n := range []int{2, 4, 5, 6, 7} {
+		for trial := 0; trial < 20; trial++ {
+			var moves []Move
+			for i := 0; i < 100; i++ {
+				turns := rng.Intn(3) + 1
+				m := Move{Face: Face(rng.Intn(6)), Layer: rng.Intn(n), Clockwise: turns == 1, Double: turns == 2}
+				if rng.Intn(3) == 0 {
+					m.Layer, m.Wide, m.WideDepth = 0, true, rng.Intn(n)+1
+				}
+				moves = append(moves, m)
+				if i%11 == 0 {
+					moves = append(moves, Move{Rotation: RotationType(1 + rng.Intn(3)), Clockwise: true})
+				}
+			}
+			optimized := nxnOptimizeMoves(moves, n)
+			if len(optimized) > len(moves) {
+				t.Fatalf("optimizer length grew from %d to %d", len(moves), len(optimized))
+			}
+			if !reflect.DeepEqual(nxnPermutation(n, moves), nxnPermutation(n, optimized)) {
+				t.Fatalf("%dx%d optimizer changed sticker permutation", n, n)
+			}
+		}
+	}
+}

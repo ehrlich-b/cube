@@ -27,6 +27,32 @@ OLL = "2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2"
 PLL = "2R2 U2 2R2 Uw2 2R2 Uw2"
 
 
+def parse_documented_metrics(text, name):
+    rows = re.findall(
+        r"^\| ([24567])×\1 \| (\d+\.\d+) / (\d+) \| "
+        r"(\d+\.\d+) / (\d+) \| (\d+\.\d+) / (\d+\.\d+) ms \|$",
+        text, re.M)
+    assert len(rows) == 5, (name, "expected one measurement row for every size")
+    metrics = {int(row[0]): tuple(float(value) for value in row[1:]) for row in rows}
+    assert set(metrics) == {2, 4, 5, 6, 7}, (name, "missing or repeated size")
+    return metrics
+
+
+def documented_metrics():
+    root = Path(__file__).resolve().parents[1]
+    metrics = [parse_documented_metrics((root / name).read_text(), name)
+               for name in ("README.md", "examples/solving.md")]
+    assert metrics[0] == metrics[1], "README and solving guide measurements disagree"
+    return metrics[0]
+
+
+def check_move_mean(n, batch, lengths, documented):
+    mean = statistics.mean(lengths)
+    assert mean <= documented * 1.05 + 1e-9, (
+        f"{n}x{n} {batch} mean moves regressed: {mean:.2f} exceeds "
+        f"documented {documented:.2f} by more than 5%")
+
+
 def quarter(vector, axis):
     x, y, z = vector
     return ((x, z, -y), (-z, y, x), (y, -x, z))[axis]
@@ -259,6 +285,7 @@ def main():
     scratch = Path(".scratch").resolve()
     scratch.mkdir(exist_ok=True)
     os.environ.setdefault("CUBE_CACHE_DIR", str(scratch / "cube-cache"))
+    documented = documented_metrics()
     parity_checks(binary)
     for n in args.sizes:
         assert n in (2, 4, 5, 6, 7)
@@ -267,6 +294,7 @@ def main():
         rng = random.Random(20261007 + n)
         lengths, durations = [], []
         for batch in ("uniform", "scramble"):
+            batch_lengths, batch_durations = [], []
             for index in range(args.cases):
                 state = (g.uniform_state(rng) if batch == "uniform"
                          else g.replay(g.home, g.scramble(rng)))
@@ -284,7 +312,14 @@ def main():
                 assert sorted(source) == sorted(replay), (n, "sticker conservation")
                 lengths.append(len(sequence.split()))
                 durations.append(duration)
-            print(f"{n}x{n} {batch}: {args.cases} fresh-process solutions replayed", flush=True)
+                batch_lengths.append(len(sequence.split()))
+                batch_durations.append(duration)
+            print(f"{n}x{n} {batch}: {args.cases} fresh-process solutions replayed; "
+                  f"moves mean {statistics.mean(batch_lengths):.2f}, max {max(batch_lengths)}; "
+                  f"process ms mean {statistics.mean(batch_durations):.2f}, "
+                  f"max {max(batch_durations):.2f}", flush=True)
+            if batch == "uniform":
+                check_move_mean(n, batch, batch_lengths, documented[n][2])
         # Full CLI output must agree with the solver contract; --cfen must
         # preserve the dimension and yield the exact center-matched state.
         state = g.uniform_state(rng)
@@ -298,6 +333,7 @@ def main():
         print(f"{n}x{n}: {len(lengths)} cases; moves mean {statistics.mean(lengths):.2f}, "
               f"max {max(lengths)}; process ms mean {statistics.mean(durations):.2f}, "
               f"max {max(durations):.2f}", flush=True)
+        check_move_mean(n, "combined", lengths, documented[n][0])
 
 
 if __name__ == "__main__":

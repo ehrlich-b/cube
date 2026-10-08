@@ -9,20 +9,27 @@ import (
 // of 24, with one sticker per physical piece in each orbit. Keeping an ordered
 // color pair distinguishes the two wings of an edge without invented flips.
 type reductionOrbit struct {
-	positions []int
-	partners  []int // wings only, indexed like positions
-	layer     int   // a slice whose quarter turn changes this wing orbit's parity
-	cycle     []Move
-	root      int
-	parent    []int16
-	via       []uint8
+	positions   []int
+	partners    []int // wings only, indexed like positions
+	layer       int   // a slice whose quarter turn changes this wing orbit's parity
+	cycle       []Move
+	parent      []int16
+	via         []uint8
+	inverseRoot []bool
+	actionsOnce sync.Once
+	actions     []wingAction
 }
 
 type reductionTables struct {
-	centers []*reductionOrbit
-	wings   []*reductionOrbit
-	moves   []Move
-	perms   []Permutation
+	size         int
+	centers      []*reductionOrbit
+	wings        []*reductionOrbit
+	moves        []Move
+	perms        []Permutation
+	patternsOnce sync.Once
+	patterns     []*centerPatterns
+	blocksOnce   sync.Once
+	blocks       []centerBlockAction
 }
 
 var reductionCache struct {
@@ -78,13 +85,24 @@ func nxnPermutation(n int, moves []Move) Permutation {
 }
 
 func buildReductionTables(n int) (*reductionTables, error) {
-	t := &reductionTables{}
+	t := &reductionTables{size: n}
 	// R/U/F through all layers include the opposite faces. Half/inverse turns
 	// shorten setup paths; they do not change the generated permutation group.
 	for _, f := range []Face{Right, Up, Front} {
 		for layer := 0; layer < n; layer++ {
 			for turns := 1; turns <= 3; turns++ {
 				m := Move{Face: f, Layer: layer, Clockwise: turns == 1, Double: turns == 2}
+				t.moves = append(t.moves, m)
+				t.perms = append(t.perms, nxnPermutation(n, []Move{m}))
+			}
+		}
+	}
+	// Block turns move several rows of large centers together. Their outer
+	// face turn is part of the move and must also be represented in searches.
+	for f := Front; f <= Down; f++ {
+		for depth := 2; depth <= n/2; depth++ {
+			for _, m := range faceMoves(f) {
+				m.Wide, m.WideDepth = true, depth
 				t.moves = append(t.moves, m)
 				t.perms = append(t.perms, nxnPermutation(n, []Move{m}))
 			}
@@ -129,6 +147,31 @@ func buildReductionTables(n int) (*reductionTables, error) {
 			face, row, col := indexToCoord(support[0], n)
 			if !isBoundaryCell(face, row, col, n) && o.cycle == nil {
 				o.cycle = moves
+			}
+		}
+	}
+	// Before edge pairing, an eight-turn center cycle may also move wings.
+	// Require exactly three movable centers and no fixed-center movement;
+	// all other center orbits are preserved. This saves two turns per insert.
+	for i := 1; i < n-1; i++ {
+		for j := 1; j < n-1; j++ {
+			r := []Move{{Face: Right, Layer: i, Clockwise: true}}
+			f := []Move{{Face: Front, Layer: j, Clockwise: true}}
+			conjugate := append(append(append([]Move{}, r...), u...), nxnInverse(r)...)
+			moves := nxnCommutator(conjugate, f)
+			p := nxnPermutation(n, moves)
+			var centers []int
+			for _, pos := range nxnSupport(p) {
+				face, row, col := indexToCoord(pos, n)
+				if !isBoundaryCell(face, row, col, n) {
+					centers = append(centers, pos)
+				}
+			}
+			if len(centers) == 3 && len(owner[centers[0]].positions) == 24 {
+				o := owner[centers[0]]
+				if len(o.cycle) > len(moves) {
+					o.cycle = moves
+				}
 			}
 		}
 	}
@@ -181,12 +224,13 @@ func nxnSupport(p Permutation) []int {
 
 func tripleKey(a, b, c int) int { return (a*24+b)*24 + c }
 
-// Conjugating a verified pure cycle preserves its support size. BFS over just
-// three positions supplies a short setup for every ordered triple (24*23*22),
+// Conjugating a verified cycle preserves its three-position orbit support.
+// BFS from both directions and all cyclic labelings supplies short setups for
+// every ordered triple (24*23*22),
 // rather than searching whole cube states or depending on scramble history.
 func (o *reductionOrbit) buildSetups(n int, t *reductionTables) error {
 	if len(o.positions) != 24 || len(o.cycle) == 0 {
-		return fmt.Errorf("dimension %d: no pure cycle for a reduction orbit", n)
+		return fmt.Errorf("dimension %d: no cycle for a reduction orbit", n)
 	}
 	local := make([]int, 6*n*n)
 	for i := range local {
@@ -206,15 +250,20 @@ func (o *reductionOrbit) buildSetups(n int, t *reductionTables) error {
 		return fmt.Errorf("dimension %d: reduction seed is not a 3-cycle", n)
 	}
 	a := support[0]
-	o.root = tripleKey(local[a], local[p[a]], local[p[p[a]]])
+	x, y, z := local[a], local[p[a]], local[p[p[a]]]
 	o.parent = make([]int16, 24*24*24)
 	o.via = make([]uint8, len(o.parent))
 	for i := range o.parent {
 		o.parent[i] = -1
 	}
-	o.parent[o.root] = int16(o.root)
-	queue := make([]int, 1, 24*23*22)
-	queue[0] = o.root
+	o.inverseRoot = make([]bool, len(o.parent))
+	queue := make([]int, 0, 24*23*22)
+	for i, triple := range [][3]int{{x, y, z}, {y, z, x}, {z, x, y}, {x, z, y}, {z, y, x}, {y, x, z}} {
+		root := tripleKey(triple[0], triple[1], triple[2])
+		o.parent[root] = int16(root)
+		o.inverseRoot[root] = i >= 3
+		queue = append(queue, root)
+	}
 	transitions := make([][24]int, len(t.perms))
 	for g, perm := range t.perms {
 		for i, pos := range o.positions {
@@ -240,13 +289,18 @@ func (o *reductionOrbit) buildSetups(n int, t *reductionTables) error {
 
 func (o *reductionOrbit) cycleMoves(t *reductionTables, a, b, c int) []Move {
 	var reversed []Move
-	for key := tripleKey(a, b, c); key != o.root; key = int(o.parent[key]) {
+	key := tripleKey(a, b, c)
+	for ; int(o.parent[key]) != key; key = int(o.parent[key]) {
 		reversed = append(reversed, t.moves[o.via[key]])
 	}
 	setup := make([]Move, len(reversed))
 	for i, m := range reversed {
 		setup[len(setup)-1-i] = m
 	}
-	moves := append(nxnInverse(setup), o.cycle...)
-	return OptimizeMoves(append(moves, setup...))
+	cycle := o.cycle
+	if o.inverseRoot[key] {
+		cycle = nxnInverse(cycle)
+	}
+	moves := append(nxnInverse(setup), cycle...)
+	return nxnOptimizeMoves(append(moves, setup...), t.size)
 }
