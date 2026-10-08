@@ -17,10 +17,16 @@ func tableCachePath(filename string) string {
 	return filepath.Join(filepath.Dir(path), filename)
 }
 
-// Check the target before opening it: opening a FIFO for reading can block
-// before File.Stat or any deadline check. Stat also follows symlink targets.
-// Check the opened descriptor again to validate its type and bounded size.
+// The path check rejects invalid caches cheaply, but the target may change
+// before opening. Open without blocking on Unix special files, then validate
+// the descriptor's type and bounded size before restoring blocking reads.
 func openTableCache(path string, minSize, maxSize int64, deadline time.Time) (*os.File, int64, error) {
+	return openTableCacheWithOpener(path, minSize, maxSize, deadline, openTableCacheFile)
+}
+
+// An explicit opener lets tests replace the target after the path check
+// without changing shared process state or relying on a scheduling race.
+func openTableCacheWithOpener(path string, minSize, maxSize int64, deadline time.Time, open func(string) (*os.File, error)) (*os.File, int64, error) {
 	if tableDeadlineExceeded(deadline) {
 		return nil, 0, context.DeadlineExceeded
 	}
@@ -34,13 +40,16 @@ func openTableCache(path string, minSize, maxSize int64, deadline time.Time) (*o
 	if tableDeadlineExceeded(deadline) {
 		return nil, 0, context.DeadlineExceeded
 	}
-	f, err := os.Open(path)
+	f, err := open(path)
 	if err != nil {
 		return nil, 0, err
 	}
 	info, err = f.Stat()
 	if err == nil && (!info.Mode().IsRegular() || info.Size() < minSize || info.Size() > maxSize) {
 		err = fmt.Errorf("invalid table cache: %s", path)
+	}
+	if err == nil {
+		err = setTableCacheBlocking(f)
 	}
 	if err == nil && tableDeadlineExceeded(deadline) {
 		err = context.DeadlineExceeded
