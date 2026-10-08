@@ -117,10 +117,10 @@ Optimal search retains the small databases for states within ten turns. Deep
 use **47,900,160 bytes**. Their checksummed `optimal-v1.bin` is
 **134,568,064 bytes (128.33 MiB)**; earlier generation took **67.53 seconds**.
 
-The stronger heuristic fixes the four slice edges in place as well as orienting
-all cubies. Sixteen U/D-axis symmetries reduce corner twists to **168 classes**,
-with **4,087,480,320 combined entries**. Two bits store exact distances modulo
-three through ten turns; remaining entries give the admissible lower bound
+The stronger heuristic follows [Kociemba’s huge optimal coordinate](https://kociemba.org/math/optimal.htm):
+it fixes the four slice edges in place as well as orienting all cubies. Sixteen U/D-axis symmetries reduce corner twists to **168 classes**,
+with **4,087,480,320 combined entries**. The [modulo-three encoding](https://kociemba.org/math/pruning.htm) uses two bits
+for exact distances through ten turns; remaining entries give the admissible lower bound
 **eleven**. Saturation retains consistency across moves. The parent's bound
 and a small lookup recover each child's bound, avoiding division in the search.
 The cache is **1,021,870,144 bytes (974.53 MiB)**, including its checksum and move
@@ -150,13 +150,25 @@ partial tables. `make test-optimal` checks short distances against the separate
 IDA* finder, independently proves three fixed distances by physical-sticker
 BFS, checks deeper finder fixtures, and replays superflip in every grip.
 
-The earlier uniform-state benchmark (seed `2026100714`, ten states, one search
-thread, background QoS, CPU profiling enabled) returned **0/10 proven solutions**
-and **10/10 timeouts at 180 seconds**. The stronger heuristic's first profiled
-uniform fixture also timed out at **60 s**. These are censored observations,
-not solved-state medians. `make bench-optimal` now runs **twenty uniform states**
-with three-minute budgets and preserves timeouts in the reported distribution.
-The median-under-60-second and all-under-ten-minute targets remain unverified.
+The uniform-state benchmark (seed `2026100714`, **twenty states**, two search
+workers, background QoS, no CPU profiling, **180-second limit per state**)
+proved **9/20** and timed out on **11/20**. Proven solve times, in increasing
+order, were **13.42, 13.74, 18.05, 19.04, 57.60, 60.67, 71.41, 76.94 and
+176.67 seconds**. Eight answers had optimal length **17**, and one had length
+**18**; every answer passed full-cube replay and input-immutability checks.
+**Five of twenty finished within 60 seconds. The full-sample median exceeds
+180 seconds**, because eleven observations are right-censored above that limit.
+No solved-only median is presented as the uniform-state median. On the original
+first ten fixtures, **5/10** now finish at the same budget, compared with the
+previous **0/10** profiled result. Warm benchmark RSS peaked at
+**1,193,705,472 bytes (1.19 GB)**, and cached setup took **2.01 seconds**.
+
+**The practical optimal target is not met.** The median-under-60-second target
+fails in this sample; completion within ten minutes for all twenty states was
+not established by the three-minute trials. `make bench-optimal` reproduces
+the twenty fixtures and budgets. Stronger inverse-state heuristics or further
+search improvements remain necessary. The rejected eight-edge experiment and
+all generated native caches stay outside Git.
 
 Superflip is recognized by exact cubie coordinates and uses
 [Reid's published 20-turn lower bound](https://www.math.rwth-aachen.de/~Martin.Schoenert/Cube-Lovers/michael_reid__superflip_requires_20_face_turns.html)

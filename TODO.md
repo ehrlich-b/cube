@@ -59,14 +59,18 @@ root selection and two workers reduce completed depth-fifteen node counts by
 about **7.6×** on the first two uniform fixtures. Large tables remain exclusive
 to deep optimal calls; default cold start and cache are unchanged.
 
-The earlier uniform benchmark was **0/10 at 180 s**; the first stronger-heuristic
-profiled fixture still timed out at **60 s**. The few-minute target remains
-unverified. `make bench-optimal` now preserves all outcomes over **twenty states**
-(seed `2026100714`) with three-minute budgets. The optimal oracle includes
-independent physical-sticker BFS distances, the separate IDA* finder, deeper
-fixtures and superflip's published 20-turn bound with all 24 grips replayed.
-The paired
-min2phaseCXX reference on the identical 1,000 states measured **5.28 ms mean /
+The uniform benchmark now proves **9/20**, with **11/20 right-censored at
+180 seconds**, under background QoS and two search workers without profiling
+(seed `2026100714`). Proven times span **13.42–176.67 s**; **5/20** finish within
+60 seconds. The full-sample median is **above 180 s**, so the practical optimal
+target is **unmet**; the all-under-ten-minute target remains unestablished.
+The first ten fixtures improved from **0/10** to **5/10** at the same budget.
+Warm search peaked at **1.19 GB RSS**. `make bench-optimal` preserves all twenty
+outcomes and three-minute budgets. The oracle passed **59 independent physical
+checks**, including physical BFS distances 6/7/8 and superflip in all 24 grips;
+separate finder cross-checks proved **12/12/13/14-turn** fixtures. Next work
+should strengthen inverse-state pruning or improve search throughput.
+The paired min2phaseCXX reference on the identical 1,000 states measured **5.28 ms mean /
 53.22 ms p99**, **19.746 mean / 20 max turns**, with every answer physically
 replayed. Its **991,712-byte cache / 24.73 ms cold cached process** beat the
 engine's prior large-cache/cold-start costs. The reference was run privately in
@@ -296,23 +300,21 @@ No look-ahead, extended cross, or color neutrality is claimed.
 - [x] Full-corner and disjoint six-edge optimal databases, lazy cache generation
 - [x] Saturated sorted phase-one table under 16 symmetries, three-axis bounds and two-worker optimal search
 - [x] Optimal distance oracle: short/deep finder cross-checks and superflip = 20
-- [ ] Reach the few-minute proven-optimal target: measured 0/10 at 180 s, with all ten observations censored
+- [ ] Reach the practical proven-optimal target: 9/20 proved at 180 s, 11 censored, full-sample median >180 s
 - [x] Paired min2phaseCXX comparison on the exact 1,000 fixtures, with physical replay and source hashes
 - [x] Export seeded URFDLB reference datasets with `make export-reference-fixtures`
 - [x] Replace implicit 147.5 MB generation with a reproducible compact embedded asset
 - [x] Gate first-ever solve time and default cache size in `make test-kociemba`
 - [ ] Run paired native reference benchmarks against Cube Explorer and nissy/vcube
 
-Compact-default validation on 2026-10-07 completed by 22:40 local:
-`go test -p 2 ./...`, `go vet -p 2 ./...`, `make build`, **133/133 CLI E2E cases**,
-`make test-kociemba` (fresh empty cache, 1,000 warm states and 200 independent
-physical states), `make test-cfop`, `make test-beginner`, `make test-first-layer`,
-`make test-web` and `make test-optimal` all passed. Compact table generation also
-passed exhaustive pair-distance comparisons and roundtrip checks. The three
-load-bearing test files remain unchanged; every new solver answer is checked
-against the full-cube contract. The earlier paired min2phaseCXX run passed 1,000
-independent physical replays. The earlier ten-state optimal benchmark remains
-0/10 proved at 180 seconds; optimal performance was not revisited in this run.
+Current validation passed `go test -p 2 ./...`, `go vet -p 2 ./...`, builds of
+all tools, **138/138 CLI E2E cases**, `make test-kociemba`,
+`make test-kociemba-cold`, the extended `make test-optimal`, `make test-nxn`,
+`make test-docs` and `make test-web`. The first-ever plain solve still uses only
+the **3,337,787-byte** compact asset and measured **271.96 ms**, inside its
+1-second/10-MB gate. The three load-bearing invariant files remain unchanged;
+every new optimal answer is checked against the full-cube contract. The earlier
+paired min2phaseCXX run passed 1,000 independent physical replays.
 
 ### 6.3 Big Cube Support
 - [x] 4x4 reduction method (centers, edges, OLL/PLL parity)
