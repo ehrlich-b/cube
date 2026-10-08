@@ -113,8 +113,9 @@ that supplied state.
 ```
 
 The full beginner path supports standard 3×3 cubes. It favors familiar move
-groups over short solutions. Other dimensions, unavailable CFOP/Kociemba
-algorithms, malformed notation, and impossible physical states produce errors.
+groups over short solutions. Full solving also offers Kociemba (the default)
+and CFOP through `solve --method`. Other dimensions, malformed notation and
+impossible physical states produce errors.
 Color counts, center relationships, cubie identities, flips, twists and parity
 are checked before planning.
 
