@@ -42,6 +42,7 @@ checksums and move-fingerprint headers, are:
 | File | Bytes | Used by |
 |---|---:|---|
 | `coordinates-v5.bin.gz` | 3,337,787 | Embedded compact tables for Kociemba and coordinate search |
+| `coordinates-2x2-v1.bin` | 5,538,536 | Optional native 2×2 cache of the same tables using stored gzip blocks |
 | `edges-v1.bin` | 14,256,064 | Four-edge databases for CFOP and exact-state search, generated on first use |
 | `phase1-sym8-v1.bin` | 147,502,144 | Optional large phase-one table (140.67 MiB) |
 | `optimal-v1.bin` | 134,568,064 | Full-corner and two six-edge databases for deep optimal search (128.33 MiB) |
@@ -198,6 +199,14 @@ for stage lengths and measured timings.
 CFOP color neutrality, extended cross and F2L look-ahead remain future work.
 Full CLI solving supports 2×2 through 7×7: the 2×2 follows a 3×3 corners path,
 and 4–7 solve centers and pair wings before calling the public Kociemba solver.
+Native 2×2 solves cache those exact coordinate tables with stored gzip blocks,
+avoiding the repeated compact-asset inflation that dominated cold profiles.
+The optional 5.54 MB cache preserves table values and search order; missing or
+corrupt caches use the compact asset, and WASM keeps its existing loading path.
+Fresh cached 2×2 mean/max improved from **147.37 / 363.01 ms** to
+**56.63 / 119.07 ms** on the 200-case independent oracle. Its mean latency guard
+allows **max(120 ms, 75% of an interleaved compact 3×3 reference mean)** to
+account for machine contention, in addition to the unchanged 5% move-count guard.
 Reduction corrects odd wing permutations before restoring centers and chooses
 a reduced edge state whose permutation parity matches the corners. This handles
 OLL/PLL parity, while odd fixed centers define the orientation. Pure center and
