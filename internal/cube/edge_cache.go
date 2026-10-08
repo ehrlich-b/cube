@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -14,11 +13,7 @@ const edgePatternSize = 190080
 const edgeCacheBytes = 64 + edgePatternSize*(18*4+3)
 
 func edgeCachePath() string {
-	path := coordinateCachePath()
-	if path == "" {
-		return ""
-	}
-	return filepath.Join(filepath.Dir(path), "edges-v1.bin")
+	return tableCachePath("edges-v1.bin")
 }
 
 func edgeMoveFingerprint() [32]byte {
@@ -39,17 +34,18 @@ func loadEdgePatterns(deadline time.Time) *edgePatterns {
 	if tableDeadlineExceeded(deadline) {
 		return nil
 	}
-	f, err := os.Open(edgeCachePath())
+	f, _, err := openTableCache(edgeCachePath(), edgeCacheBytes, edgeCacheBytes, deadline)
 	if err != nil {
 		return nil
 	}
 	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || info.Size() != edgeCacheBytes || tableDeadlineExceeded(deadline) {
+	data := make([]byte, edgeCacheBytes)
+	reader := tableDeadlineReader{f, deadline}
+	if _, err = io.ReadFull(reader, data); err != nil || tableDeadlineExceeded(deadline) {
 		return nil
 	}
-	data := make([]byte, edgeCacheBytes)
-	if _, err = io.ReadFull(f, data); err != nil || tableDeadlineExceeded(deadline) {
+	var extra [1]byte
+	if n, err := reader.Read(extra[:]); n != 0 || err != io.EOF {
 		return nil
 	}
 	sum, fingerprint := sha256.Sum256(data[32:]), edgeMoveFingerprint()
@@ -87,11 +83,7 @@ func loadEdgePatterns(deadline time.Time) *edgePatterns {
 	return db
 }
 
-func saveEdgePatterns(db *edgePatterns) {
-	path := edgeCachePath()
-	if path == "" {
-		return
-	}
+func saveEdgePatterns(db *edgePatterns) error {
 	data := make([]byte, edgeCacheBytes)
 	fingerprint := edgeMoveFingerprint()
 	copy(data[32:64], fingerprint[:])
@@ -106,18 +98,8 @@ func saveEdgePatterns(db *edgePatterns) {
 	}
 	sum := sha256.Sum256(data[32:])
 	copy(data[:32], sum[:])
-	if os.MkdirAll(filepath.Dir(path), 0700) != nil {
-		return
-	}
-	f, err := os.CreateTemp(filepath.Dir(path), "edges-*.bin")
-	if err != nil {
-		return
-	}
-	name := f.Name()
-	defer os.Remove(name)
-	_, e1 := f.Write(data)
-	e2 := f.Close()
-	if e1 == nil && e2 == nil {
-		_ = os.Rename(name, path)
-	}
+	return writeTableCache(edgeCachePath(), "edges-*.bin", time.Time{}, func(f *os.File) error {
+		_, err := f.Write(data)
+		return err
+	})
 }

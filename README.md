@@ -84,6 +84,24 @@ large tables. `make generate-tables` rebuilds the asset from this engine's moves
 symmetry-reduced pair distance with unquotiented BFS. Checksums, dimensions and
 move fingerprints guard the cache. The committed generated file is under 5 MB.
 
+The cache files and their complete on-disk sizes are:
+
+| File | Bytes | Used by |
+|---|---:|---|
+| `coordinates-v5.bin.gz` | 3,337,787 | Embedded compact tables for ordinary Kociemba and coordinate search |
+| `edges-v1.bin` | 14,256,064 | Four-edge databases for CFOP and exact-state search, generated on first use |
+| `phase1-sym8-v1.bin` | 147,502,144 | Optional large phase-one table, explicitly built with `cube tables build --large` |
+| `optimal-v1.bin` | 134,568,064 | Full-corner and two six-edge databases, generated lazily for deep `--optimal` search |
+
+All files live in the same cache directory. Ordinary Kociemba needs only the
+compact file. Missing, unreadable, corrupt or non-regular cache files fall back
+to the embedded compact asset or an in-memory rebuild of the requested database.
+Optional writes use temporary files and atomic rename; an unwritable cache does
+not prevent solving. The explicit `tables build --large` command requires
+persistence and exits nonzero with a diagnostic if a write or rename fails.
+Timed optimal setup checks its deadline throughout cache I/O and generation;
+an expired budget returns an error without an unproved solution or partial cache.
+
 The previous large-table solver measured **19.932 mean / 20 max turns, 100% at
 ≤20**, **5.68 ms warm mean / 57.22 ms p99 / 187.94 ms max**, with a **625.88 ms
 fresh cached Go subprocess**. Its CLI oracle measured **19.935 mean / 20 max
@@ -91,7 +109,8 @@ turns**, **558.76 ms process mean / 890.13 ms max**. Its phase-one table had
 **295,004,160 states / 147,502,080 packed bytes**; generation measured **120.99 s**
 under background QoS with roughly **1.6 GiB** of temporary memory. A first-ever
 plain solve regressed to about **37 s on performance cores / 161 MB of cache**.
-That table is now optional: **`cube tables build --large`** explicitly builds it,
+That table is now optional: **`cube tables build --large`** explicitly persists
+`phase1-sym8-v1.bin` (**147,502,144 bytes including its 64-byte header**),
 and **`CUBE_LARGE_TABLES=1 cube solve ...`** explicitly selects it. Ordinary solves
 ignore it even if it already exists. `make test-phase1-tables` checks the optional
 table's admissibility, consistency and descending witnesses (maximum distance 12).

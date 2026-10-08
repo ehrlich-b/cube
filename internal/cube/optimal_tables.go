@@ -2,13 +2,13 @@ package cube
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"math/bits"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -188,30 +188,27 @@ func optimalPatternTables(t *coordinateTables, deadline time.Time) *optimalPatte
 	// Persistence is optional, and only attempted with enough remaining time
 	// to write the bounded cache. Incomplete builds are never published/saved.
 	if deadline.IsZero() || time.Until(deadline) > time.Second {
-		saveOptimalPatterns(db, deadline)
+		_ = saveOptimalPatterns(db, deadline) // Optional disk cache.
 	}
 	return db
 }
 
 func optimalCachePath() string {
-	return filepath.Join(filepath.Dir(coordinateCachePath()), "optimal-v1.bin")
+	return tableCachePath("optimal-v1.bin")
 }
 
 func loadOptimalPatterns(deadline time.Time) *optimalPatterns {
 	if tableDeadlineExceeded(deadline) {
 		return nil
 	}
-	f, err := os.Open(optimalCachePath())
+	f, _, err := openTableCache(optimalCachePath(), optimalCacheBytes, optimalCacheBytes, deadline)
 	if err != nil {
 		return nil
 	}
 	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() != optimalCacheBytes {
-		return nil
-	}
+	reader := tableDeadlineReader{f, deadline}
 	var header [64]byte
-	if _, err := io.ReadFull(f, header[:]); err != nil {
+	if _, err := io.ReadFull(reader, header[:]); err != nil {
 		return nil
 	}
 	fingerprint := edgeMoveFingerprint()
@@ -227,7 +224,7 @@ func loadOptimalPatterns(deadline time.Time) *optimalPatterns {
 		}
 		n := min(1<<20, len(data)-offset)
 		chunk := data[offset : offset+n]
-		if _, err := io.ReadFull(f, chunk); err != nil {
+		if _, err := io.ReadFull(reader, chunk); err != nil {
 			return nil
 		}
 		hash.Write(chunk)
@@ -263,7 +260,7 @@ func loadOptimalPatterns(deadline time.Time) *optimalPatterns {
 		}
 		n := min(65536, len(db.moves)-offset)
 		chunk := buffer[:n*4]
-		if _, err := io.ReadFull(f, chunk); err != nil {
+		if _, err := io.ReadFull(reader, chunk); err != nil {
 			return nil
 		}
 		hash.Write(chunk)
@@ -277,7 +274,7 @@ func loadOptimalPatterns(deadline time.Time) *optimalPatterns {
 		offset += n
 	}
 	var extra [1]byte
-	if n, err := f.Read(extra[:]); n != 0 || err != io.EOF {
+	if n, err := reader.Read(extra[:]); n != 0 || err != io.EOF {
 		return nil
 	}
 	if !bytes.Equal(header[:32], hash.Sum(nil)) || tableDeadlineExceeded(deadline) {
@@ -286,57 +283,41 @@ func loadOptimalPatterns(deadline time.Time) *optimalPatterns {
 	return db
 }
 
-func saveOptimalPatterns(db *optimalPatterns, deadline time.Time) {
-	path := optimalCachePath()
-	if os.MkdirAll(filepath.Dir(path), 0700) != nil || tableDeadlineExceeded(deadline) {
-		return
-	}
-	f, err := os.CreateTemp(filepath.Dir(path), "optimal-*.bin")
-	if err != nil {
-		return
-	}
-	name := f.Name()
-	defer os.Remove(name)
-	defer f.Close()
-	hash := sha256.New()
-	writer := io.MultiWriter(f, hash)
-	if _, err := f.Write(make([]byte, 32)); err != nil {
-		return
-	}
-	fingerprint := edgeMoveFingerprint()
-	if _, err := writer.Write(fingerprint[:]); err != nil {
-		return
-	}
-	for _, data := range [][]uint8{db.corners, db.edges[0], db.edges[1]} {
-		for offset := 0; offset < len(data); {
-			if tableDeadlineExceeded(deadline) {
-				return
+func saveOptimalPatterns(db *optimalPatterns, deadline time.Time) error {
+	return writeTableCache(optimalCachePath(), "optimal-*.bin", deadline, func(f *os.File) error {
+		hash := sha256.New()
+		fileWriter := tableDeadlineWriter{f, deadline}
+		writer := io.MultiWriter(fileWriter, hash)
+		if _, err := fileWriter.Write(make([]byte, 32)); err != nil {
+			return err
+		}
+		fingerprint := edgeMoveFingerprint()
+		if _, err := writer.Write(fingerprint[:]); err != nil {
+			return err
+		}
+		for _, data := range [][]uint8{db.corners, db.edges[0], db.edges[1]} {
+			if _, err := writer.Write(data); err != nil {
+				return err
 			}
-			n := min(1<<20, len(data)-offset)
-			if _, err := writer.Write(data[offset : offset+n]); err != nil {
-				return
+		}
+		buffer := make([]byte, 65536*4)
+		for offset := 0; offset < len(db.moves); {
+			if tableDeadlineExceeded(deadline) {
+				return context.DeadlineExceeded
+			}
+			n := min(65536, len(db.moves)-offset)
+			for i, v := range db.moves[offset : offset+n] {
+				binary.LittleEndian.PutUint32(buffer[i*4:], v)
+			}
+			if _, err := writer.Write(buffer[:n*4]); err != nil {
+				return err
 			}
 			offset += n
 		}
-	}
-	buffer := make([]byte, 65536*4)
-	for offset := 0; offset < len(db.moves); {
 		if tableDeadlineExceeded(deadline) {
-			return
+			return context.DeadlineExceeded
 		}
-		n := min(65536, len(db.moves)-offset)
-		for i, v := range db.moves[offset : offset+n] {
-			binary.LittleEndian.PutUint32(buffer[i*4:], v)
-		}
-		if _, err := writer.Write(buffer[:n*4]); err != nil {
-			return
-		}
-		offset += n
-	}
-	if _, err := f.WriteAt(hash.Sum(nil), 0); err != nil {
-		return
-	}
-	if f.Close() == nil {
-		_ = os.Rename(name, path)
-	}
+		_, err := f.WriteAt(hash.Sum(nil), 0)
+		return err
+	})
 }

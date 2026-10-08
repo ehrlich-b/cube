@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -196,18 +195,26 @@ func generatePhase1Pruning(t *coordinateTables, db *phase1Patterns) []uint8 {
 }
 
 func phase1PatternTables(t *coordinateTables) *phase1Patterns {
+	db, _ := phase1PatternTablesPersist(t, false) // Solving permits an in-memory table.
+	return db
+}
+
+func phase1PatternTablesPersist(t *coordinateTables, persist bool) (*phase1Patterns, error) {
 	// Browser workers retain the smaller coordinate databases: a native cache
 	// and a gigabyte-scale temporary BFS frontier are unsuitable there.
 	if runtime.GOARCH == "wasm" || os.Getenv("CUBE_SMALL_TABLES") == "1" {
-		return nil
+		return nil, fmt.Errorf("large phase-one tables are unavailable on this platform")
 	}
-	if db := phase1LargeDB.Load(); db != nil {
-		return db
+	if db := phase1LargeDB.Load(); db != nil && !persist {
+		return db, nil
 	}
 	phase1LargeLock.Lock()
 	defer phase1LargeLock.Unlock()
 	if db := phase1LargeDB.Load(); db != nil {
-		return db
+		if persist {
+			return db, savePackedPattern("phase1-sym8-v1.bin", db.distance)
+		}
+		return db, nil
 	}
 	db := phase1SymmetryCoordinates(t)
 	filename := "phase1-sym8-v1.bin"
@@ -215,12 +222,13 @@ func phase1PatternTables(t *coordinateTables) *phase1Patterns {
 	if db.distance == nil {
 		db.distance = generatePhase1Pruning(t, db)
 		if db.distance == nil {
-			return nil
+			return nil, fmt.Errorf("large phase-one table generation failed")
 		}
-		savePackedPattern(filename, db.distance)
+		phase1LargeDB.Store(db)
+		return db, savePackedPattern(filename, db.distance)
 	}
 	phase1LargeDB.Store(db)
-	return db
+	return db, nil
 }
 
 func loadPackedPattern(filename string, size int) []uint8 {
@@ -231,18 +239,14 @@ func loadPackedPatternLimit(filename string, size int, deadline time.Time) []uin
 	if tableDeadlineExceeded(deadline) {
 		return nil
 	}
-	path := filepath.Join(filepath.Dir(coordinateCachePath()), filename)
-	f, err := os.Open(path)
+	f, _, err := openTableCache(tableCachePath(filename), int64(size+64), int64(size+64), deadline)
 	if err != nil {
 		return nil
 	}
 	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() != int64(size+64) {
-		return nil
-	}
+	reader := tableDeadlineReader{f, deadline}
 	var header [64]byte
-	if _, err := io.ReadFull(f, header[:]); err != nil {
+	if _, err := io.ReadFull(reader, header[:]); err != nil {
 		return nil
 	}
 	fingerprint := edgeMoveFingerprint()
@@ -258,14 +262,14 @@ func loadPackedPatternLimit(filename string, size int, deadline time.Time) []uin
 		}
 		n := min(1<<20, len(d)-offset)
 		chunk := d[offset : offset+n]
-		if _, err := io.ReadFull(f, chunk); err != nil {
+		if _, err := io.ReadFull(reader, chunk); err != nil {
 			return nil
 		}
 		hash.Write(chunk)
 		offset += n
 	}
 	var extra [1]byte
-	if n, err := f.Read(extra[:]); n != 0 || err != io.EOF {
+	if n, err := reader.Read(extra[:]); n != 0 || err != io.EOF {
 		return nil
 	}
 	if !bytes.Equal(header[:32], hash.Sum(nil)) || d[0]&15 != 0 || tableDeadlineExceeded(deadline) {
@@ -300,42 +304,40 @@ func cachedPhase1PatternTables(t *coordinateTables, deadline time.Time) *phase1P
 	return phase1LargeDB.Load()
 }
 
-func savePackedPattern(filename string, data []uint8) {
-	path := filepath.Join(filepath.Dir(coordinateCachePath()), filename)
-	if os.MkdirAll(filepath.Dir(path), 0700) != nil {
-		return
-	}
-	f, err := os.CreateTemp(filepath.Dir(path), "pattern-*.bin")
-	if err != nil {
-		return
-	}
-	name := f.Name()
-	defer os.Remove(name)
-	defer f.Close()
-	fingerprint := edgeMoveFingerprint()
-	hash := sha256.New()
-	hash.Write(fingerprint[:])
-	hash.Write(data)
-	if _, err := f.Write(hash.Sum(nil)); err != nil {
-		return
-	}
-	if _, err := f.Write(fingerprint[:]); err != nil {
-		return
-	}
-	if _, err := f.Write(data); err != nil {
-		return
-	}
-	if f.Close() == nil {
-		_ = os.Rename(name, path)
-	}
+func savePackedPattern(filename string, data []uint8) error {
+	return writeTableCache(tableCachePath(filename), "pattern-*.bin", time.Time{}, func(f *os.File) error {
+		fingerprint := edgeMoveFingerprint()
+		hash := sha256.New()
+		hash.Write(fingerprint[:])
+		hash.Write(data)
+		for _, part := range [][]byte{hash.Sum(nil), fingerprint[:], data} {
+			if _, err := f.Write(part); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // BuildLargePhase1Tables is an explicit opt-in to the optional 140.67 MiB
 // database. Ordinary two-phase solves never call this builder.
 func BuildLargePhase1Tables() (int, error) {
-	db := phase1PatternTables(solverTables())
-	if db == nil {
+	if runtime.GOARCH == "wasm" || os.Getenv("CUBE_SMALL_TABLES") == "1" {
 		return 0, fmt.Errorf("large phase-one tables are unavailable on this platform")
+	}
+	// Fail before spending minutes generating a table that cannot be persisted.
+	f, err := createTableCache(tableCachePath("phase1-sym8-v1.bin"), "pattern-*.bin", time.Time{})
+	if err != nil {
+		return 0, fmt.Errorf("persist large phase-one table: %w", err)
+	}
+	closeErr := f.Close()
+	os.Remove(f.Name())
+	if closeErr != nil {
+		return 0, fmt.Errorf("persist large phase-one table: %w", closeErr)
+	}
+	db, err := phase1PatternTablesPersist(solverTables(), true)
+	if err != nil {
+		return 0, fmt.Errorf("persist large phase-one table: %w", err)
 	}
 	return len(db.distance) + 64, nil
 }

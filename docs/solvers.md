@@ -32,14 +32,37 @@ unproved answers. Kociemba does not promise a globally shortest sequence or a
 20-turn answer for every state. These flags are rejected for beginner/CFOP and
 the partial first-layer goal rather than silently ignored.
 
-Tables are generated deterministically and cached in the user's cache directory
-under `cube/coordinates-v2.gob`; `CUBE_CACHE_DIR` overrides it. The cache has a
-versioned filename, checksum and shape checks. Missing, unreadable or corrupt
-caches rebuild in memory; a read-only filesystem does not prevent solving.
-Writes use a temporary file in the destination directory and atomic rename.
-The expanded generated cache is about 12 MiB, with no generated table files committed.
-WASM can use the same public entry points and retain tables in memory when
-filesystem caching is unavailable.
+The native and WASM executables embed the engine-owned compact asset
+`internal/cube/tables/coordinates-v5.bin.gz` (**3,337,787 bytes**). An untimed
+first use with an empty cache copies those exact bytes to the user's cache
+directory under `cube/`; `CUBE_CACHE_DIR` overrides that directory. Ordinary
+Kociemba does not generate large tables. The cache files, including their
+checksums and move-fingerprint headers, are:
+
+| File | Bytes | Used by |
+|---|---:|---|
+| `coordinates-v5.bin.gz` | 3,337,787 | Embedded compact tables for Kociemba and coordinate search |
+| `edges-v1.bin` | 14,256,064 | Four-edge databases for CFOP and exact-state search, generated on first use |
+| `phase1-sym8-v1.bin` | 147,502,144 | Optional large phase-one table (140.67 MiB) |
+| `optimal-v1.bin` | 134,568,064 | Full-corner and two six-edge databases for deep optimal search (128.33 MiB) |
+
+Versioned filenames, checksums, dimensions and move fingerprints guard cached
+data. Loaders reject non-regular files before opening them, including FIFOs and
+symlinks to FIFOs. Missing, unreadable or corrupt compact caches use the embedded
+asset; other requested databases rebuild in memory. A read-only filesystem does
+not prevent solving. Writes use temporary files in the destination directory and
+atomic rename, and failures leave any existing complete cache intact. WASM keeps
+tables in memory when filesystem caching is unavailable.
+
+`cube tables build --large` explicitly builds and persists the optional phase-one
+file, allowing a few minutes and about 1.6 GiB of temporary memory. The command
+reports success only after persistence and exits nonzero with a diagnostic on
+failure. `CUBE_LARGE_TABLES=1` selects that table for Kociemba; ordinary solves
+ignore it even when it exists. Deep `--optimal` search generates `optimal-v1.bin`
+lazily (about one minute in the recorded run), and can reuse an existing large
+phase-one cache without generating it. Optimal initialization, including cache
+I/O and generation, counts toward `--time-limit`; timed compact/edge setup skips
+optional writes, and expired large-database writes never publish partial caches.
 
 Two Go oracles check 200 seeded scrambles and 200 uniformly generated legal
 cubie states, requiring mean length ≤20, maximum 21 and ≥95% at ≤20 turns.
@@ -50,7 +73,10 @@ latency **162.53/1069.96 ms** on this Mac under background QoS (before:
 **21.730/22**, **2.5% at ≤20**, **68.51/256.60 ms**). The loaded-table Go uniform
 sample averaged **19.790 turns**, maximum **21**, at **89.47/1000.19 ms** mean/max
 (before: **21.675/22**, **18.47/267.90 ms**). Expanded table generation took
-**1.83 s**. These are reproducible samples, not latency guarantees.
+**1.83 s** in that earlier runtime-generated implementation; the current default
+loads the embedded compact asset described above. These are reproducible
+historical samples, not latency guarantees; current compact-table measurements
+are in [README](../README.md).
 Grip normalization uses rotation notation and its moves
 are separate from face-turn distance.
 
@@ -62,7 +88,7 @@ scramble input and also accepts CFEN, and `--moves` selects an alphabet. Exact
 targets are reduced to a relative cubie state. The heuristic is the maximum of
 orientation/slice bounds, corner-permutation distance, and three four-edge
 pattern databases (12P4×16 states each). Their transition table is shared and
-generated in memory on first use. Targets with wildcard stickers use
+generated on first use and optionally cached as `edges-v1.bin`. Targets with wildcard stickers use
 multi-source single-piece distance tables and are checked exactly at endpoints.
 Centers stay in the starting frame: search cannot insert grip rotations into a
 face-turn-only alphabet.

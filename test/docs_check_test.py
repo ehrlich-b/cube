@@ -9,6 +9,22 @@ import docs_check as docs
 
 
 class MarkdownTests(unittest.TestCase):
+    def test_solver_cache_contract_matches_shipped_asset(self):
+        asset = docs.ROOT / "internal/cube/tables/coordinates-v5.bin.gz"
+        caches = {
+            asset.name: asset.stat().st_size,
+            "edges-v1.bin": 64 + 190080 * (18 * 4 + 3),
+            "phase1-sym8-v1.bin": 64 + 291 * 2048 * 495 // 2,
+            "optimal-v1.bin": 64 + 40320 * 2187 // 2 + (12 * 11 * 10 * 9 * 8 * 7) * (64 + 18 * 4),
+        }
+        for document in ("README.md", "docs/solvers.md"):
+            text = (docs.ROOT / document).read_text()
+            with self.subTest(document=document):
+                self.assertNotIn("coordinates-v2.gob", text)
+                for filename, size in caches.items():
+                    with self.subTest(cache=filename):
+                        self.assertIn(f"| `{filename}` | {size:,} |", text)
+
     def test_multiline_quotes_and_inline_expectation(self):
         examples = docs.extract('''```sh
 make build

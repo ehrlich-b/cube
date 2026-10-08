@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/gob"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -88,7 +89,7 @@ func solverTablesLimit(deadline time.Time) *coordinateTables {
 	if t := decodeCoordinateTables(embeddedCoordinates, deadline); t != nil {
 		tables = t
 		if deadline.IsZero() {
-			saveCoordinateBytes(embeddedCoordinates)
+			_ = saveCoordinateBytes(embeddedCoordinates) // Optional disk cache.
 		}
 		return t
 	}
@@ -98,7 +99,7 @@ func solverTablesLimit(deadline time.Time) *coordinateTables {
 	}
 	tables = t
 	if deadline.IsZero() {
-		saveCoordinateTables(t)
+		_ = saveCoordinateTables(t) // Optional disk cache.
 	}
 	return tables
 }
@@ -221,22 +222,19 @@ func loadCoordinateTablesLimit(deadline time.Time) *coordinateTables {
 	if tableDeadlineExceeded(deadline) {
 		return nil
 	}
-	f, err := os.Open(coordinateCachePath())
+	f, size, err := openTableCache(coordinateCachePath(), 64, 10<<20, deadline)
 	if err != nil {
 		return nil
 	}
 	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() < 64 || info.Size() > 10<<20 || tableDeadlineExceeded(deadline) {
-		return nil
-	}
 	// Allocate only the checked size, even if the file grows after Stat.
-	data := make([]byte, int(info.Size()))
-	if _, err := io.ReadFull(f, data); err != nil || tableDeadlineExceeded(deadline) {
+	data := make([]byte, int(size))
+	reader := tableDeadlineReader{f, deadline}
+	if _, err := io.ReadFull(reader, data); err != nil || tableDeadlineExceeded(deadline) {
 		return nil
 	}
 	var extra [1]byte
-	if n, err := f.Read(extra[:]); n != 0 || err != io.EOF {
+	if n, err := reader.Read(extra[:]); n != 0 || err != io.EOF {
 		return nil
 	}
 	return decodeCoordinateTables(data, deadline)
@@ -311,24 +309,18 @@ func encodeCoordinateTables(t *coordinateTables) []byte {
 	return append(sum[:], payload...)
 }
 
-func saveCoordinateTables(t *coordinateTables) { saveCoordinateBytes(encodeCoordinateTables(t)) }
+func saveCoordinateTables(t *coordinateTables) error {
+	return saveCoordinateBytes(encodeCoordinateTables(t))
+}
 
-func saveCoordinateBytes(data []byte) {
-	path := coordinateCachePath()
-	if path == "" || data == nil || os.MkdirAll(filepath.Dir(path), 0700) != nil {
-		return
+func saveCoordinateBytes(data []byte) error {
+	if data == nil {
+		return fmt.Errorf("cannot encode coordinate tables")
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), "coordinates-*.gz")
-	if err != nil {
-		return
-	}
-	name := f.Name()
-	defer os.Remove(name)
-	_, e1 := f.Write(data)
-	e2 := f.Close()
-	if e1 == nil && e2 == nil {
-		_ = os.Rename(name, path)
-	}
+	return writeTableCache(coordinateCachePath(), "coordinates-*.gz", time.Time{}, func(f *os.File) error {
+		_, err := f.Write(data)
+		return err
+	})
 }
 
 func (t *coordinateTables) phase1Bound(co, eo, sl int) int {
@@ -382,5 +374,9 @@ func (r tableDeadlineReader) Read(p []byte) (int, error) {
 	if len(p) > 64<<10 {
 		p = p[:64<<10]
 	}
-	return r.r.Read(p)
+	n, err := r.r.Read(p)
+	if tableDeadlineExceeded(r.deadline) {
+		return n, context.DeadlineExceeded
+	}
+	return n, err
 }

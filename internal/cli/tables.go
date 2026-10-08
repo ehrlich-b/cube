@@ -10,7 +10,7 @@ import (
 func newTablesCommand() *cobra.Command {
 	cmd := &cobra.Command{Use: "tables", Short: "Manage optional solver tables"}
 	build := &cobra.Command{
-		Use: "build", Short: "Build the optional large phase-one table", Args: cobra.NoArgs,
+		Use: "build", Short: "Build and persist the optional large phase-one table", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			large, _ := cmd.Flags().GetBool("large")
 			if !large {
