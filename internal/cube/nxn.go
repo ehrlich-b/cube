@@ -28,6 +28,23 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 	if options.TargetLength < 1 || options.TargetLength > 30 || options.TimeLimit <= 0 {
 		return nil, fmt.Errorf("reduced Kociemba needs target length 1-30 and a positive time limit")
 	}
+	if c.IsSolved() {
+		// Uniform faces still need a legal rigid color frame. Normalize that
+		// frame directly, without reduction tables or a synthetic 2x2 edge state.
+		frame := NewCube(3)
+		for f := range frame.Faces {
+			frame.Faces[f][1][1] = c.Faces[f][0][0]
+		}
+		_, rotations, err := canonical3x3(frame)
+		if err != nil {
+			return nil, err
+		}
+		moves := compactGrip(rotations)
+		if !nxnVerifySolution(c, moves) {
+			return nil, fmt.Errorf("solved grip failed full-cube verification")
+		}
+		return &SolverResult{Solution: moves, Steps: len(moves), Duration: time.Since(started)}, nil
+	}
 	work := c.clone()
 	var moves []Move
 	var preloadDone <-chan struct{}

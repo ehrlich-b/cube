@@ -46,6 +46,51 @@ func TestNxNReductionContract(t *testing.T) {
 	}
 }
 
+func TestNxNSolvedGrips(t *testing.T) {
+	for _, size := range []int{2, 4, 5, 6, 7} {
+		t.Run(fmt.Sprintf("%dx%d", size, size), func(t *testing.T) {
+			queue := []*Cube{NewCube(size)}
+			seen := map[[6]Color]bool{centerKey(queue[0]): true}
+			for head := 0; head < len(queue); head++ {
+				c := queue[head]
+				before := c.clone()
+				result, err := (&ReductionSolver{}).Solve(c)
+				if err != nil || result == nil {
+					t.Fatalf("grip %d: %v", head, err)
+				}
+				if !facesEqual(c, before) || result.Steps != len(result.Solution) {
+					t.Fatal("solved grip mutated input or returned inconsistent steps")
+				}
+				for _, move := range result.Solution {
+					if move.Rotation == NoRotation {
+						t.Fatalf("solved grip returned a face turn: %s", FormatMoves(result.Solution))
+					}
+				}
+				if err := before.ApplyMoves(result.Solution); err != nil || !facesEqual(before, NewCube(size)) {
+					t.Fatal("solved grip did not replay to the canonical cube")
+				}
+				for _, axis := range []RotationType{X_Rotation, Y_Rotation, Z_Rotation} {
+					next := c.clone()
+					next.ApplyMove(Move{Rotation: axis, Clockwise: true})
+					key := centerKey(next)
+					if !seen[key] {
+						seen[key] = true
+						queue = append(queue, next)
+					}
+				}
+			}
+			if len(seen) != 24 {
+				t.Fatalf("checked %d grips; want 24", len(seen))
+			}
+			invalid := NewCube(size)
+			invalid.Faces[Front], invalid.Faces[Right] = invalid.Faces[Right], invalid.Faces[Front]
+			if result, err := (&ReductionSolver{}).Solve(invalid); err == nil || result != nil {
+				t.Fatal("uniform faces with a non-rigid color frame were accepted")
+			}
+		})
+	}
+}
+
 func TestNxNParityFixtures(t *testing.T) {
 	fixtures := []struct {
 		name, scramble, invalid string

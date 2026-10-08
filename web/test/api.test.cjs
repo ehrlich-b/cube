@@ -23,6 +23,27 @@ function rejects(request, pattern) {
   const go = new Go();
   const { instance } = await WebAssembly.instantiate(fs.readFileSync(path.join(__dirname, "../cube.wasm")), go.importObject);
   go.run(instance).catch(error => { console.error(error); process.exit(1); });
+  // Cold WASM has no embedded or installed tables. All 24 solved grips must
+  // still work, including the rotated 2x2 synthetic-edge regression.
+  for (const size of [2, 3, 4, 5, 6, 7]) {
+    const home = call({ op: "state", size }).state;
+    const grips = new Map([[home.cfen, home]]);
+    for (const state of grips.values()) {
+      const result = call({ op: "solve", cfen: state.cfen });
+      assert.equal(result.state.solved, true);
+      assert.ok(result.moves.every(move => /^[xyz](?:2|')?$/.test(move)), `${size}x${size} solved grip returns only rotations`);
+      const replay = call({ op: "twist", cfen: state.cfen, moves: result.moves.join(" ") }).state;
+      assert.equal(replay.cfen, result.state.cfen);
+      if (size !== 3) assert.equal(replay.cfen, home.cfen, "Reduction normalizes solved grips");
+      assert.deepEqual(call({ op: "state", cfen: state.cfen }).state, state, "Solved input remains unchanged");
+      for (const moves of ["x", "y", "z"]) {
+        const next = call({ op: "twist", cfen: state.cfen, moves }).state;
+        grips.set(next.cfen, next);
+      }
+    }
+    assert.equal(grips.size, 24);
+  }
+  console.log("PASS cold solved grips: all 24 orientations of 2x2–7x7 without solver assets");
   rejects({ op: "solve", moves: "R" }, /coordinate solver asset/);
   assert.match(globalThis.cubeLoadSolverAsset("coordinates", new Uint8Array(), ""), /length/);
   assert.match(globalThis.cubeLoadSolverAsset("coordinates", "invalid", ""), /Uint8Array/);
@@ -103,13 +124,13 @@ function rejects(request, pattern) {
     assert.equal(call({ op: "state", cfen: start.cfen }).state.cfen, start.cfen);
   }
   assert.equal(call({ op: "solve" }).state.solved, true);
-  // Superflip exercises the default search budget and the incumbent returned
-  // when a 20-turn target is not reached in time. Setup is separate from it.
+  // Superflip's certificate checks the default <=20-turn contract and warm
+  // WASM latency without depending on a machine-speed search deadline.
   const superflip = "YB|YGYOYRYBY/RYRBRGRWR/BYBOBRBWB/WBWOWRWGW/OYOGOBOWO/GYGRGOGWG";
   const budgetStarted = performance.now();
   const budgetSolution = call({ op: "solve", cfen: superflip });
-  assert.ok(performance.now() - budgetStarted < 3000, "warm WASM solve must finish near its one-second budget");
-  assert.ok(budgetSolution.moves.length > 0 && budgetSolution.moves.length <= 30);
+  assert.ok(performance.now() - budgetStarted < 3000, "warm WASM superflip certificate must return promptly");
+  assert.ok(budgetSolution.moves.length > 0 && budgetSolution.moves.length <= 20);
   assert.equal(call({ op: "twist", cfen: superflip, moves: budgetSolution.moves.join(" ") }).state.solved, true);
   for (const method of ["auto", "kociemba", "beginner", "cfop"]) {
     const start = call({ op: "twist", moves: "R U F2 L' B" }).state;
