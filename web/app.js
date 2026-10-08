@@ -5,6 +5,7 @@ const $ = id => document.getElementById(id);
 const view = new CubeView($("cube"), $("net"), $("camera"), $("stage"));
 let engine, state, initial, history = [], historyIndex = 0, busy = false, running = false, sequence = null, job = null;
 let scramble = "", baseCFEN = "", currentMode = "practice";
+let restoring = true;
 const pendingHash = location.hash.slice(1);
 const primaryControls = ["scramble", "solve", "solve-method", "reset", "run-algorithm", "start-lesson", "find", "import", "export"];
 
@@ -25,6 +26,7 @@ function updateControls() {
   $("scrubber").disabled = locked;
   for (const button of $("sequence-moves").querySelectorAll("button")) button.disabled = locked;
   $("play").textContent = running ? "Pause" : "Play";
+  if (engine && state && !busy && !job && !restoring) persistHash();
 }
 
 function showState(next) {
@@ -107,7 +109,7 @@ function prepareSequence(moves, kind, title, expected, stages = []) {
   const frames = [state];
   for (const move of moves) frames.push(engine({ op: "twist", cfen: frames.at(-1).cfen, moves: move }).state);
   if (expected && frames.at(-1).cfen !== expected) throw new Error("Sequence did not reach its verified checkpoint.");
-  sequence = { moves, frames, index: 0, historyStart: historyIndex, kind };
+  sequence = { moves, frames, index: 0, historyStart: historyIndex, kind, title, stages };
   $("sequence-kind").textContent = kind;
   $("sequence-title").textContent = title;
   $("sequence-count").textContent = `${moves.length} moves`;
@@ -308,10 +310,60 @@ function restoreHash(text) {
   // Validate the entire link before changing any visible state.
   const next = engine({ op: "state", cfen: newBase, moves: newScramble }).state;
   const moves = engine({ op: "twist", moves: alg }).moves;
-  freshState(next, newScramble, newBase);
-  $("algorithm").value = alg;
-  if (moves.length) prepareSequence(moves, "ALGORITHM", "Shared sequence");
-  notice("Shared cube loaded. Press Play to explore its algorithm.");
+  const indexText = params.get("index") || "0";
+  if (!/^\d+$/.test(indexText) || Number(indexText) > moves.length) throw new Error("Invalid playback position in this link.");
+  const index = Number(indexText);
+  const current = engine({ op: "twist", cfen: next.cfen, moves: moves.slice(0, index).join(" ") }).state;
+  if (params.has("current") && engine({ op: "state", cfen: params.get("current") }).state.cfen !== current.cfen) {
+    throw new Error("The saved cube does not match its playback position.");
+  }
+  const kind = params.get("kind") || "ALGORITHM";
+  if (!["ALGORITHM", "SOLUTION", "CHECKPOINT", "SEARCH RESULT"].includes(kind)) throw new Error("Invalid sequence kind in this link.");
+  const title = params.get("title") || "Shared sequence";
+  const stages = JSON.parse(params.get("stages") || "[]");
+  if (!Array.isArray(stages) || stages.some(stage => !stage || typeof stage.name !== "string" || !Number.isInteger(stage.turns) || !Array.isArray(stage.cases) || stage.cases.some(name => typeof name !== "string") || !Array.isArray(stage.moves) || stage.moves.some(move => typeof move !== "string")) || (stages.length && stages.flatMap(stage => stage.moves).join(" ") !== moves.join(" "))) {
+    throw new Error("Invalid playback stages in this link.");
+  }
+  restoring = true;
+  try {
+    freshState(next, newScramble, newBase);
+    $("algorithm").value = alg;
+    if (moves.length || params.has("index")) {
+      prepareSequence(moves, kind, title, null, stages);
+      history = sequence.frames.slice(0, index + 1);
+      historyIndex = index;
+      sequence.index = index;
+      showState(current);
+      refreshPlayback();
+    }
+  } finally { restoring = false; }
+  updateControls();
+  notice(moves.length ? "Saved cube loaded. Press Play to continue its sequence." : "Saved cube loaded.");
+}
+
+function persistHash() {
+  const params = new URLSearchParams();
+  const scrambled = engine({ op: "state", cfen: baseCFEN, moves: scramble }).state;
+  const start = sequence ? sequence.frames[0] : state;
+  if (start.cfen !== scrambled.cfen) params.set("state", start.cfen);
+  else { if (baseCFEN) params.set("state", baseCFEN); if (scramble) params.set("scramble", scramble); }
+  params.set("current", state.cfen);
+  if (sequence) {
+    params.set("alg", sequence.moves.join(" "));
+    params.set("index", sequence.index);
+    params.set("kind", sequence.kind);
+    params.set("title", sequence.title);
+    if (sequence.stages.length) params.set("stages", JSON.stringify(sequence.stages));
+  } else if ($("algorithm").value.trim()) {
+    // A valid draft remains shareable before Run. Incomplete input must not
+    // make an otherwise valid saved cube unloadable.
+    try {
+      const moves = engine({ op: "twist", moves: $("algorithm").value }).moves;
+      if (moves.length) params.set("alg", moves.join(" "));
+    } catch { /* Keep the current cube without the incomplete draft. */ }
+  }
+  const hash = `#${params}`;
+  if (location.hash !== hash) historyReplace(hash);
 }
 
 async function copy(text, message) {
@@ -365,6 +417,7 @@ document.querySelector(".tabs").addEventListener("keydown", event => {
 $("scramble").addEventListener("click", () => safe(mix));
 $("solve").addEventListener("click", () => safe(solve));
 $("run-algorithm").addEventListener("click", () => safe(algorithm));
+$("algorithm").addEventListener("input", () => { if (engine && state && !busy && !job && !restoring) persistHash(); });
 $("start-lesson").addEventListener("click", () => safe(hint));
 $("find").addEventListener("click", () => safe(find));
 $("cancel-search").addEventListener("click", () => job?.cancel());
@@ -392,18 +445,8 @@ $("import").addEventListener("click", () => safe(() => {
 $("export").addEventListener("click", () => { $("cfen").value = state.cfen; $("cfen").select(); safe(() => copy(state.cfen, "CFEN copied. Paste it here later to restore your cube.")); });
 $("share").addEventListener("click", () => safe(async () => {
   if (!engine || busy || job) return;
-  const params = new URLSearchParams();
-  // A fresh scramble is reproducible; preserve any later manual moves with CFEN.
-  const scrambled = engine({ op: "state", cfen: baseCFEN, moves: scramble }).state;
-  const start = sequence ? sequence.frames[0] : state;
-  if (start.cfen !== scrambled.cfen) params.set("state", start.cfen);
-  else { if (baseCFEN) params.set("state", baseCFEN); if (scramble) params.set("scramble", scramble); }
-  const alg = sequence ? sequence.moves.join(" ") : $("algorithm").value;
-  if (alg) { engine({ op: "twist", moves: alg }); params.set("alg", alg); }
-  const url = new URL(location.href);
-  url.hash = params.toString();
-  historyReplace(url.hash);
-  await copy(url.href, "Link copied. It includes the starting cube and algorithm.");
+  persistHash();
+  await copy(location.href, "Link copied. It includes the current cube, sequence and playback position.");
 }));
 function historyReplace(hash) { window.history.replaceState(null, "", hash || location.pathname); }
 window.addEventListener("hashchange", () => { if (engine && !busy && !job) safe(() => restoreHash(location.hash.slice(1))); });
@@ -422,6 +465,9 @@ safe(async () => {
   engine = await loadEngine();
   initial = engine({ op: "state" }).state;
   freshState(initial);
-  if (pendingHash) restoreHash(pendingHash);
-  else notice("Ready when you are. Turn a face or start with a scramble.");
+  try {
+    if (pendingHash) restoreHash(pendingHash);
+    else notice("Ready when you are. Turn a face or start with a scramble.");
+  } finally { restoring = false; }
+  updateControls();
 });
