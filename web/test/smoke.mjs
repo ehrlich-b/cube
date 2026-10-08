@@ -273,6 +273,12 @@ try {
       assert.equal(await buttons.first().getAttribute("class"), "done");
       await page.locator("#back-step").click();
       assert.equal(await page.locator("#scrubber").inputValue(), "0");
+      const cfopTitle = await page.locator("#sequence-title").textContent();
+      await page.reload();
+      await idle(page);
+      assert.equal(await page.locator("#sequence-title").textContent(), cfopTitle);
+      assert.equal(await page.locator("#sequence-kind").textContent(), "SOLUTION");
+      assert.equal(await page.locator(".sequence-stage").count(), 7, "CFOP stages survive reload");
       await page.locator("#playback").evaluate(element => element.scrollIntoView({ block: "end" }));
       await page.screenshot({ path: path.join(screens, "cfop-1280x800.png") });
       await page.setViewportSize({ width: 390, height: 844 });
@@ -436,6 +442,55 @@ try {
   await idle(page);
   await page.waitForFunction(() => document.getElementById("cube").dataset.solved === "true");
   console.log("PASS browser: wildcard paths, responsive cancellation, unchanged state and fresh worker recovery");
+
+  await page.locator("#speed").selectOption("460");
+  await page.locator("#reset").click();
+  await page.locator("#tab-practice").click();
+  const playbackMoves = "R U F L D B R U F L D B";
+  await page.locator("#algorithm").fill(playbackMoves);
+  await page.locator("#run-algorithm").click();
+  await page.waitForFunction(() => document.getElementById("progress").textContent === "2 / 12");
+  const snapshot = await page.evaluate(() => ({
+    cfen: document.getElementById("cfen").value,
+    stickers: [...document.querySelectorAll("#cube .sticker")].map(sticker => `${sticker.dataset.face}:${sticker.dataset.index}:${sticker.dataset.color}`).sort(),
+    url: location.href,
+    progress: document.getElementById("progress").textContent,
+    playing: document.getElementById("play").textContent
+  }));
+  await page.reload();
+  await idle(page);
+  assert.equal(snapshot.progress, "2 / 12");
+  assert.equal(snapshot.playing, "Pause", "reload interrupts active playback");
+  const { cfen: playbackState, stickers: playbackStickers, url: savedPlaybackURL } = snapshot;
+  const savedParams = new URL(savedPlaybackURL).hash.slice(1);
+  assert.equal(new URLSearchParams(savedParams).get("current"), playbackState);
+  assert.equal(new URLSearchParams(savedParams).get("index"), "2");
+  assert.equal(await page.locator("#cfen").inputValue(), playbackState, "reload restores the current cube");
+  assert.deepEqual(await page.locator("#cube .sticker").evaluateAll(stickers => stickers.map(sticker => `${sticker.dataset.face}:${sticker.dataset.index}:${sticker.dataset.color}`).sort()), playbackStickers);
+  assert.equal(await page.locator("#algorithm").inputValue(), playbackMoves);
+  assert.deepEqual(await page.locator("#sequence-moves button").allTextContents(), playbackMoves.split(" "));
+  assert.equal(await page.locator("#progress").textContent(), "2 / 12");
+  assert.equal(await page.locator("#scrubber").inputValue(), "2");
+  assert.equal(await page.locator("#play").textContent(), "Play", "restored playback starts paused");
+  await page.locator("#share").click();
+  assert.equal(await page.evaluate(() => globalThis.copiedText), savedPlaybackURL);
+  await page.locator("#reset").click();
+  await page.goto(savedPlaybackURL);
+  await idle(page);
+  assert.equal(await page.locator("#cfen").inputValue(), playbackState, "share restores the current cube");
+  assert.equal(await page.locator("#progress").textContent(), "2 / 12");
+  const expectedPlayback = await page.evaluate(cfen => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves: "R U" }))).data.state.cfen, solved);
+  assert.equal(playbackState, expectedPlayback, "the restored cube is exactly R U from solved");
+  await page.locator("#scrubber").fill("0");
+  assert.equal(await page.locator("#cfen").inputValue(), solved, "restored sequence retains its starting cube");
+  await page.locator("#scrubber").fill("2");
+  await page.locator("#step").click();
+  await idle(page);
+  const thirdFrame = await page.evaluate(cfen => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves: "F" }))).data.state.cfen, playbackState);
+  assert.equal(await page.locator("#cfen").inputValue(), thirdFrame, "restored playback continues with the third move");
+  assert.equal(await page.locator("#progress").textContent(), "3 / 12");
+  await page.locator("#speed").selectOption("70");
+  console.log("PASS browser: mid-playback reload/share restores cube stickers, sequence, playhead and continuation");
 
   await page.goto(`http://127.0.0.1:${port}/web/#scramble=R+U&alg=U%27+R%27`);
   await idle(page);

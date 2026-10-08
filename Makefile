@@ -1,9 +1,9 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop import-algorithms web web-pages test-web test-web-smoke
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop import-algorithms web web-pages test-web test-web-smoke test-docs
 
 # Build the binary
 build:
 	mkdir -p dist
-	go build -o dist/cube ./cmd/cube
+	go build -p 2 -o dist/cube ./cmd/cube
 
 # Build database tools
 build-tools:
@@ -42,6 +42,11 @@ test-web: web
 
 test-web-smoke: web
 	node web/test/smoke.mjs
+
+# Run only the documented CLI examples, plus output assertions and workflows.
+test-docs: build
+	python3 -m unittest discover -s test -p 'docs_check_test.py'
+	python3 test/docs_check.py
 
 # Install dependencies
 install:

@@ -178,7 +178,9 @@ make build-tools      # builds dist/tools/verify-algorithm and verify-database
 ./dist/cube find sequence R2 --moves R --max-moves 2  # → R R
 ```
 
-See [examples/](./examples/) for tutorials and pattern walkthroughs.
+See [examples/](./examples/) for checked CLI commands, the beginner lesson,
+algorithm IDs and short verification/search workflows. Run `make test-docs`
+to check the runnable CLI examples against the built binary.
 
 ## Interactive Website
 
