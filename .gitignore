@@ -35,6 +35,7 @@ Thumbs.db
 
 # Project specific
 dist/
+.scratch/
 *.log
 __pycache__/
 web/cube.wasm
