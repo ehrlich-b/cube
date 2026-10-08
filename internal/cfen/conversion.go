@@ -8,6 +8,9 @@ import (
 
 // ToCube converts a CFENState to an internal Cube representation
 func (state *CFENState) ToCube() (*cube.Cube, error) {
+	if state.Dimension < 2 {
+		return nil, fmt.Errorf("CFEN dimension must be at least 2 (got %d)", state.Dimension)
+	}
 	rotations, err := orientationMoves(state.Orientation)
 	if err != nil {
 		return nil, err

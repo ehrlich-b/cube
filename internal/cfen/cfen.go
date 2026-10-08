@@ -57,16 +57,23 @@ func (face *CFENFace) compactString() string {
 	var sb strings.Builder
 	currentColor := face.Stickers[0]
 	count := 1
+	writeRun := func() {
+		if currentColor == cube.Grey {
+			sb.WriteByte('?')
+		} else {
+			sb.WriteString(currentColor.String())
+		}
+		if count > 1 {
+			sb.WriteString(strconv.Itoa(count))
+		}
+	}
 
 	for i := 1; i < len(face.Stickers); i++ {
 		if face.Stickers[i] == currentColor {
 			count++
 		} else {
 			// Write current run
-			sb.WriteString(currentColor.String())
-			if count > 1 {
-				sb.WriteString(strconv.Itoa(count))
-			}
+			writeRun()
 
 			// Start new run
 			currentColor = face.Stickers[i]
@@ -75,10 +82,7 @@ func (face *CFENFace) compactString() string {
 	}
 
 	// Write final run
-	sb.WriteString(currentColor.String())
-	if count > 1 {
-		sb.WriteString(strconv.Itoa(count))
-	}
+	writeRun()
 
 	return sb.String()
 }
@@ -157,6 +161,9 @@ func parseFaces(facesStr string) ([6]CFENFace, int, error) {
 				return [6]CFENFace{}, 0, fmt.Errorf("face %d has %d stickers, not a perfect square", i, stickers)
 			}
 			dimension = dim
+			if dimension < 2 {
+				return [6]CFENFace{}, 0, fmt.Errorf("CFEN dimension must be at least 2 (got %d)", dimension)
+			}
 		} else {
 			// Verify all faces have same size
 			if len(face.Stickers) != dimension*dimension {
