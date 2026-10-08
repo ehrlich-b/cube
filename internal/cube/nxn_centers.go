@@ -3,6 +3,7 @@ package cube
 import (
 	"fmt"
 	"math/bits"
+	"sync"
 )
 
 // Four indistinguishable centers have just C(24,4)=10626 coordinates.
@@ -12,9 +13,11 @@ import (
 const nxnCenterCoordinates = 10626
 
 type centerPatterns struct {
-	masks []uint32
-	next  [][]uint16
-	goal  [6]uint32
+	masks     []uint32
+	next      [][]uint16
+	goal      [6]uint32
+	distMu    sync.Mutex
+	distCache map[string][]uint8
 }
 
 var centerChoose = func() [25][5]int {
@@ -75,6 +78,16 @@ func centerPatternTable(n int, t *reductionTables, o *reductionOrbit) *centerPat
 }
 
 func (db *centerPatterns) distances(face Face, allowed []int) []uint8 {
+	key := make([]byte, len(allowed)+1)
+	key[0] = byte(face)
+	for i, g := range allowed {
+		key[i+1] = byte(g)
+	}
+	db.distMu.Lock()
+	defer db.distMu.Unlock()
+	if dist := db.distCache[string(key)]; dist != nil {
+		return dist
+	}
 	dist := make([]uint8, nxnCenterCoordinates)
 	for i := range dist {
 		dist[i] = 255
@@ -93,6 +106,10 @@ func (db *centerPatterns) distances(face Face, allowed []int) []uint8 {
 			}
 		}
 	}
+	if db.distCache == nil {
+		db.distCache = make(map[string][]uint8)
+	}
+	db.distCache[string(key)] = dist
 	return dist
 }
 
@@ -101,6 +118,28 @@ type centerSearchNode struct {
 	parent int
 	move   int
 	score  int
+}
+
+type centerSearchBuffers struct {
+	nodes, candidates, selected []centerSearchNode
+	beam                        []int
+	seen, level                 centerKeySet
+	offsets                     []int
+}
+
+func (b *centerSearchBuffers) init(allowed int) {
+	const width = 512
+	if b.nodes == nil {
+		b.nodes = make([]centerSearchNode, 1, 1+width*36)
+		b.selected = make([]centerSearchNode, width)
+		b.beam = make([]int, 1, width)
+		b.seen = newCenterKeySet(1 + width*36)
+		b.offsets = make([]int, 8*(255*16+4)+1)
+	}
+	if cap(b.candidates) < width*allowed {
+		b.candidates = make([]centerSearchNode, 0, width*allowed)
+		b.level = newCenterKeySet(width * allowed)
+	}
 }
 
 // Exact open addressing for beam coordinates. Small fingerprints keep most
@@ -171,6 +210,7 @@ func nxnCenterBlocks(c *Cube, t *reductionTables) ([]Move, error) {
 	patterns := t.patterns
 
 	locked := map[Face]bool{}
+	var buffers centerSearchBuffers
 	for _, faces := range [][]Face{{Up}, {Up, Down}, {Left}, {Left, Right}, {Left, Right, Front, Back}} {
 		var allowed []int
 		for g, m := range t.moves {
@@ -181,8 +221,8 @@ func nxnCenterBlocks(c *Cube, t *reductionTables) ([]Move, error) {
 				allowed = append(allowed, g)
 			}
 		}
-		part := nxnSearchCenters(c, t, patterns, faces, allowed)
-		if err := c.ApplyMoves(part); err != nil {
+		part := nxnSearchCentersUsing(c, t, patterns, faces, allowed, &buffers)
+		if err := nxnApplyMoves(c, part); err != nil {
 			return nil, err
 		}
 		moves = append(moves, part...)
@@ -204,6 +244,11 @@ func nxnCenterBlocks(c *Cube, t *reductionTables) ([]Move, error) {
 // center orbits of a 4x4/5x5, even when it cannot finish the joint coordinate. The constructive
 // color-cycle finish guarantees termination without any search timeout risk.
 func nxnSearchCenters(c *Cube, t *reductionTables, dbs []*centerPatterns, faces []Face, allowed []int) []Move {
+	var buffers centerSearchBuffers
+	return nxnSearchCentersUsing(c, t, dbs, faces, allowed, &buffers)
+}
+
+func nxnSearchCentersUsing(c *Cube, t *reductionTables, dbs []*centerPatterns, faces []Face, allowed []int, buffers *centerSearchBuffers) []Move {
 	var start [8]uint16
 	dists := make([][]uint8, len(faces)*len(dbs))
 	for orbit, o := range t.centers {
@@ -242,19 +287,20 @@ func nxnSearchCenters(c *Cube, t *reductionTables, dbs []*centerPatterns, faces 
 		}
 	}
 	const width = 512
-	nodes := make([]centerSearchNode, 1, 1+width*36)
-	nodes[0] = centerSearchNode{key: start, parent: -1, move: -1, score: score(start)}
-	if nodes[0].score == 0 {
+	startScore := score(start)
+	if startScore == 0 {
 		return nil
 	}
-	beam, best := make([]int, 1, width), 0
-	seen, levelSeen := newCenterKeySet(1+width*36), newCenterKeySet(width*len(allowed))
+	buffers.init(len(allowed))
+	nodes := buffers.nodes[:1]
+	nodes[0] = centerSearchNode{key: start, parent: -1, move: -1, score: startScore}
+	beam, best := buffers.beam[:1], 0
+	beam[0] = 0
+	seen, levelSeen := &buffers.seen, &buffers.level
+	clear(seen.tags)
 	startKey, startHash := centerPackedKey(start)
 	seen.add(startKey, startHash)
-	candidateBuffer := make([]centerSearchNode, 0, width*len(allowed))
-	selected := make([]centerSearchNode, width)
-	// Eight patterns, each at most 255*16 + 4.
-	offsets := make([]int, 8*(255*16+4)+1)
+	candidateBuffer, selected, offsets := buffers.candidates, buffers.selected, buffers.offsets
 	for depth := 0; depth < 36 && nodes[best].score != 0; depth++ {
 		candidates := candidateBuffer[:0]
 		clear(levelSeen.tags)
@@ -322,16 +368,6 @@ func nxnSearchCenters(c *Cube, t *reductionTables, dbs []*centerPatterns, faces 
 // Integer scores allow a stable counting selection instead of sorting tens
 // of thousands of nodes at every depth. Ties retain generator order, so this
 // chooses exactly the same beam as a stable comparison sort.
-func nxnCenterBeam(candidates []centerSearchNode, width int) []centerSearchNode {
-	maxScore := 0
-	for _, node := range candidates {
-		if node.score > maxScore {
-			maxScore = node.score
-		}
-	}
-	return nxnCenterBeamInto(candidates, make([]centerSearchNode, width), make([]int, maxScore+1))
-}
-
 func nxnCenterBeamInto(candidates, selected []centerSearchNode, offsets []int) []centerSearchNode {
 	clear(offsets)
 	for _, node := range candidates {
@@ -422,7 +458,7 @@ func nxnColorCycles(c *Cube, t *reductionTables, o *reductionOrbit, faces []Face
 		a, b, d := chosen[0], chosen[1], chosen[2]
 		best := o.cycleMoves(t, a, b, d)
 		colors[b], colors[d], colors[a] = colors[a], colors[b], colors[d]
-		if err := c.ApplyMoves(best); err != nil {
+		if err := nxnApplyMoves(c, best); err != nil {
 			return nil, err
 		}
 		moves = append(moves, best...)

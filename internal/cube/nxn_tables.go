@@ -19,6 +19,7 @@ type reductionOrbit struct {
 	via         []uint8
 	inverseRoot []bool
 	cycleCosts  []atomic.Uint32 // optimized length + 1; zero means not computed
+	costs       []uint8         // immutable costs from the embedded setup trees
 	actionsOnce sync.Once
 	actions     []wingAction
 }
@@ -47,7 +48,7 @@ func nxnTables(n int) (*reductionTables, error) {
 	if t := reductionCache.tables[n]; t != nil {
 		return t, nil
 	}
-	t, err := buildReductionTables(n)
+	t, err := loadReductionTables(n)
 	if err == nil {
 		reductionCache.tables[n] = t
 	}
@@ -104,7 +105,7 @@ func nxnPermutation(n int, moves []Move) Permutation {
 	return p
 }
 
-func buildReductionTables(n int) (*reductionTables, error) {
+func nxnBaseTables(n int) (*reductionTables, error) {
 	t := &reductionTables{size: n}
 	// R/U/F through all layers include the opposite faces. Half/inverse turns
 	// shorten setup paths; they do not change the generated permutation group.
@@ -223,6 +224,14 @@ func buildReductionTables(n int) (*reductionTables, error) {
 		o.mate = nxnWingMates(n, o)
 		t.wings = append(t.wings, o)
 	}
+	return t, nil
+}
+
+func buildReductionTables(n int) (*reductionTables, error) {
+	t, err := nxnBaseTables(n)
+	if err != nil {
+		return nil, err
+	}
 	for _, orbits := range [][]*reductionOrbit{t.centers, t.wings} {
 		for _, o := range orbits {
 			if err := o.buildSetups(n, t); err != nil {
@@ -317,6 +326,9 @@ func (o *reductionOrbit) cycleMoves(t *reductionTables, a, b, c int) []Move {
 
 func (o *reductionOrbit) cycleCost(t *reductionTables, a, b, c int) int {
 	key := tripleKey(a, b, c)
+	if o.costs != nil {
+		return int(o.costs[key])
+	}
 	if cost := o.cycleCosts[key].Load(); cost != 0 {
 		return int(cost - 1)
 	}

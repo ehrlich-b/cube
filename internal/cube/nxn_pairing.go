@@ -38,6 +38,11 @@ func nxnWingActionFromPerm(o *reductionOrbit, moves []Move, p, q Permutation) wi
 	for i, pos := range o.positions {
 		a.full[i], a.outer[i] = local[p[pos]], local[q[pos]]
 	}
+	a.prepare(o.mate)
+	return a
+}
+
+func (a *wingAction) prepare(mate [24]uint8) {
 	var inverseOuter, inverseFull, want [24]uint8
 	for i := range a.full {
 		inverseOuter[a.outer[i]], inverseFull[a.full[i]] = uint8(i), uint8(i)
@@ -45,14 +50,13 @@ func nxnWingActionFromPerm(o *reductionOrbit, moves []Move, p, q Permutation) wi
 	pair := 0
 	for i, dst := range a.full {
 		want[i] = inverseOuter[dst]
-		other := inverseFull[o.mate[dst]]
+		other := inverseFull[mate[dst]]
 		if i < int(other) {
 			a.pairs[pair] = [2]uint8{uint8(i), other}
 			pair++
 		}
 	}
 	a.want = nxnPackWings(want)
-	return a
 }
 
 func nxnPackWings(p [24]uint8) [3]uint64 {
@@ -248,7 +252,7 @@ func nxnPairWings(c *Cube, t *reductionTables) ([]Move, *Cube, error) {
 			if !nxnPreservesCenterColors(c.Size, nxnPermutation(c.Size, part)) {
 				return nil, nil, fmt.Errorf("OLL parity disturbed centers")
 			}
-			if err := c.ApplyMoves(part); err != nil {
+			if err := nxnApplyMoves(c, part); err != nil {
 				return nil, nil, err
 			}
 			moves = append(moves, part...)
@@ -343,7 +347,7 @@ func nxnPairWings(c *Cube, t *reductionTables) ([]Move, *Cube, error) {
 			if best == nil {
 				return nil, nil, fmt.Errorf("wing pairing stalled in layer %d at %d/24", o.layer+1, before)
 			}
-			if err := c.ApplyMoves(best); err != nil {
+			if err := nxnApplyMoves(c, best); err != nil {
 				return nil, nil, err
 			}
 			moves = append(moves, best...)
@@ -358,7 +362,7 @@ func nxnPairWings(c *Cube, t *reductionTables) ([]Move, *Cube, error) {
 			}
 			if flips != 0 {
 				part := nxnOLLParity(o.layer)
-				if err := c.ApplyMoves(part); err != nil {
+				if err := nxnApplyMoves(c, part); err != nil {
 					return nil, nil, err
 				}
 				moves = append(moves, part...)
@@ -377,7 +381,7 @@ func nxnPairWings(c *Cube, t *reductionTables) ([]Move, *Cube, error) {
 				if !nxnPreservesCenterColors(c.Size, nxnPermutation(c.Size, part)) {
 					return nil, nil, fmt.Errorf("PLL parity disturbed centers")
 				}
-				if err := c.ApplyMoves(part); err != nil {
+				if err := nxnApplyMoves(c, part); err != nil {
 					return nil, nil, err
 				}
 				moves = append(moves, part...)

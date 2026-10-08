@@ -195,8 +195,9 @@ and 4–7 solve centers and pair wings before calling the public Kociemba solver
 Reduction corrects odd wing permutations before restoring centers and chooses
 a reduced edge state whose permutation parity matches the corners. This handles
 OLL/PLL parity, while odd fixed centers define the orientation. Pure center and
-wing three-cycles preserve completed pieces. The returned sequence is replayed
-to check every sticker against the solved center frame. See
+wing three-cycles preserve completed pieces. The complete solution permutation
+checks every sticker against the solved center frame. Embedded setup trees and
+commutators are compared with full regeneration in the unit tests. See
 [NxN examples and measurements](../examples/solving.md#solve-other-sizes).
 Beginner, CFOP, optimal search and lessons still support 3×3 only.
 `solving_db.go` remains an unwired historical experiment. All 131 database

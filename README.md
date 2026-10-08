@@ -189,6 +189,10 @@ reduction averaged 371.87, 532.82, 1058.29 and 1378.36 moves on sizes 4–7.
 Reduction uses center block searches on 4×4/5×5, batched bar commutators on
 6×6/7×7, and slice-based edge pairing with short parity corrections.
 Adjacent turns on one axis are canceled and packed into wide blocks.
+Setup trees, optimized cycle costs and commutators use about 1 MB of embedded
+compressed tables. Unit tests regenerate all four sizes and compare every byte
+of their decoded content. Regenerate after changing generators with
+`CUBE_GENERATE_NXN=1 go test -p 2 ./internal/cube -run '^TestNxNEmbeddedTables$'`.
 All answers are verified, with no optimality guarantee. `--time-limit`
 applies to the final Kociemba search.
 See [the solving guide](./examples/solving.md#solve-other-sizes) for the reduction

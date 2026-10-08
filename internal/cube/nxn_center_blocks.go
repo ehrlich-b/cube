@@ -232,6 +232,10 @@ func nxnBulkCenters(c *Cube, t *reductionTables) ([]Move, error) {
 		t.blockInfluences = nxnCenterInfluences(t.blocks)
 	})
 	actions := t.blocks
+	costs := make([]int16, len(actions))
+	for id := range actions {
+		costs[id] = int16(len(actions[id].moves))
+	}
 	var setups [][144]uint8
 	setupMoves := []Move{{}}
 	var identity [144]uint8
@@ -262,15 +266,16 @@ func nxnBulkCenters(c *Cube, t *reductionTables) ([]Move, error) {
 	}
 	var moves []Move
 	for {
-		bestGain, bestCost, bestAction, bestSetup := 0, 1, -1, 0
+		bestGain, bestCost := int16(0), int16(1)
+		bestAction, bestSetup := -1, 0
 		for setup := range setups {
+			level := gains[setup*len(actions) : (setup+1)*len(actions)]
+			setupCost := int16(0)
+			if setup != 0 {
+				setupCost = 1
+			}
 			for id := range actions {
-				action := &actions[id]
-				gain := int(gains[setup*len(actions)+id])
-				cost := len(action.moves)
-				if setup != 0 {
-					cost++
-				}
+				gain, cost := level[id], costs[id]+setupCost
 				if gain > 0 && gain*bestCost > bestGain*cost {
 					bestGain, bestCost, bestAction, bestSetup = gain, cost, id, setup
 				}
@@ -285,7 +290,7 @@ func nxnBulkCenters(c *Cube, t *reductionTables) ([]Move, error) {
 		if bestSetup != 0 {
 			part = append([]Move{setupMoves[bestSetup]}, part...)
 		}
-		if err := c.ApplyMoves(part); err != nil {
+		if err := nxnApplyMoves(c, part); err != nil {
 			return nil, err
 		}
 		moves = append(moves, part...)

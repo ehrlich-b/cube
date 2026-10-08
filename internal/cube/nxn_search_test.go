@@ -8,6 +8,80 @@ import (
 	"testing"
 )
 
+func TestNxNFlatReplayMatchesPublicEngine(t *testing.T) {
+	rng := rand.New(rand.NewSource(2026100803))
+	for _, n := range []int{2, 4, 5, 6, 7} {
+		c := NewCube(n)
+		for f := range c.Faces {
+			for r := range c.Faces[f] {
+				for col := range c.Faces[f][r] {
+					c.Faces[f][r][col] = Color(rng.Intn(6))
+				}
+			}
+		}
+		var moves []Move
+		for i := 0; i < 200; i++ {
+			m := Move{Face: Face(rng.Intn(6)), Layer: rng.Intn(n), Clockwise: rng.Intn(2) == 0, Double: rng.Intn(3) == 0}
+			if i%3 == 0 {
+				m.Layer, m.Wide, m.WideDepth = 0, true, rng.Intn(n)+1
+			}
+			if i%7 == 0 {
+				m = Move{Rotation: RotationType(1 + rng.Intn(3)), Clockwise: true}
+			}
+			if n%2 == 1 && i%11 == 0 {
+				m = Move{Slice: SliceType(1 + rng.Intn(3)), Double: true}
+			}
+			moves = append(moves, m)
+		}
+		want := c.clone()
+		if err := want.ApplyMoves(moves); err != nil {
+			t.Fatal(err)
+		}
+		if err := nxnApplyMoves(c, moves); err != nil || !facesEqual(c, want) {
+			t.Fatalf("%dx%d flat replay differs: %v", n, n, err)
+		}
+		before := c.clone()
+		if err := nxnApplyMoves(c, append(moves, Move{Face: Right, Layer: n})); err == nil || !facesEqual(c, before) {
+			t.Fatalf("%dx%d invalid replay mutated its input", n, n)
+		}
+	}
+}
+
+func TestNxNVerificationMatchesPublicReplay(t *testing.T) {
+	rng := rand.New(rand.NewSource(2026100804))
+	for _, n := range []int{2, 4, 5, 6, 7} {
+		c := NewCube(n)
+		var moves []Move
+		for i := 0; i < 80; i++ {
+			moves = append(moves, Move{Face: Face(rng.Intn(6)), Layer: rng.Intn(n), Clockwise: true})
+		}
+		if err := c.ApplyMoves(moves); err != nil {
+			t.Fatal(err)
+		}
+		inverse := nxnInverse(moves)
+		rotation, _ := ParseMoves("x y z")
+		for _, solution := range [][]Move{inverse, inverse[:len(inverse)-1], append(append([]Move(nil), inverse...), rotation...)} {
+			check := c.clone()
+			if err := check.ApplyMoves(solution); err != nil {
+				t.Fatal(err)
+			}
+			want := check.IsSolved() && nxnCenterMatched(check)
+			if nxnVerifySolution(c, solution) != want {
+				t.Fatalf("%dx%d permutation verification differs from full replay", n, n)
+			}
+		}
+		// A single wrong boundary sticker must fail even with solved centers.
+		c = NewCube(n)
+		c.Faces[Front][0][0] = Red
+		if nxnVerifySolution(c, nil) {
+			t.Fatalf("%dx%d accepted an incorrect corner sticker", n, n)
+		}
+		if nxnVerifySolution(NewCube(n), []Move{{Face: Right, Layer: n}}) {
+			t.Fatalf("%dx%d accepted an out-of-range solution", n, n)
+		}
+	}
+}
+
 func TestNxNWingScoresMatchFullPermutation(t *testing.T) {
 	rng := rand.New(rand.NewSource(20261008))
 	for _, n := range []int{4, 5, 6, 7} {
@@ -16,7 +90,7 @@ func TestNxNWingScoresMatchFullPermutation(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, o := range tables.wings {
-			actions := nxnPairingActions(n, o)
+			actions := o.actions
 			for trial := 0; trial < 20; trial++ {
 				var state, mates [24]uint8
 				for i, id := range rng.Perm(24) {
@@ -53,7 +127,7 @@ func TestNxNBlockScoresMatchStickerPermutation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		actions := nxnCenterBlockActions(n, tables)
+		actions := tables.blocks
 		var positions []int
 		for _, o := range tables.centers {
 			positions = append(positions, o.positions...)
