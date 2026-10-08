@@ -6,14 +6,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"syscall/js"
 
 	"github.com/ehrlich-b/cube/internal/cfen"
 	"github.com/ehrlich-b/cube/internal/cube"
+	"github.com/ehrlich-b/cube/internal/webapi"
 )
 
 type request struct {
@@ -34,16 +33,12 @@ type snapshot struct {
 	Faces  map[string][]string `json:"faces"`
 }
 
-var moveToken = regexp.MustCompile(`^(?:[1-7]?[URFDLB]w?|[MESxyz])(?:'|2)?$`)
-var faceToken = regexp.MustCompile(`^(?:[WYROGB?](?:[1-9][0-9]?)?)+$`)
-var faceRun = regexp.MustCompile(`[WYROGB?]([0-9]*)`)
-
 func parseMoves(text string) ([]cube.Move, error) {
 	if len(text) > 65536 {
 		return nil, fmt.Errorf("move input exceeds 65536 characters")
 	}
 	for _, token := range strings.Fields(text) {
-		if !moveToken.MatchString(token) {
+		if !webapi.ValidMoveToken(token) {
 			return nil, fmt.Errorf("invalid move %q; separate WCA moves with spaces", token)
 		}
 	}
@@ -60,19 +55,12 @@ func parseCFEN(text string, pattern bool) (*cfen.CFENState, error) {
 		return nil, fmt.Errorf("CFEN needs six faces in U/R/F/D/L/B order")
 	}
 	for _, face := range faces {
-		if !faceToken.MatchString(face) || (!pattern && strings.Contains(face, "?")) {
+		count, valid := webapi.FaceStickerCount(face)
+		if !valid || (!pattern && strings.Contains(face, "?")) {
 			return nil, fmt.Errorf("use colors W Y R O G B and runs 1–49; ? is only allowed in search targets")
 		}
-		count := 0
-		for _, run := range faceRun.FindAllStringSubmatch(face, -1) {
-			n := 1
-			if run[1] != "" {
-				n, _ = strconv.Atoi(run[1])
-			}
-			count += n
-			if n > 49 || count > 49 {
-				return nil, fmt.Errorf("CFEN runs must total at most 49 stickers per face")
-			}
+		if count > 49 {
+			return nil, fmt.Errorf("CFEN runs must total at most 49 stickers per face")
 		}
 	}
 	state, err := cfen.ParseCFEN(text)
@@ -193,6 +181,14 @@ func dispatch(req request) (any, error) {
 				return nil, err
 			}
 		}
+		if !c.IsSolved() {
+			if (c.Size != 3 || method == "kociemba") && !cube.BrowserSolverAssetLoaded("coordinates") {
+				return nil, fmt.Errorf("load the coordinate solver asset before solving")
+			}
+			if c.Size > 3 && !cube.BrowserSolverAssetLoaded(fmt.Sprintf("nxn-%d", c.Size)) {
+				return nil, fmt.Errorf("load the %dx%d solver asset before solving", c.Size, c.Size)
+			}
+		}
 		result, err := solver.Solve(c)
 		if err != nil {
 			return nil, err
@@ -243,6 +239,9 @@ func dispatch(req request) (any, error) {
 		if err != nil {
 			return nil, err
 		}
+		if req.MaxDepth > 0 && !cube.BrowserSolverAssetLoaded("coordinates") {
+			return nil, fmt.Errorf("load the coordinate solver asset before searching")
+		}
 		moves, found := cube.FindPattern(c, goal, nil, req.MaxDepth)
 		c.ApplyMoves(moves)
 		return map[string]any{"found": found, "moves": tokens(moves), "state": view(c)}, nil
@@ -289,5 +288,21 @@ func invoke(_ js.Value, args []js.Value) (result any) {
 func main() {
 	callback := js.FuncOf(invoke)
 	js.Global().Set("cubeAPI", callback)
+	install := js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if len(args) != 3 || args[0].Type() != js.TypeString || args[1].Type() != js.TypeObject || args[2].Type() != js.TypeString || !args[1].InstanceOf(js.Global().Get("Uint8Array")) {
+			return "pass a solver asset name, Uint8Array and SHA-256 digest"
+		}
+		length := args[1].Get("byteLength").Int()
+		if length == 0 || length > 10<<20 {
+			return "invalid solver asset length"
+		}
+		data := make([]byte, length)
+		js.CopyBytesToGo(data, args[1])
+		if err := cube.InstallBrowserSolverAsset(args[0].String(), data, args[2].String()); err != nil {
+			return err.Error()
+		}
+		return ""
+	})
+	js.Global().Set("cubeLoadSolverAsset", install)
 	select {}
 }

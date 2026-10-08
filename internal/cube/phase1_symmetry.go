@@ -28,8 +28,6 @@ type phase1Patterns struct {
 	distance    []uint8
 }
 
-var useLargePhase1 = os.Getenv("CUBE_LARGE_TABLES") == "1"
-
 var phase1LargeLock sync.Mutex
 var phase1LargeDB atomic.Pointer[phase1Patterns]
 

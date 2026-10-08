@@ -14,7 +14,7 @@ await mkdir(scratch, { recursive: true });
 process.env.TMPDIR = process.env.TMP = process.env.TEMP = scratch;
 const temporary = await mkdtemp(path.join(scratch, "pages-test-"));
 const site = "https://ehrlich-b.github.io/cube/";
-const mime = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".wasm": "application/wasm", ".svg": "image/svg+xml" };
+const mime = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".wasm": "application/wasm", ".svg": "image/svg+xml", ".gz": "application/octet-stream" };
 
 async function executable() {
   if (process.platform !== "darwin" && existsSync(chromium.executablePath())) return chromium.executablePath();
@@ -59,22 +59,30 @@ function checkPaths(files) {
   assert.deepEqual([...files.keys()].sort(), [...references].sort(), "Export contains exactly the linked runtime graph and .nojekyll");
 }
 
-function sizes(files) {
-  const result = { total: { raw: 0, gzip: 0, brotli: 0 } };
+function sizes(files, optimized) {
+  const result = { total: { raw: 0, gzip: 0, brotli: 0 }, initial: { raw: 0, gzip: 0, brotli: 0 }, lazy: { raw: 0, gzip: 0, brotli: 0 }, lazyAssets: {} };
   for (const [name, body] of files) {
     if (name === ".nojekyll") continue;
     const size = { raw: body.length, gzip: gzipSync(body, { level: 9 }).length,
       brotli: brotliCompressSync(body, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length };
-    for (const kind of Object.keys(size)) result.total[kind] += size[kind];
+    for (const kind of Object.keys(size)) {
+      result.total[kind] += size[kind];
+      result[name.endsWith(".gz") ? "lazy" : "initial"][kind] += size[kind];
+    }
+    if (name.endsWith(".gz")) result.lazyAssets[name.replace(/\.[a-f0-9]{16}(?=\.)/, "")] = size;
     if (name.endsWith(".wasm")) result.wasm = size;
   }
-  assert.ok(result.total.raw < 20_000_000, "Uncompressed Pages artifact stays under 20 MB");
-  assert.ok(result.wasm.raw < 15_000_000, "WASM stays under 15 MB");
+  assert.ok(result.initial.raw < (optimized ? 4_800_000 : 5_150_000), "Initial Pages bytes stay within the optimized/portable build budget");
+  assert.ok(result.initial.gzip < 1_500_000, "Initial Pages gzip stays under 1.5 MB");
+  assert.ok(result.initial.brotli < 1_150_000, "Initial Pages Brotli stays under 1.15 MB");
+  assert.ok(result.wasm.raw < (optimized ? 4_700_000 : 5_050_000), "WASM stays within the optimized/portable build budget");
+  assert.ok(result.lazy.raw < 4_600_000, "All lazy solver assets stay under 4.6 MB");
+  assert.ok(result.total.raw < (optimized ? 9_400_000 : 9_750_000), "Total Pages artifact stays within its build budget");
   return result;
 }
 
-async function idle(page) {
-  await page.waitForFunction(() => !document.getElementById("reset")?.disabled && document.querySelectorAll(".sticker").length === 54, null, { timeout: 60000 });
+async function idle(page, size = 3) {
+  await page.waitForFunction(size => !document.getElementById("reset")?.disabled && document.querySelectorAll(".sticker").length === 6 * size * size, size, { timeout: size === 3 ? 60000 : 120000 });
 }
 
 // Small, dependency-free accessibility gate: rendered controls only, computed
@@ -121,6 +129,7 @@ try {
   checkPaths(files);
   const originalFiles = files;
   const requests = [], failures = [], errors = [], responseTypes = new Map();
+  let assetFault;
   context = await chromium.launchPersistentContext(path.join(temporary, "profile"), { executablePath: await executable(), headless: true, viewport: { width: 390, height: 844 }, args: ["--disable-gpu"], serviceWorkers: "block" });
   await context.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText: async text => { globalThis.copiedText = text; } } });
@@ -152,6 +161,12 @@ try {
     }
     const contentType = mime[path.extname(asset)];
     responseTypes.set(asset, contentType);
+    if (assetFault && /^coordinates-web-v1\.bin\./.test(asset)) {
+      if (assetFault === "missing") return route.fulfill({ status: 503, contentType: "text/plain", body: "Unavailable" });
+      const corrupt = Buffer.from(files.get(asset));
+      corrupt[corrupt.length - 1] ^= 1;
+      return route.fulfill({ status: 200, contentType, body: corrupt });
+    }
     await route.fulfill({ status: 200, contentType, body: files.get(asset) });
   });
   const page = context.pages()[0];
@@ -173,6 +188,7 @@ try {
   console.log(`First load: ${load.interactiveMs}ms to interactive, 390x844, 4x CPU throttle; local in-memory transfer (no network throttling)`);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
   const firstLoadAssets = [...new Set(requests.map(request => request.asset))];
+  assert.equal(firstLoadAssets.some(name => name.endsWith(".gz")), false, "First load fetches no solver table assets");
   const firstLoadRaw = firstLoadAssets.reduce((sum, name) => sum + files.get(name).length, 0);
   assert.deepEqual(errors, [], "First-load console and runtime errors");
   const headers = await page.evaluate(async () => Object.fromEntries((await fetch("./index.html")).headers));
@@ -244,8 +260,10 @@ try {
   await page.locator("#stage").focus();
   await page.keyboard.press("r");
   await idle(page);
+  const firstSolveStarted = Date.now();
   await page.locator("#solve").click();
   await idle(page);
+  const first3x3Ms = Date.now() - firstSolveStarted;
   assert.equal(await page.locator("#sequence-title").textContent(), "Your path to solved · kociemba");
   await page.locator("#tab-search").click();
   await page.locator("#depth").fill("1");
@@ -262,6 +280,48 @@ try {
   assert.deepEqual(failures, [], "No missing assets, external requests or API requests");
   assert.deepEqual(errors, [], "No console or runtime errors throughout Pages use");
   console.log("PASS Pages: cold solve/search module workers without cross-origin isolation; no console errors");
+
+  await page.locator("#size").selectOption("7");
+  await idle(page, 7);
+  const sevenStart = await page.evaluate(() => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", size: 7, moves: "2R U 2F' Rw D2 L B'" }))).data.state.cfen);
+  await page.locator("#cfen").fill(sevenStart);
+  await page.locator("#import").click();
+  const sevenStarted = Date.now();
+  await page.locator("#solve").click();
+  await idle(page, 7);
+  const first7x7 = { readyMs: Date.now() - sevenStarted, workerMs: Number(await page.locator("#cube").getAttribute("data-solve-wall-ms")), solveMs: Number(await page.locator("#cube").getAttribute("data-solve-ms")), moves: Number(await page.locator("#scrubber").getAttribute("max")) };
+  const sevenMoves = await page.locator("#sequence-moves button").allTextContents();
+  assert.equal(await page.evaluate(({ cfen, moves }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves }))).data.state.solved, { cfen: sevenStart, moves: sevenMoves.join(" ") }), true, "First 7x7 solution replays to solved");
+  assert.ok(requests.some(request => /^coordinates-web-v1\.bin\./.test(request.asset)), "First solver use fetches coordinates lazily");
+  assert.ok(requests.some(request => /^nxn-7-v1\.bin\./.test(request.asset)), "First 7x7 solve fetches its own table");
+  assert.equal(requests.some(request => /^nxn-[456]-v1\.bin\./.test(request.asset)), false, "Unselected NxN dimensions remain unfetched");
+  console.log(`First solver use: 3x3 ${first3x3Ms}ms; 7x7 ${JSON.stringify(first7x7)} (including asset loading and playback preparation)`);
+
+  const recoveryPage = await context.newPage();
+  const recoveryErrors = [];
+  recoveryPage.on("pageerror", error => recoveryErrors.push(error.message));
+  for (const fault of ["missing", "corrupt"]) {
+    await recoveryPage.goto(site);
+    await idle(recoveryPage);
+    await recoveryPage.locator("#stage").focus();
+    await recoveryPage.keyboard.press("r");
+    await idle(recoveryPage);
+    const mixed = await recoveryPage.locator("#cfen").inputValue();
+    assetFault = fault;
+    await recoveryPage.locator("#solve").click();
+    await recoveryPage.locator("#notice.error").waitFor();
+    await idle(recoveryPage);
+    assert.match(await recoveryPage.locator("#notice").textContent(), /Solver data.*(?:missing|verified)/);
+    assert.equal(await recoveryPage.locator("#cfen").inputValue(), mixed, `${fault} solver data preserves the input`);
+    assert.equal(await recoveryPage.locator("#cancel-task").isVisible(), false, "Failed loading releases the worker and controls");
+    assetFault = null;
+    await recoveryPage.locator("#solve").click();
+    await idle(recoveryPage);
+    assert.equal(await recoveryPage.locator("#sequence-title").textContent(), "Your path to solved · kociemba", `${fault} data recovers on retry`);
+  }
+  assert.deepEqual(recoveryErrors, [], "Asset failure recovery has no uncaught exceptions");
+  await recoveryPage.close();
+  console.log("PASS Pages: missing/corrupt lazy data fails safely, preserves the cube and recovers on retry");
 
   // Change WASM alone, then JS alone: the entire graph must get new URLs.
   // Seed the old URL namespace with poisoned binaries to simulate a stale cache.
@@ -303,11 +363,14 @@ try {
   assert.deepEqual(errors, [], "Redeploy never pairs stale WASM/runtime with fresh JS");
   assert.deepEqual(failures, [], "Redeploy references only available runtime files");
   console.log("PASS Pages: WASM-only and JS-only redeploys invalidate the whole asset graph; poisoned old assets are unused");
-  const report = { browser: context.browser().version(), viewport: "390x844", cpuThrottle: 4, network: "in-memory, unthrottled", ...load, firstLoadRaw, accessibility: await accessibility(page) };
+  const report = { browser: context.browser().version(), viewport: "390x844", cpuThrottle: 4, network: "in-memory, unthrottled", ...load, firstLoadRaw, first3x3Ms, first7x7, accessibility: await accessibility(page) };
   await page.screenshot({ path: path.join(scratch, "pages-390x844.png"), fullPage: true });
   await context.close();
   context = null;
-  report.sizes = sizes(originalFiles);
+  const wasmBuild = JSON.parse(await readFile(path.join(scratch, "wasm-build.json"), "utf8"));
+  report.sizes = sizes(originalFiles, wasmBuild.optimized);
+  assert.equal(report.sizes.wasm.raw, wasmBuild.raw, "The exported wasm matches the measured build");
+  report.wasmBuild = wasmBuild;
   console.log(`Bytes: ${JSON.stringify({ ...report.sizes, firstLoadRaw })}; gzip level 9 / Brotli quality 11 estimates, per file`);
   await writeFile(path.join(scratch, "pages-readiness.json"), JSON.stringify(report, null, 2) + "\n");
   console.log("PASS test-pages; report .scratch/pages-readiness.json, screenshot .scratch/pages-390x844.png");

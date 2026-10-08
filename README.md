@@ -453,8 +453,9 @@ independent Kociemba/CFOP oracles also passed under background QoS.
 `make web-pages` rebuilds `dist/web` from a fixed list of runtime files. It
 includes `index.html` and `.nojekyll`, fingerprints every other asset with a
 SHA-256 digest of the complete release, and rewrites the HTML, module imports,
-worker URLs and WASM URL to those relative filenames. Changing either JS or
-WASM gives the entire dependency graph new URLs, including the Go runtime.
+worker URLs, WASM URL and lazy solver data URLs to those relative filenames.
+Changing JS, WASM or a solver asset gives the entire dependency graph new URLs,
+including the Go runtime and integrity manifest.
 Cached binaries from a previous release therefore cannot be paired with new
 JavaScript. Pages controls caching of `index.html`; a cached document can still
 show the previous release until it revalidates.
@@ -476,6 +477,21 @@ no COOP/COEP headers. It verifies `crossOriginIsolated === false` and that
 workers still work. Workers receive a compiled WebAssembly module and create
 their own runtime memory; they do not share a buffer.
 
+Solver tables are separate assets. Kociemba and pattern search fetch the 3x3
+coordinates on first use; reduction also fetches only the selected 4x4–7x7
+table. Basic interaction, beginner lessons and CFOP need no table download.
+Fetch integrity, SHA-256, sizes, coordinate dimensions and move fingerprints
+protect the data. Failed/corrupt downloads preserve the cube and allow retry.
+The browser coordinate format contains every native coordinate, with a checked
+binary decoder instead of gob reflection. Native executables retain embedded
+tables and their existing cache format. A second NxN wasm would duplicate the
+Go runtime; the site shares compiled code and loads only data instead.
+
+`make web` strips symbols and uses `-trimpath`. It also runs `wasm-opt -Oz` if
+available on PATH or inside installed Emscripten. Set `WASM_OPT` to an explicit
+executable, or `WASM_OPT=off` to use just Go; no build installs tools. Both paths
+have size budgets in `test-pages`.
+
 The gate also checks console/runtime errors, copied share links, control names,
 DOM focus order, keyboard tab navigation, help, face/prime turns and playback,
 and computed control text and focus-outline contrast. This is a basic control
@@ -483,7 +499,9 @@ accessibility pass, not a full screen-reader audit. A fresh 390×844 load uses
 4× Chromium CPU throttling and must become interactive within 15 seconds.
 Transfer is local and unthrottled, so this timing excludes an internet download.
 The test reports raw, gzip (level 9) and Brotli (quality 11) byte estimates for
-the whole export and WASM; actual Pages compression is not assumed. It changes
+initial assets, each lazy asset, the whole export and WASM; actual Pages
+compression is not assumed. It times first 3x3 and 7x7 solves, including lazy
+loading and playback preparation, and tests missing/corrupt data recovery. It changes
 WASM alone and JS alone and tests redeploys with poisoned old asset URLs.
 Reports and screenshots stay in `.scratch/pages-readiness.json` and
 `.scratch/pages-390x844.png`. The existing Playwright devDependency and a

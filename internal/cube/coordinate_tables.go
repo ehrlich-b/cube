@@ -5,12 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
-	_ "embed"
-	"encoding/gob"
-	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -31,9 +26,6 @@ type coordinateTables struct {
 	PermSymCorner, PermSymEdge, SymSlice2, SymCornerComb, SymEdgeComb           []uint16
 	TwistSym, SliceSym, TwistFlipSym, SymTwist, SymFlip, SymFlipDelta, SymSlice []uint16
 }
-
-//go:embed tables/coordinates-v5.bin.gz
-var embeddedCoordinates []byte
 
 var tablesLock = make(chan struct{}, 1)
 var tables *coordinateTables
@@ -93,7 +85,7 @@ func solverTablesLimit(deadline time.Time) *coordinateTables {
 		}
 		return t
 	}
-	t := generateCoordinateTables(deadline)
+	t := fallbackCoordinateTables(deadline)
 	if t == nil {
 		return nil
 	}
@@ -202,45 +194,9 @@ func pairPruning(a, b []uint16, bSize int, phase2 bool, deadline time.Time) []ui
 	return dist
 }
 
-func coordinateCachePath() string {
-	dir := os.Getenv("CUBE_CACHE_DIR")
-	if dir == "" {
-		base, err := os.UserCacheDir()
-		if err != nil {
-			return ""
-		}
-		dir = filepath.Join(base, "cube")
-	}
-	return filepath.Join(dir, "coordinates-v5.bin.gz")
-}
-
-func loadCoordinateTables() *coordinateTables {
-	return loadCoordinateTablesLimit(time.Time{})
-}
-
-func loadCoordinateTablesLimit(deadline time.Time) *coordinateTables {
-	if tableDeadlineExceeded(deadline) {
-		return nil
-	}
-	f, size, err := openTableCache(coordinateCachePath(), 64, 10<<20, deadline)
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-	// Allocate only the checked size, even if the file grows after Stat.
-	data := make([]byte, int(size))
-	reader := tableDeadlineReader{f, deadline}
-	if _, err := io.ReadFull(reader, data); err != nil || tableDeadlineExceeded(deadline) {
-		return nil
-	}
-	var extra [1]byte
-	if n, err := reader.Read(extra[:]); n != 0 || err != io.EOF {
-		return nil
-	}
-	return decodeCoordinateTables(data, deadline)
-}
-
-func decodeCoordinateTables(data []byte, deadline time.Time) *coordinateTables {
+// Both native gob tables and browser binary tables share the same checksum,
+// move fingerprint, bounded decompression and coordinate dimension checks.
+func coordinatePayload(data []byte, deadline time.Time) []byte {
 	if len(data) < 64 || tableDeadlineExceeded(deadline) {
 		return nil
 	}
@@ -261,10 +217,10 @@ func decodeCoordinateTables(data []byte, deadline time.Time) *coordinateTables {
 	if err != nil || len(payload) == 32<<20 || tableDeadlineExceeded(deadline) {
 		return nil
 	}
-	var t coordinateTables
-	if gob.NewDecoder(bytes.NewReader(payload)).Decode(&t) != nil || tableDeadlineExceeded(deadline) {
-		return nil
-	}
+	return payload
+}
+
+func validateCoordinateTables(t *coordinateTables, deadline time.Time) *coordinateTables {
 	if len(t.Twist) != 2187*18 || len(t.Flip) != 2048*18 || len(t.Slice) != 495*18 || len(t.Corner) != 40320*18 || len(t.Edge2) != 40320*18 || len(t.Slice2) != 24*18 || len(t.TwistFlip) != 324*2048/2 || len(t.CornerDistance) != 40320 {
 		return nil
 	}
@@ -294,35 +250,8 @@ func decodeCoordinateTables(data []byte, deadline time.Time) *coordinateTables {
 		}
 		t.nearPhase1[key] = t.NearPhase1Distances[i]
 	}
-	return &t
+	return t
 }
-
-func encodeCoordinateTables(t *coordinateTables) []byte {
-	var b bytes.Buffer
-	z, _ := gzip.NewWriterLevel(&b, gzip.BestCompression)
-	if gob.NewEncoder(z).Encode(t) != nil || z.Close() != nil {
-		return nil
-	}
-	fingerprint := edgeMoveFingerprint()
-	payload := append(fingerprint[:], b.Bytes()...)
-	sum := sha256.Sum256(payload)
-	return append(sum[:], payload...)
-}
-
-func saveCoordinateTables(t *coordinateTables) error {
-	return saveCoordinateBytes(encodeCoordinateTables(t))
-}
-
-func saveCoordinateBytes(data []byte) error {
-	if data == nil {
-		return fmt.Errorf("cannot encode coordinate tables")
-	}
-	return writeTableCache(coordinateCachePath(), "coordinates-*.gz", time.Time{}, func(f *os.File) error {
-		_, err := f.Write(data)
-		return err
-	})
-}
-
 func (t *coordinateTables) phase1Bound(co, eo, sl int) int {
 	conjCo := int(t.SymTwist[co*16+1])
 	conjEo := int(t.SymFlip[eo*16+1] ^ t.SymFlipDelta[sl*16+1])

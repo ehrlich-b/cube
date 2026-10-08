@@ -2,9 +2,10 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { solverAssetNames } from "./build-solver-assets.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-export const runtimeAssets = ["index.html", "style.css", "icon.svg", "app.js", "cube-view.js", "engine.js", "worker.js", "cube.wasm", "wasm_exec.js"];
+export const runtimeAssets = ["index.html", "style.css", "icon.svg", "app.js", "cube-view.js", "engine.js", "worker.js", "cube.wasm", "wasm_exec.js", "solver-assets.js", ...solverAssetNames];
 
 export async function readRuntimeAssets(directory) {
   const assets = new Map();
@@ -24,7 +25,7 @@ export async function exportPages(assets, destination) {
   for (const [name, bytes] of assets) {
     let body = bytes;
     if (/\.(html|css|js|svg)$/.test(name)) {
-      body = bytes.toString("utf8").replace(/\.\/([\w.-]+\.(?:html|css|js|svg|wasm))\b/g, (reference, asset) => {
+      body = bytes.toString("utf8").replace(/\.\/([\w.-]+\.(?:html|css|js|svg|wasm|gz))\b/g, (reference, asset) => {
         if (!names.has(asset)) throw new Error(`Unknown runtime asset ${asset} in ${name}`);
         return `./${names.get(asset)}`;
       });

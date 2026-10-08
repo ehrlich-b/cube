@@ -313,7 +313,7 @@ function compute(request, label) {
       } else finish(data.ok ? null : new Error(data.error), data.data);
     };
     worker.onerror = event => finish(new Error(event.message || "The cube worker could not start."));
-    worker.postMessage({ request, module: retainWorker ? engine.module : undefined });
+    worker.postMessage({ request, module: engine.module });
   });
 }
 
