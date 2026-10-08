@@ -5,7 +5,12 @@ package cube
 // of individual slices or differences of prefix/suffix blocks. Rotations are
 // boundaries because they change the frame of the following axes.
 func nxnOptimizeMoves(moves []Move, n int) []Move {
-	var result []Move
+	return nxnOptimizeInto(make([]Move, 0, len(moves)), moves, n)
+}
+
+// Callers comparing cycle costs can supply a stack buffer instead of allocating
+// a move list for every candidate. Input and output must not overlap.
+func nxnOptimizeInto(result []Move, moves []Move, n int) []Move {
 	for start := 0; start < len(moves); {
 		first := moves[start]
 		if first.Rotation != NoRotation || first.Slice != NoSlice {
@@ -26,8 +31,15 @@ func nxnOptimizeMoves(moves []Move, n int) []Move {
 			if !positive {
 				q = (4 - q) % 4
 			}
-			layers := getAffectedLayers(m, n)
-			for _, layer := range layers {
+			lo, hi := m.Layer, m.Layer+1
+			if m.Wide {
+				lo, hi = 0, m.WideDepth
+				if hi <= 0 {
+					hi = 2
+				}
+			}
+			for at := lo; at < hi; at++ {
+				layer := at
 				if !positive {
 					layer = n - 1 - layer
 				}
@@ -54,7 +66,8 @@ func nxnOptimizeMoves(moves []Move, n int) []Move {
 			}
 			return m
 		}
-		var best []Move
+		var bestBuffer, blockBuffer [7]Move
+		best := bestBuffer[:0]
 		for layer, q := range turns[:n] {
 			if q != 0 {
 				if layer >= n/2 {
@@ -65,7 +78,7 @@ func nxnOptimizeMoves(moves []Move, n int) []Move {
 			}
 		}
 		for _, reverse := range []bool{false, true} {
-			var blocks []Move
+			blocks := blockBuffer[:0]
 			for depth := n; depth > 0; depth-- {
 				at, beyond := depth-1, depth
 				if reverse {
@@ -80,7 +93,7 @@ func nxnOptimizeMoves(moves []Move, n int) []Move {
 				}
 			}
 			if len(blocks) < len(best) {
-				best = blocks
+				best = append(best[:0], blocks...)
 			}
 		}
 		if len(best) > end-start {
@@ -89,5 +102,29 @@ func nxnOptimizeMoves(moves []Move, n int) []Move {
 		result = append(result, best...)
 		start = end
 	}
-	return OptimizeMoves(result)
+	// Fold adjacent turns in place, including axes brought together by a
+	// cancellation. This is the same final pass as OptimizeMoves.
+	write := 0
+	for _, m := range result {
+		if write > 0 {
+			last := result[write-1]
+			sameRotation := m.Rotation != NoRotation && last.Rotation == m.Rotation
+			sameFace := last.Face == m.Face && last.Rotation == NoRotation && m.Rotation == NoRotation &&
+				last.Wide == m.Wide && last.WideDepth == m.WideDepth && last.Layer == m.Layer &&
+				last.Slice == NoSlice && m.Slice == NoSlice
+			if sameRotation || sameFace {
+				q := (moveToQuarterTurns(last) + moveToQuarterTurns(m)) % 4
+				if q == 0 {
+					write--
+				} else {
+					last.Clockwise, last.Double = q != 3, q == 2
+					result[write-1] = last
+				}
+				continue
+			}
+		}
+		result[write] = m
+		write++
+	}
+	return result[:write]
 }

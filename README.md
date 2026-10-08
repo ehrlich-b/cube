@@ -195,7 +195,7 @@ Superflip is recognized by exact cubie coordinates and uses
 plus a replayed 20-turn witness. General states exhaust every shorter IDA* depth
 before an answer is returned; a timeout remains an explicit error.
 
-NxN reduction measurements on the same Mac under background QoS (2026-10-07):
+NxN reduction measurements on the same Mac under background QoS (2026-10-08):
 `make test-nxn` independently replayed **1,000 solutions**, with **100 uniform
 legal states and 100 uniformly sampled single-layer scrambles per size**. States
 are generated with independent integer 3D geometry; scrambles use 40×N turns.
@@ -206,15 +206,16 @@ Mean/max and times cover all 200 cases; the uniform column isolates the
 
 | Size | Mean / max moves | Uniform mean / max | Fresh CLI mean / max |
 |---|---:|---:|---:|
-| 2×2 | 18.89 / 20 | 18.78 / 20 | 76.86 / 271.37 ms |
-| 4×4 | 92.59 / 128 | 92.09 / 115 | 290.48 / 1230.35 ms |
-| 5×5 | 192.58 / 253 | 193.16 / 253 | 682.90 / 1745.57 ms |
-| 6×6 | 457.26 / 522 | 452.01 / 509 | 707.85 / 1773.85 ms |
-| 7×7 | 638.47 / 712 | 640.78 / 712 | 1217.23 / 2678.78 ms |
+| 2×2 | 18.79 / 20 | 18.66 / 20 | 177.60 / 587.11 ms |
+| 4×4 | 92.72 / 128 | 92.16 / 115 | 183.91 / 452.92 ms |
+| 5×5 | 192.65 / 253 | 193.19 / 253 | 185.61 / 734.83 ms |
+| 6×6 | 457.31 / 522 | 452.05 / 508 | 215.58 / 790.62 ms |
+| 7×7 | 638.53 / 712 | 640.83 / 712 | 182.37 / 401.88 ms |
 
 Outer, numbered-slice, wide and half turns, and grip rotations each count
-once. Times include process startup, 3×3 cache loading and fresh reduction
-tables; the 3×3 disk cache was already populated. These are sample
+once. Times include process startup, 3×3 cache loading and decoding embedded
+reduction tables; the 3×3 disk cache was already populated. Native solves load
+that cache alongside reduction. These are sample
 measurements, not worst-case bounds. The oracle fails if either combined
 or uniform mean moves exceeds the documented value by more than 5%, or
 if this table disagrees with the solving guide. The former per-piece
@@ -223,6 +224,10 @@ reduction averaged 371.87, 532.82, 1058.29 and 1378.36 moves on sizes 4–7.
 Reduction uses center block searches on 4×4/5×5, batched bar commutators on
 6×6/7×7, and slice-based edge pairing with short parity corrections.
 Adjacent turns on one axis are canceled and packed into wide blocks.
+Setup trees, optimized cycle costs, 5×5 center patterns and commutators use
+1.5 MB of embedded compressed tables. Unit tests regenerate all four sizes and compare every byte
+of their decoded content. Regenerate after changing generators with
+`CUBE_GENERATE_NXN=1 go test -p 2 ./internal/cube -run '^TestNxNEmbeddedTables$'`.
 All answers are verified, with no optimality guarantee. `--time-limit`
 applies to the final Kociemba search.
 See [the solving guide](./examples/solving.md#solve-other-sizes) for the reduction

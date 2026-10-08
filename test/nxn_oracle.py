@@ -11,6 +11,7 @@ every legal single-layer turn uniformly to exercise actual scramble inputs.
 """
 
 import argparse
+import json
 from collections import defaultdict
 from functools import lru_cache
 import os
@@ -279,8 +280,23 @@ def main():
     parser.add_argument("--binary", type=Path, default=Path("dist/cube"))
     parser.add_argument("--cases", type=int, default=100)
     parser.add_argument("--sizes", type=int, nargs="+", default=[2, 4, 5, 6, 7])
+    parser.add_argument("--export-cases", type=Path,
+                        help="export uniform fixtures for CUBE_NXN_CASES Go profiling")
     args = parser.parse_args()
     assert args.cases > 0
+    if args.export_cases:
+        fixtures = []
+        for n in args.sizes:
+            g = Geometry(n)
+            rng = random.Random(20261007 + n)
+            orientations = g.orientations()
+            for index in range(args.cases):
+                state = g.uniform_state(rng)
+                if index < 24:
+                    state = g.replay(state, orientations[index])
+                fixtures.append({"size": n, "state": "".join(state)})
+        args.export_cases.write_text(json.dumps(fixtures) + "\n")
+        return
     binary = args.binary.resolve()
     scratch = Path(".scratch").resolve()
     scratch.mkdir(exist_ok=True)

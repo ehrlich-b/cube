@@ -111,20 +111,21 @@ An optional scramble is applied after that saved state, as for 3×3 solving.
 `make test-nxn` independently samples and replays 100 uniform legal states and
 100 uniform-move scrambles per size in fresh CLI processes. It also checks all
 24 grips, isolated/combined OLL and PLL parity, printed step counts and final
-CFEN. Background-QoS measurements on this Mac (2026-10-07), over all 200 cases
+CFEN. Background-QoS measurements on this Mac (2026-10-08), over all 200 cases
 per size, were (the uniform column covers just the 100 uniform states):
 
 | Size | Mean / max moves | Uniform mean / max | Fresh process mean / max |
 |---|---:|---:|---:|
-| 2×2 | 18.89 / 20 | 18.78 / 20 | 76.86 / 271.37 ms |
-| 4×4 | 92.59 / 128 | 92.09 / 115 | 290.48 / 1230.35 ms |
-| 5×5 | 192.58 / 253 | 193.16 / 253 | 682.90 / 1745.57 ms |
-| 6×6 | 457.26 / 522 | 452.01 / 509 | 707.85 / 1773.85 ms |
-| 7×7 | 638.47 / 712 | 640.78 / 712 | 1217.23 / 2678.78 ms |
+| 2×2 | 18.79 / 20 | 18.66 / 20 | 177.60 / 587.11 ms |
+| 4×4 | 92.72 / 128 | 92.16 / 115 | 183.91 / 452.92 ms |
+| 5×5 | 192.65 / 253 | 193.19 / 253 | 185.61 / 734.83 ms |
+| 6×6 | 457.31 / 522 | 452.05 / 508 | 215.58 / 790.62 ms |
+| 7×7 | 638.53 / 712 | 640.83 / 712 | 182.37 / 401.88 ms |
 
 Outer, numbered-slice, wide and half turns, and grip rotations each count once. Times
-include startup, fresh reduction setups and loading an already populated 3×3
-disk cache. These are sample results, not worst-case guarantees. The oracle
+include startup, decoding embedded reduction tables and loading an already
+populated 3×3 disk cache alongside reduction. These are sample results, not
+worst-case guarantees. The oracle
 fails if the combined or uniform mean moves for any size exceeds its
 documented value by more than 5%, and requires both documentation tables
 to agree.

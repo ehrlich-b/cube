@@ -2,6 +2,7 @@ package cube
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 )
 
@@ -29,6 +30,7 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 	}
 	work := c.clone()
 	var moves []Move
+	var preloadDone <-chan struct{}
 	if c.Size%2 == 1 {
 		// Odd fixed centers define the frame even after slice/rotation moves.
 		frame := NewCube(3)
@@ -40,7 +42,7 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 			return nil, fmt.Errorf("fixed centers: %w", err)
 		}
 		moves = append(moves, rotations...)
-		if err := work.ApplyMoves(rotations); err != nil {
+		if err := nxnApplyMoves(work, rotations); err != nil {
 			return nil, err
 		}
 	}
@@ -64,6 +66,17 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 		return nil, fmt.Errorf("reduced corners/central edges: %w", err)
 	}
 	if c.Size > 3 {
+		// Native cores can load the final 3x3 tables while reduction runs.
+		// Keep browser allocation peaks separate on its single execution thread.
+		if runtime.GOARCH != "wasm" && !work.IsSolved() {
+			done := make(chan struct{})
+			go func() {
+				solverTables()
+				close(done)
+			}()
+			defer func() { <-done }()
+			preloadDone = done
+		}
 		t, err := nxnTables(c.Size)
 		if err != nil {
 			return nil, err
@@ -80,19 +93,34 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 		moves = append(moves, part...)
 		reduced = paired
 	}
+	if preloadDone != nil {
+		<-preloadDone
+	}
 	finish, err := SolveKociemba(reduced, options)
 	if err != nil {
 		return nil, fmt.Errorf("reduced 3x3 solve: %w", err)
 	}
 	moves = nxnOptimizeMoves(append(moves, finish.Solution...), c.Size)
-	check := c.clone()
-	if err := check.ApplyMoves(moves); err != nil {
-		return nil, err
-	}
-	if !check.IsSolved() || !nxnCenterMatched(check) {
+	if !nxnVerifySolution(c, moves) {
 		return nil, fmt.Errorf("reduction solution failed uniform, center-matched verification")
 	}
 	return &SolverResult{Solution: moves, Steps: len(moves), Duration: time.Since(started)}, nil
+}
+
+// Verify every sticker against its canonical destination through the complete
+// solution permutation. This is equivalent to a uniform, center-matched full
+// replay and needs one permutation instead of allocating a cube per turn.
+func nxnVerifySolution(c *Cube, moves []Move) bool {
+	if err := ValidateMoves(moves, c.Size); err != nil {
+		return false
+	}
+	home := [6]Color{Blue, Green, Orange, Red, Yellow, White}
+	for src, dst := range nxnPermutation(c.Size, moves) {
+		if nxnColor(c, src) != home[dst/(c.Size*c.Size)] {
+			return false
+		}
+	}
+	return true
 }
 
 func nxnCornerParity(c *Cube) (int, error) {
@@ -168,6 +196,53 @@ func nxnReducedSeed(c *Cube) *Cube {
 func nxnColor(c *Cube, index int) Color {
 	f, r, col := indexToCoord(index, c.Size)
 	return c.Faces[f][r][col]
+}
+
+// Reduction applies many short algorithms to an already validated cube. Keep
+// its stickers in two flat stack buffers for a whole algorithm rather than
+// allocating six faces and their rows on every turn. Final verification uses
+// the independently composed full solution permutation above.
+func nxnApplyMoves(c *Cube, moves []Move) error {
+	if err := ValidateMoves(moves, c.Size); err != nil {
+		return err
+	}
+	if len(moves) == 0 {
+		return nil
+	}
+	var first, second [6 * 7 * 7]Color
+	state, after := &first, &second
+	n := c.Size
+	for face, rows := range c.Faces {
+		for row, colors := range rows {
+			copy(state[face*n*n+row*n:], colors)
+		}
+	}
+	for _, m := range moves {
+		kind, turns := moveToMoveType(m)
+		lo, hi := m.Layer, m.Layer+1
+		if m.Slice != NoSlice {
+			lo, hi = n/2, n/2+1
+		} else if m.Rotation != NoRotation {
+			lo, hi = 0, 1
+		} else if m.Wide {
+			lo, hi = 0, m.WideDepth
+			if hi == 0 {
+				hi = 2
+			}
+		}
+		for layer := lo; layer < hi; layer++ {
+			for src, dst := range getPermutation(n, kind, layer, turns) {
+				after[dst] = state[src]
+			}
+			state, after = after, state
+		}
+	}
+	for face, rows := range c.Faces {
+		for row, colors := range rows {
+			copy(colors, state[face*n*n+row*n:face*n*n+(row+1)*n])
+		}
+	}
+	return nil
 }
 
 func nxnReducedColor(c *Cube, index, n int) Color {
