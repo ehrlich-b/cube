@@ -7,6 +7,7 @@ let engine, state, initial, history = [], historyIndex = 0, busy = false, runnin
 let scramble = "", baseCFEN = "", currentMode = "practice";
 let restoring = true;
 let size = 3, saved3x3Method = "kociemba", scrambledCache;
+let computeWorker;
 const pendingHash = location.hash.slice(1);
 const primaryControls = ["scramble", "solve", "solve-method", "size", "turn-layer", "turn-width", "reset", "run-algorithm", "start-lesson", "find", "import", "export"];
 
@@ -43,6 +44,12 @@ function showState(next) {
 }
 
 function configureSize(nextSize) {
+  // Reduction tables are sizable. Reuse them for this size, without keeping
+  // several dimensions' caches alive when a phone switches cube sizes.
+  if (nextSize !== size && computeWorker) {
+    computeWorker.terminate();
+    computeWorker = null;
+  }
   if (size === 3) saved3x3Method = $("solve-method").value;
   size = nextSize;
   initial = engine({ op: "state", size }).state;
@@ -151,13 +158,13 @@ function refreshPlayback() {
   updateControls();
 }
 
-async function prepareSequence(moves, kind, title, expected, stages = []) {
+async function prepareSequence(moves, kind, title, expected, stages = [], preparedFrames) {
   const wasBusy = busy;
   busy = true;
   updateControls();
   try {
-    const frames = [state];
-    for (const [index, move] of moves.entries()) {
+    const frames = preparedFrames || [state];
+    if (!preparedFrames) for (const [index, move] of moves.entries()) {
       frames.push(engine({ op: "twist", cfen: frames.at(-1).cfen, moves: move }).state);
       if (index % 32 === 31) await new Promise(requestAnimationFrame);
     }
@@ -194,7 +201,14 @@ async function prepareSequence(moves, kind, title, expected, stages = []) {
         for (const move of stage.moves) appendMove(buttons, move, index++);
         $("sequence-moves").append(group);
       }
-    } else moves.forEach((move, index) => appendMove($("sequence-moves"), move, index));
+    } else {
+      const fragment = document.createDocumentFragment();
+      for (const [index, move] of moves.entries()) {
+        appendMove(fragment, move, index);
+        if (size !== 3 && index % 64 === 63) await new Promise(requestAnimationFrame);
+      }
+      $("sequence-moves").append(fragment);
+    }
     $("playback").hidden = false;
     refreshPlayback();
   } finally { busy = wasBusy; updateControls(); }
@@ -244,26 +258,53 @@ async function playSequence() {
 
 function compute(request, label) {
   if (job) throw new Error("Another task is already running.");
-  const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+  const retainWorker = size !== 3;
+  const worker = retainWorker ? (computeWorker ??= new Worker(new URL("./worker.js", import.meta.url), { type: "module" })) :
+    new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+  const frames = request.prepareFrames ? [state] : null;
   notice(label);
   return new Promise((resolve, reject) => {
+    let finished = false, phase = "loading", completed = 0, total = 0, computedWallMs;
+    const started = performance.now();
+    const progress = () => {
+      if (request.op !== "solve" || size === 3) return;
+      const seconds = ((performance.now() - started) / 1000).toFixed(1);
+      notice(phase === "replay" ? `Preparing playback · ${completed} / ${total} moves. Cancel anytime.` :
+        `${phase === "loading" ? "Loading the cube engine" : `Solving ${size} × ${size}`} · ${seconds}s elapsed. Cancel anytime.`);
+    };
+    const ticker = setInterval(progress, 250);
     const finish = (error, result) => {
+      if (finished) return;
+      finished = true;
       clearTimeout(timer);
+      clearInterval(ticker);
       // Termination interrupts synchronous WASM search without waiting for it to yield.
-      worker.terminate();
+      if (error || !retainWorker) {
+        worker.terminate();
+        if (worker === computeWorker) computeWorker = null;
+      }
+      worker.onmessage = worker.onerror = null;
       job = null;
       $("cancel-search").hidden = true;
       $("find").hidden = false;
       updateControls();
-      if (error) reject(error); else resolve(result);
+      if (error) reject(error); else resolve({ ...result, ...(frames ? { frames } : {}), computedWallMs: computedWallMs ?? performance.now() - started });
     };
     const timeout = request.op === "solve" && size !== 3 ? 120000 : 30000;
     const timer = setTimeout(() => finish(new Error(request.op === "find" ? "The search took more than 30 seconds. Try a smaller depth or a more flexible target." : "The solver reached its time limit. Try again or use a simpler state.")), timeout);
     job = { cancel: () => finish(new Error(`${request.op === "find" ? "Search" : "Computation"} canceled.`)) };
     updateControls();
-    worker.onmessage = ({ data }) => finish(data.ok ? null : new Error(data.error), data.data);
+    worker.onmessage = ({ data }) => {
+      if (data.type === "progress" || data.type === "frames") {
+        phase = data.type === "frames" ? "replay" : data.phase;
+        if (phase === "replay" && computedWallMs === undefined) computedWallMs = performance.now() - started;
+        completed = data.completed || 0; total = data.total || 0;
+        if (data.frames) frames.push(...data.frames);
+        progress();
+      } else finish(data.ok ? null : new Error(data.error), data.data);
+    };
     worker.onerror = event => finish(new Error(event.message || "The cube worker could not start."));
-    worker.postMessage(request);
+    worker.postMessage({ request, module: retainWorker ? engine.module : undefined });
   });
 }
 
@@ -280,10 +321,11 @@ function setMode(mode) {
 async function solve() {
   clearSequence();
   const started = performance.now();
-  const result = await compute({ op: "solve", cfen: state.cfen, method: $("solve-method").value }, "Finding a verified solution…");
+  const result = await compute({ op: "solve", cfen: state.cfen, method: $("solve-method").value, prepareFrames: size !== 3, profile: $("cube").hasAttribute("data-profile-solve") }, "Finding a verified solution…");
   $("cube").dataset.solveMs = result.solveMs;
-  $("cube").dataset.solveWallMs = performance.now() - started;
-  await prepareSequence(result.moves, "SOLUTION", `Your path to solved · ${result.method}`, result.state.cfen, result.stages);
+  $("cube").dataset.solveWallMs = result.computedWallMs ?? performance.now() - started;
+  if (result.runtime) $("cube").dataset.solveRuntime = JSON.stringify(result.runtime);
+  await prepareSequence(result.moves, "SOLUTION", `Your path to solved · ${result.method}`, result.state.cfen, result.stages, result.frames);
   notice(result.moves.length ? "Solution ready. Play, step through, or drag the slider to explore." : "Your cube is already solved.");
 }
 

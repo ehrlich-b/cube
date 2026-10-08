@@ -66,11 +66,19 @@ export class CubeView {
       if (event.key === "ArrowDown") this.pitch = Math.min(80, this.pitch + 15);
       this.orient();
     });
+    // Layout is sampled on orientation/resize, never on an animation tick.
+    this.resizeObserver = new ResizeObserver(() => {
+      this.projection = null;
+      if (this.size > 3) this.drawSVG(Number(this.svg.dataset.turnAngle || 0));
+    });
+    this.resizeObserver.observe(stage);
   }
 
   cameraMatrix() { return new DOMMatrix().rotateAxisAngle(1, 0, 0, this.pitch).rotateAxisAngle(0, 1, 0, this.yaw); }
   orient() {
+    this.projection = null;
     this.camera.style.transform = this.size > 3 ? "none" : `rotateX(${this.pitch}deg) rotateY(${this.yaw}deg)`;
+    if (this.size > 3 && this.preview) this.turnCamera.style.transform = `rotateX(${this.pitch}deg) rotateY(${this.yaw}deg)`;
     if (this.size > 3) this.drawSVG(Number(this.svg.dataset.turnAngle || 0));
   }
   center() { this.cancelDrag(); this.pitch = -25; this.yaw = -33; this.orient(); }
@@ -174,26 +182,76 @@ export class CubeView {
     });
   }
 
+  // Six textured planes per slab replace hundreds of per-sticker surfaces.
+  // Textures are rasterized once when a turn starts; CSS rotates the slab as
+  // one group and the compositor reuses its pixels throughout the turn.
+  texturedBlock(bounds) {
+    const block = document.createElement("div");
+    block.className = "turn-block";
+    const bound = this.size * this.unit / 2 - 1;
+    const scale = Math.min(devicePixelRatio || 1, 3);
+    const angles = { F: "", B: "rotateY(180deg)", R: "rotateY(90deg)", L: "rotateY(-90deg)", U: "rotateX(90deg)", D: "rotateX(-90deg)" };
+    for (const face of ["F", "B", "L", "R", "U", "D"]) {
+      const normal = normals[face], axis = normal.findIndex(value => value);
+      const center = bounds.map(([low, high]) => (low + high) / 2);
+      center[axis] = bounds[axis][normal[axis] > 0 ? 1 : 0];
+      const base = stickerAddress(face, 0, 0, this.size);
+      const u = stickerAddress(face, 0, 1, this.size).map((value, i) => value - base[i]);
+      const v = stickerAddress(face, 1, 0, this.size).map((value, i) => value - base[i]);
+      const extent = direction => bounds.reduce((sum, [low, high], i) => sum + Math.abs(direction[i]) * (high - low), 0);
+      const width = extent(u), height = extent(v);
+      const canvas = document.createElement("canvas");
+      canvas.className = "turn-surface";
+      canvas.width = Math.ceil(width * scale); canvas.height = Math.ceil(height * scale);
+      Object.assign(canvas.style, { width: `${width}px`, height: `${height}px`, marginLeft: `${-width / 2}px`, marginTop: `${-height / 2}px`,
+        transform: `translate3d(${center[0]}px,${-center[1]}px,${center[2]}px) ${angles[face]}` });
+      const context = canvas.getContext("2d");
+      context.scale(canvas.width / width, canvas.height / height);
+      context.fillStyle = "#111"; context.fillRect(0, 0, width, height);
+      if (Math.abs(center[axis] - normal[axis] * bound) < .01) {
+        const inset = 2 + Math.max(2, this.unit / 15);
+        for (let index = 0; index < this.size * this.size; index++) {
+          const position = stickerAddress(face, Math.floor(index / this.size), index % this.size, this.size);
+          const delta = position.map((value, i) => value * this.unit - center[i]);
+          const x = width / 2 + delta.reduce((sum, value, i) => sum + value * u[i], 0) - this.unit / 2;
+          const y = height / 2 + delta.reduce((sum, value, i) => sum + value * v[i], 0) - this.unit / 2;
+          context.fillStyle = "#24352e"; context.fillRect(x + 1, y + 1, this.unit - 2, this.unit - 2);
+          context.strokeStyle = "#111"; context.lineWidth = .7; context.strokeRect(x + 1, y + 1, this.unit - 2, this.unit - 2);
+          context.fillStyle = colors[this.stickers.get(`${face}:${index}`).dataset.color];
+          context.fillRect(x + inset, y + inset, this.unit - 2 * inset, this.unit - 2 * inset);
+          context.strokeStyle = "#24352e"; context.lineWidth = 1.6;
+          context.strokeRect(x + inset, y + inset, this.unit - 2 * inset, this.unit - 2 * inset);
+        }
+      }
+      block.append(canvas);
+    }
+    return block;
+  }
+
   makeLayer(selected, axis) {
     if (this.size > 3) {
-      for (const cap of this.svg.querySelectorAll(".cap")) cap.remove();
       const positions = [];
       for (const tile of this.svgTiles) {
         tile.rotating = selected(tile.position);
         if (tile.rotating) { tile.node.dataset.turning = "true"; positions.push(tile.position[axis]); }
       }
-      const bound = 90;
+      const bound = this.size * this.unit / 2 - 1;
       const low = Math.max(-bound, (Math.min(...positions) - .5) * this.unit + 1);
       const high = Math.min(bound, (Math.max(...positions) + .5) * this.unit - 1);
       const block = (start, end, rotating) => {
         const bounds = [[-bound, bound], [-bound, bound], [-bound, bound]];
         bounds[axis] = [start, end];
-        return this.solid(bounds, rotating);
+        const slab = this.texturedBlock(bounds);
+        if (rotating) this.preview = { axis, layer: slab };
+        return slab;
       };
-      const caps = block(low, high, true);
-      if (low > -bound) caps.push(...block(-bound, low - 2, false));
-      if (high < bound) caps.push(...block(high + 2, bound, false));
-      this.preview = { axis, caps };
+      const slabs = [block(low, high, true)];
+      if (low > -bound) slabs.push(block(-bound, low - 2, false));
+      if (high < bound) slabs.push(block(high + 2, bound, false));
+      this.turnCamera.replaceChildren(...slabs);
+      this.svg.style.display = "none";
+      this.turnCamera.hidden = false;
+      this.turnCamera.style.transform = `rotateX(${this.pitch}deg) rotateY(${this.yaw}deg)`;
       this.frameTimes = [];
       return this.preview;
     }
@@ -206,55 +264,79 @@ export class CubeView {
     return layer;
   }
 
-  // Project and depth-sort a small set of 2D polygons. This avoids hundreds of
-  // CSS 3D compositing surfaces on phones and on software-rendered browsers.
-  drawSVG(angle = 0) {
-    if (this.root.closest("[hidden]")) return;
-    const measuring = this.root.hasAttribute("data-measure-frames");
-    const started = measuring ? performance.now() : 0;
+  projectionForView() {
+    if (this.projection) return this.projection;
     const camera = this.cameraMatrix();
-    const axis = this.preview?.axis ?? 0;
-    const turn = new DOMMatrix().rotateAxisAngle(...[0, 1, 2].map(value => value === axis ? 1 : 0), angle);
-    const turnedCamera = camera.multiply(turn);
     const style = getComputedStyle(this.stage);
     const perspective = parseFloat(style.perspective);
     const origin = style.perspectiveOrigin.split(" ").map(parseFloat);
     const offset = [this.camera.offsetLeft - origin[0], this.camera.offsetTop - origin[1]];
-    const project = (points, rotating) => points.map(point => {
-      const m = rotating ? turnedCamera : camera;
+    return this.projection = { camera, perspective, offset };
+  }
+
+  project(points, m) {
+    const { perspective, offset } = this.projectionForView();
+    return points.map(point => {
       const x = m.m11 * point[0] - m.m21 * point[1] + m.m31 * point[2];
       const y = m.m12 * point[0] - m.m22 * point[1] + m.m32 * point[2];
       const z = m.m13 * point[0] - m.m23 * point[1] + m.m33 * point[2];
       const scale = perspective / (perspective - z);
       return { x: x * scale + offset[0] * (scale - 1), y: y * scale + offset[1] * (scale - 1), z };
     });
+  }
+
+  projectItem(item, matrix) {
+    const points = this.project(item.points, matrix);
+    item.visible = points.reduce((sum, p, index) => {
+      const next = points[(index + 1) % points.length];
+      return sum + p.x * next.y - next.x * p.y;
+    }, 0) > 0;
+    item.depth = points.reduce((sum, p) => sum + p.z, 0) / 4;
+    item.projected = points;
+    if (item.sticker && item.visible) item.projectedInner = this.project(item.inner, matrix);
+  }
+
+  // SVG remains the idle hit surface. Animation changes one slab transform;
+  // geometry and texture pixels stay fixed, with no per-frame DOM creation.
+  drawSVG(angle = 0) {
+    if (this.root.closest("[hidden]")) return;
+    const measuring = this.root.hasAttribute("data-measure-frames");
+    const started = measuring ? performance.now() : 0;
+    if (this.preview) {
+      this.preview.layer.style.transform = rotation(this.preview.axis, angle);
+      this.svg.dataset.turnAngle = angle;
+      if (measuring) {
+        // Force style/layout as in the original SVG budget. Texture raster and
+        // upload happen at turn setup; compositor paint is profiled separately.
+        this.svg.getBBox();
+        this.stage.getBoundingClientRect();
+        this.frameTimes.push(performance.now() - started);
+      }
+      return;
+    }
+    const projectionChanged = !this.projection;
+    const { camera } = this.projectionForView();
+    this.turnCamera.hidden = true;
+    this.svg.style.display = "";
+    this.svg.dataset.turnAngle = angle;
+    if (this.svgGeometry === this.projection) return;
     const text = points => points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
-    const items = [...this.svgTiles, ...(this.preview?.caps ?? this.core)];
+    const items = [...this.svgTiles, ...this.core];
     for (const item of items) {
-      const points = project(item.points, item.rotating);
-      const area = points.reduce((sum, p, index) => {
-        const next = points[(index + 1) % points.length];
-        return sum + p.x * next.y - next.x * p.y;
-      }, 0);
-      item.node.style.display = area > 0 ? "" : "none";
-      item.depth = points.reduce((sum, p) => sum + p.z, 0) / 4;
-      if (area <= 0) continue;
+      if (projectionChanged || !item.projected) this.projectItem(item, camera);
+      item.node.style.display = item.visible ? "" : "none";
+      if (!item.visible) continue;
       if (item.sticker) {
-        item.plastic.setAttribute("points", text(points));
-        item.sticker.setAttribute("points", text(project(item.inner, item.rotating)));
-      } else item.node.setAttribute("points", text(points));
+        item.plastic.setAttribute("points", text(item.projected));
+        item.sticker.setAttribute("points", text(item.projectedInner));
+      } else item.node.setAttribute("points", text(item.projected));
     }
     // Plastic is behind stickers; a large backing plane must not overpaint
     // far stickers merely because its center is nearer the camera.
     const caps = items.filter(item => !item.sticker).sort((a, b) => a.depth - b.depth);
     const tiles = items.filter(item => item.sticker).sort((a, b) => a.depth - b.depth);
     this.svg.append(...caps.map(item => item.node), ...tiles.map(item => item.node));
-    this.svg.dataset.turnAngle = angle;
-    if (this.preview && measuring) {
-      // Include SVG geometry and style/layout work in the frame budget.
-      this.svg.getBBox();
-      this.frameTimes.push(performance.now() - started);
-    }
+    this.svgGeometry = this.projection;
   }
 
   animateSVG(start, end, duration) {
@@ -290,8 +372,8 @@ export class CubeView {
     }
     if (this.size > 3) {
       this.preview = null;
-      for (const tile of this.svgTiles) { tile.rotating = false; delete tile.node.dataset.turning; }
-      for (const cap of this.svg.querySelectorAll(".cap")) cap.remove();
+      this.turnCamera.replaceChildren();
+      for (const tile of this.svgTiles) if (tile.rotating) { tile.rotating = false; delete tile.node.dataset.turning; }
     }
     for (const [face, stickers] of Object.entries(state.faces)) {
       stickers.forEach((color, index) => {
@@ -321,6 +403,7 @@ export class CubeView {
     this.netFaces = new Map();
     this.svgTiles = [];
     this.preview = null;
+    this.projection = null;
     const cubies = new Map();
     const fragment = document.createDocumentFragment();
     const h = (size - 1) / 2;
@@ -343,6 +426,11 @@ export class CubeView {
       this.svg.setAttribute("viewBox", "-180 -180 360 360");
       this.root.append(this.svg);
       this.core = this.solid([[-90, 90], [-90, 90], [-90, 90]]);
+      this.turnCamera = document.createElement("div");
+      this.turnCamera.className = "turn-camera";
+      this.turnCamera.setAttribute("aria-hidden", "true");
+      this.turnCamera.hidden = true;
+      this.root.append(this.turnCamera);
     }
     this.camera.style.transform = size > 3 ? "none" : `rotateX(${this.pitch}deg) rotateY(${this.yaw}deg)`;
     this.net.replaceChildren();

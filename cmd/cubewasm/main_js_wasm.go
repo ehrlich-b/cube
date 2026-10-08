@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall/js"
@@ -23,6 +24,7 @@ type request struct {
 	Target   string `json:"target"`
 	MaxDepth int    `json:"maxDepth"`
 	Size     int    `json:"size"`
+	Profile  bool   `json:"profile"`
 }
 
 type snapshot struct {
@@ -151,6 +153,21 @@ func dispatch(req request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if req.Op == "sequence" {
+		// Worker playback preparation crosses the WASM/JSON boundary once per
+		// batch, rather than once per move on the UI thread.
+		if len(moves) > 32 {
+			return nil, fmt.Errorf("sequence batches allow at most 32 moves")
+		}
+		frames := make([]snapshot, 0, len(moves))
+		for _, move := range moves {
+			if err := c.ApplyMoves([]cube.Move{move}); err != nil {
+				return nil, err
+			}
+			frames = append(frames, view(c))
+		}
+		return map[string]any{"frames": frames}, nil
+	}
 	if err := c.ApplyMoves(moves); err != nil {
 		return nil, err
 	}
@@ -251,9 +268,20 @@ func invoke(_ js.Value, args []js.Value) (result any) {
 	if err := json.Unmarshal([]byte(args[0].String()), &req); err != nil {
 		return encode(map[string]any{"ok": false, "error": err.Error()})
 	}
+	var before, after runtime.MemStats
+	if req.Profile {
+		runtime.ReadMemStats(&before)
+	}
 	data, err := dispatch(req)
 	if err != nil {
 		return encode(map[string]any{"ok": false, "error": err.Error()})
+	}
+	if req.Profile {
+		runtime.ReadMemStats(&after)
+		data.(map[string]any)["runtime"] = map[string]any{
+			"heapBytes": after.HeapAlloc, "heapSystemBytes": after.HeapSys,
+			"allocatedBytes": after.TotalAlloc - before.TotalAlloc, "collections": after.NumGC - before.NumGC,
+		}
 	}
 	return encode(map[string]any{"ok": true, "data": data})
 }

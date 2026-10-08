@@ -359,13 +359,27 @@ async function nxnRegressions(page) {
     });
     const started = Date.now();
     await page.locator("#solve").click();
+    let solveButtonMs;
+    if (size === 7) {
+      await page.waitForFunction(() => document.getElementById("notice").textContent.startsWith("Solving 7"));
+      const clicked = await page.evaluate(() => {
+        const started = performance.now();
+        document.getElementById("view-net").click();
+        return { ms: performance.now() - started, busy: !document.getElementById("cancel-task").hidden,
+          visible: !document.getElementById("net").hidden };
+      });
+      assert.equal(clicked.busy, true, "7x7 solve is still running when the button responds");
+      assert.equal(clicked.visible, true, "view button responds during the synchronous WASM solve");
+      solveButtonMs = clicked.ms;
+      await page.locator("#view-3d").click();
+    }
     await idle(page);
     const frames = await page.evaluate(() => { globalThis.nxnSolveCounting = false; return globalThis.nxnSolveFrames; });
     const count = Number(await page.locator("#scrubber").getAttribute("max"));
     assert.ok(frames >= 5, `${size}x${size} UI keeps updating during solve`);
     assert.ok(count > 0);
     assert.match(await page.locator("#sequence-title").textContent(), size === 3 ? /kociemba$/ : /reduction$/);
-    metrics.push({ size, viewport: page.viewportSize(), moves: count, wasmSolveMs: Number(await page.locator("#cube").getAttribute("data-solve-ms")), coldWorkerMs: Number(await page.locator("#cube").getAttribute("data-solve-wall-ms")), readyMs: Date.now() - started, responsiveFrames: frames });
+    metrics.push({ size, viewport: page.viewportSize(), moves: count, wasmSolveMs: Number(await page.locator("#cube").getAttribute("data-solve-ms")), workerMs: Number(await page.locator("#cube").getAttribute("data-solve-wall-ms")), readyMs: Date.now() - started, responsiveFrames: frames, solveButtonMs });
     await page.locator("#speed").selectOption("70");
     await page.locator("#step").click();
     await idle(page);
@@ -401,7 +415,7 @@ async function nxnRegressions(page) {
       const intervals = [], renderTimes = [];
       // Sample several turns; a background-priority headless process can skip
       // compositor ticks even on a static cube. Keep that pacing separate from
-      // the actual projection and SVG layout cost, and report both.
+      // the actual transform and style/layout cost, and report both.
       for (let turn = 0; turn < 5; turn++) {
         await page.locator("#step").evaluate(button => button.click());
         await idle(page);
@@ -419,7 +433,7 @@ async function nxnRegressions(page) {
       assert.ok(intervals.length >= 10, "7x7 animation continues across phone-width turns");
       metrics.at(-1).phoneFrameInterval = summary(intervals);
       metrics.at(-1).phoneRenderTime = summary(renderTimes);
-      assert.ok(metrics.at(-1).phoneRenderTime.meanMs < 40, `7x7 frame work averaged ${metrics.at(-1).phoneRenderTime.meanMs.toFixed(1)} ms`);
+      assert.ok(metrics.at(-1).phoneRenderTime.meanMs < 8, `7x7 frame work averaged ${metrics.at(-1).phoneRenderTime.meanMs.toFixed(1)} ms (8 ms budget)`);
       await page.locator("#cube").evaluate(root => root.removeAttribute("data-measure-frames"));
       await page.locator("#speed").selectOption("70");
       await page.setViewportSize({ width: 1280, height: 800 });
@@ -429,6 +443,33 @@ async function nxnRegressions(page) {
     await page.waitForFunction(() => document.getElementById("cube").dataset.solved === "true" && !document.getElementById("reset").disabled);
     assert.equal(await page.locator("#scrubber").inputValue(), String(count));
     assert.equal(await page.locator("#cube .sticker").evaluateAll(nodes => new Set(nodes.filter(node => node.dataset.face === "F").map(node => node.dataset.color)).size), 1);
+    if (size === 7) {
+      for (const [width, height] of [[1280, 800], [390, 844]]) {
+        await page.setViewportSize({ width, height });
+        await page.locator("#stage").evaluate(node => node.scrollIntoView({ block: "center" }));
+        await page.screenshot({ path: path.join(screens, `7x7-solved-${width}x${height}.png`) });
+        await dragSticker(page, { face: "F", index: 27, dx: 0, dy: -110, move: "R", tiles: 77,
+          screenshot: `7x7-mid-turn-${width}x${height}.png` });
+        await page.locator("#reset").click();
+        await dragSticker(page, { face: "F", index: 25, dx: 0, dy: -110, move: "3R", tiles: 28 });
+        await page.locator("#reset").click();
+        await dragSticker(page, { face: "F", index: 25, dx: 0, dy: -110, tiles: 28, cancel: true });
+        await page.locator("#reset").click();
+      }
+      await runAlgorithm(page, "2R U 2F' Rw D2 L B'");
+      const cancelStart = await page.locator("#cfen").inputValue();
+      await page.locator("#solve").click();
+      await page.locator("#cancel-task").click();
+      await idle(page);
+      assert.match(await page.locator("#notice").textContent(), /canceled/);
+      assert.equal(await page.locator("#cfen").inputValue(), cancelStart, "7x7 cancellation preserves the cube");
+      assert.equal(await page.locator("#playback").isVisible(), false, "canceled replay batches cannot publish a partial solution");
+      await page.locator("#solve").click();
+      await idle(page);
+      await page.locator("#scrubber").fill(await page.locator("#scrubber").getAttribute("max"));
+      assert.equal(await page.locator("#cube").getAttribute("data-solved"), "true", "7x7 fresh worker recovers after cancellation");
+      await page.setViewportSize({ width: 1280, height: 800 });
+    }
     console.log(`PASS browser ${size}x${size}: picker, net, keyboard/layer/wide, scramble, solve, step/back/scrub/play (${count} moves)`);
   }
 
@@ -465,6 +506,65 @@ async function nxnRegressions(page) {
   await writeFile(path.join(scratch, "nxn-browser-metrics.json"), JSON.stringify(metrics, null, 2) + "\n");
 }
 
+// A deterministic, isolated phone profile; use the same scramble and turns
+// before/after renderer changes. CDP reports paint separately from frame work.
+async function profilePhone(page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#size").selectOption("7");
+  await idle(page);
+  await page.locator("#speed").selectOption("70", { force: true });
+  await runAlgorithm(page, "2R U 2F' Rw D2 L B'");
+  const cfen = await page.locator("#cfen").inputValue();
+  await page.locator("#stage").evaluate(node => node.scrollIntoView({ block: "center" }));
+  await page.locator("#cube").evaluate(node => node.dataset.measureFrames = "true");
+  await page.locator("#speed").selectOption("460");
+  const session = await page.context().newCDPSession(page);
+  const events = [];
+  const tracing = process.argv.includes("--trace");
+  session.on("Tracing.dataCollected", ({ value }) => events.push(...value));
+  if (tracing) await session.send("Tracing.start", { categories: "devtools.timeline,blink.user_timing", transferMode: "ReportEvents" });
+  const render = [], intervals = [];
+  for (const token of ["R", "U", "F", "L", "B"]) {
+    await page.locator(`[data-move="${token}"]`).evaluate(button => button.click());
+    await idle(page);
+    const sample = await page.locator("#cube svg").evaluate(svg => ({
+      render: JSON.parse(svg.dataset.frameTimes), intervals: JSON.parse(svg.dataset.frameIntervals)
+    }));
+    render.push(...sample.render); intervals.push(...sample.intervals);
+  }
+  if (tracing) {
+    const complete = new Promise(resolve => session.once("Tracing.tracingComplete", resolve));
+    await session.send("Tracing.end"); await complete;
+  }
+  await session.detach();
+  await page.locator("#cube").evaluate(node => node.removeAttribute("data-measure-frames"));
+  const summary = values => ({ samples: values.length, meanMs: values.reduce((a, b) => a + b, 0) / values.length,
+    p95Ms: [...values].sort((a, b) => a - b)[Math.floor(values.length * .95)] });
+  await page.locator("#cfen").fill(cfen);
+  await page.locator("#import").click();
+  await page.locator("#cube").evaluate(node => node.dataset.profileSolve = "true");
+  await page.locator("#solve").click();
+  await page.locator("#cancel-task").waitFor({ state: "visible" });
+  const responseStart = Date.now();
+  await page.locator("#view-net").click();
+  assert.equal(await page.locator("#net").isVisible(), true);
+  const responseMs = Date.now() - responseStart;
+  await idle(page);
+  const metrics = { render: summary(render), renderSamples: render, intervals: summary(intervals), responseMs,
+    coldSolveMs: Number(await page.locator("#cube").getAttribute("data-solve-wall-ms")),
+    wasmSolveMs: Number(await page.locator("#cube").getAttribute("data-solve-ms")),
+    runtime: JSON.parse(await page.locator("#cube").getAttribute("data-solve-runtime") || "null"),
+    trace: tracing ? Object.fromEntries(["FunctionCall", "UpdateLayoutTree", "Layout", "Paint"].map(name => {
+      const samples = events.filter(event => event.name === name && event.ph === "X").map(event => event.dur / 1000);
+      return [name, { ...summary(samples), totalMs: samples.reduce((a, b) => a + b, 0) }];
+    })) : undefined };
+  const label = process.argv.find(arg => arg.startsWith("--profile="))?.slice(10) || "phone";
+  assert.match(label, /^[a-z0-9-]+$/, "profile labels must be simple filenames inside .scratch");
+  await writeFile(path.join(scratch, `${label}-profile.json`), JSON.stringify(metrics, null, 2) + "\n");
+  if (tracing) await writeFile(path.join(scratch, `${label}-trace.json`), JSON.stringify(events) + "\n");
+  console.log(`Phone profile: ${JSON.stringify(metrics)}`);
+}
+
 try {
   if (server) await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`HTTP server did not start: ${serverLog}`)), 10000);
@@ -497,6 +597,11 @@ try {
   page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
   await page.goto(`http://127.0.0.1:${port}/web/`);
   await idle(page);
+  if (process.argv.some(arg => arg.startsWith("--profile="))) {
+    await profilePhone(page);
+    assert.deepEqual(errors, []);
+    process.exitCode = 0;
+  } else {
   const solved = await page.locator("#cfen").inputValue();
   assert.equal(await page.locator("#cube").getAttribute("data-solved"), "true");
   assert.equal(await page.locator(".sticker").count(), 54);
@@ -861,7 +966,8 @@ try {
   await page.setViewportSize({ width: 1280, height: 800 });
   await nxnRegressions(page);
   assert.deepEqual(errors, []);
-  console.log(`Screenshots: ${path.relative(root, screens)}/{cube,drag,search,cfop,lesson-restored}-{1280x800,390x844}.png, touch-390x844.png`);
+  console.log(`Screenshots: ${path.relative(root, screens)}/{cube,drag,search,cfop,lesson-restored}-{1280x800,390x844}.png, touch-390x844.png, 7x7-{mid-turn,solved}-{1280x800,390x844}.png`);
+  }
 } finally {
   if (context) await context.close();
   if (server && server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }
