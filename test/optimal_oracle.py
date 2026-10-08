@@ -75,7 +75,7 @@ def main():
     binary = str(args.binary.resolve())
     rng = random.Random(2026100717)
     cases = 0
-    for depth in range(1, 9):
+    for depth in range(1, 11):
         for _ in range(4):
             scramble = " ".join(rng.choice("URFDLB") + rng.choice(["", "2", "'"])
                                 for _ in range(depth))
@@ -106,7 +106,10 @@ def main():
     permutations, goals = physical_bfs_oracle()
     for scramble, expected in [("R U F2 L' B D2", 6),
                                ("R U F2 L' B D2 R", 7),
-                               ("R U F2 L' B D2 R F", 8)]:
+                               ("R U F2 L' B D2 R F", 8),
+                               ("F' L D2 B R' U2", 6),
+                               ("F' L D2 B R' U2 F2", 7),
+                               ("F' L D2 B R' U2 F2 L'", 8)]:
         state = physical.physical_sequence(physical.fresh(), scramble)
         distance = physical_distance(state, permutations, goals)
         assert distance == expected, (scramble, distance, expected)
@@ -141,8 +144,8 @@ def main():
         assert len(turns) == 20, answer.stdout
         assert solved(physical.physical_sequence(oriented, answer.stdout)), answer.stdout
         cases += 1
-    print(f"{cases} independent optimal checks passed: 32 short states cross-checked "
-          "with IDA* finder, three fixed distances independently proved by physical BFS, superflip = 20 in all 24 grips (published lower bound).")
+    print(f"{cases} independent optimal checks passed: 40 short states cross-checked "
+          "with IDA* finder, six fixed distances independently proved by physical BFS, superflip = 20 in all 24 grips (published lower bound).")
 
 
 if __name__ == "__main__":

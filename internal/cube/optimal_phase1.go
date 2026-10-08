@@ -26,7 +26,7 @@ type optimalPhase1 struct {
 	flipDelta   []uint16
 	twistMove   []uint16
 	stabilizers []uint16
-	distance    []uint8
+	distance    patternByteChunks
 }
 
 var optimalPhase1Lock = make(chan struct{}, 1)
@@ -101,7 +101,7 @@ func (db *optimalPhase1) index(co, eo, sorted int) uint32 {
 
 func (db *optimalPhase1) residue(co, eo, sorted int) int {
 	x := db.index(co, eo, sorted)
-	return int(db.distance[x>>2] >> ((x & 3) * 2) & 3)
+	return int(db.distance.at(x>>2) >> ((x & 3) * 2) & 3)
 }
 
 func (db *optimalPhase1) rootBound(co, eo, sorted int) int {
@@ -149,16 +149,16 @@ func (db *optimalPhase1) childBound(co, eo, sorted, parent int) int {
 	return int(optimalPhase1Children[parent][db.residue(co, eo, sorted)])
 }
 
-func (db *optimalPhase1) pruning(deadline time.Time) []uint8 {
+func (db *optimalPhase1) pruning(deadline time.Time) patternByteChunks {
 	if tableDeadlineExceeded(deadline) {
 		return nil
 	}
 	size := len(db.stabilizers) * optimalFlipSliceStates
-	d := make([]uint8, size/4)
-	for i := range d {
-		d[i] = 255
+	d := filledPatternByteChunks(size/4, 255, deadline)
+	if d == nil {
+		return nil
 	}
-	d[0] &= 252
+	d[0][0] &= 252
 	frontier := []uint32{0}
 	for depth := 1; depth < optimalPhase1Cap; depth++ {
 		var next []uint32
@@ -178,10 +178,11 @@ func (db *optimalPhase1) pruning(deadline time.Time) []uint8 {
 				nc := code / 16
 				y := uint32(nc*optimalFlipSliceStates + nf*sortedSliceStates + ns)
 				shift := (y & 3) * 2
-				if d[y>>2]>>shift&3 != 3 {
+				entry := d.byte(y >> 2)
+				if *entry>>shift&3 != 3 {
 					continue
 				}
-				d[y>>2] = (d[y>>2] &^ (3 << shift)) | value<<shift
+				*entry = (*entry &^ (3 << shift)) | value<<shift
 				if depth < optimalPhase1Cap-1 {
 					next = append(next, y)
 				}
@@ -190,8 +191,9 @@ func (db *optimalPhase1) pruning(deadline time.Time) []uint8 {
 					f, s := db.conjugate(nf, ns, sym)
 					z := uint32(nc*optimalFlipSliceStates + f*sortedSliceStates + s)
 					shift := (z & 3) * 2
-					if d[z>>2]>>shift&3 == 3 {
-						d[z>>2] = (d[z>>2] &^ (3 << shift)) | value<<shift
+					entry := d.byte(z >> 2)
+					if *entry>>shift&3 == 3 {
+						*entry = (*entry &^ (3 << shift)) | value<<shift
 						if depth < optimalPhase1Cap-1 {
 							next = append(next, z)
 						}
@@ -224,8 +226,8 @@ func optimalPhase1Tables(t *coordinateTables, deadline time.Time) *optimalPhase1
 	}
 	filename := "optimal-phase1-sorted-sym16-cap11-v1.bin"
 	size := len(db.stabilizers) * optimalFlipSliceStates / 4
-	db.distance = loadPatternBytes(filename, size, deadline)
-	if db.distance != nil && db.distance[0]&3 != 0 {
+	db.distance = loadPatternData(filename, size, patternByteChunkSize, deadline)
+	if db.distance != nil && db.distance.at(0)&3 != 0 {
 		db.distance = nil
 	}
 	if db.distance == nil {
@@ -238,7 +240,7 @@ func optimalPhase1Tables(t *coordinateTables, deadline time.Time) *optimalPhase1
 			return nil
 		}
 		if deadline.IsZero() || time.Until(deadline) > time.Second {
-			_ = savePackedPatternLimit(filename, db.distance, deadline) // Optional disk cache.
+			_ = savePatternPartsLimit(filename, db.distance, deadline) // Optional disk cache.
 		}
 	}
 	if tableDeadlineExceeded(deadline) {

@@ -60,17 +60,33 @@ root selection and two workers reduce completed depth-fifteen node counts by
 about **7.6×** on the first two uniform fixtures. Large tables remain exclusive
 to deep optimal calls; default cold start and cache are unchanged.
 
-The uniform benchmark now proves **9/20**, with **11/20 right-censored at
-180 seconds**, under background QoS and two search workers without profiling
-(seed `2026100714`). Proven times span **13.42–176.67 s**; **5/20** finish within
-60 seconds. The full-sample median is **above 180 s**, so the practical optimal
-target is **unmet**; the all-under-ten-minute target remains unestablished.
-The first ten fixtures improved from **0/10** to **5/10** at the same budget.
-Warm search peaked at **1.19 GB RSS**. `make bench-optimal` preserves all twenty
-outcomes and three-minute budgets. The oracle passed **59 independent physical
-checks**, including physical BFS distances 6/7/8 and superflip in all 24 grips;
-separate finder cross-checks proved **12/12/13/14-turn** fixtures. Next work
-should strengthen inverse-state pruning or improve search throughput.
+Inverse probes within eleven remaining turns now prune next-move axes using
+the same tables, with modulo-three residues rounded from compact admissible
+bounds. The first four completed depth-sixteen iterations visit **14.7–19.7%
+fewer nodes**; their initial search time fell from **18.17 s to 11.25 s**.
+Forward probes check the strongest axis first. Unconditional corner/edge-first
+ordering, the extra 147.5 MB fallback and dynamic direction switching did not
+pay for their cost. A **2.52 GB** Rokicki-style combined coordinate reached the
+**40-minute generation limit** before completion and was dropped; no new cache
+was saved. The larger physical oracle now cross-checks forty short states
+through ten turns and independently proves six fixed distances by sticker BFS;
+the Go oracle additionally checks **14,000 known solving suffixes** against
+inverse pruning.
+
+The uniform benchmark now proves **15/20**, versus **9/20** before inverse
+pruning, with **5/20 right-censored at 180 seconds**, under background QoS and
+two search workers without profiling (seed `2026100714`). Proven times span
+**7.69–157.99 s**; **8/20** finish within sixty seconds, versus five previously.
+The full-sample median is **91.02 s**, down from **above 180 s**, so the practical
+optimal target remains **unmet**; the all-under-ten-minute target is still
+unestablished. The first ten fixtures improve from **5/10 to 8/10** at the same
+budget. Warm benchmark maximum RSS is **1.21 GB** and cached setup takes **9.67
+s** after the rejected large build. README records all twenty timings and node
+counts; `make bench-optimal` logs individual IDA* iteration work as well.
+The expanded oracle checks forty short states, six independently BFS-proved
+fixtures and superflip in all twenty-four grips; separate finder cross-checks
+retain **12/12/13/14-turn** fixtures. Stronger combined coordinates and informed
+forward/inverse iteration selection remain useful next experiments.
 The paired min2phaseCXX reference on the identical 1,000 states measured **5.28 ms mean /
 53.22 ms p99**, **19.746 mean / 20 max turns**, with every answer physically
 replayed. Its **991,712-byte cache / 24.73 ms cold cached process** beat the
@@ -300,19 +316,21 @@ No look-ahead, extended cross, or color neutrality is claimed.
 - [x] Compact default: 1,000/1,000 at ≤20 turns, 12.29 ms mean and 106.08 ms p99
 - [x] Full-corner and disjoint six-edge optimal databases, lazy cache generation
 - [x] Saturated sorted phase-one table under 16 symmetries, three-axis bounds and two-worker optimal search
+- [x] Inverse-state axis move pruning and strongest-axis-first forward probes
 - [x] Optimal distance oracle: short/deep finder cross-checks and superflip = 20
-- [ ] Reach the practical proven-optimal target: 9/20 proved at 180 s, 11 censored, full-sample median >180 s
+- [ ] Reach the practical proven-optimal target: 15/20 proved at 180 s, 5 censored, full-sample median 91.02 s
 - [x] Paired min2phaseCXX comparison on the exact 1,000 fixtures, with physical replay and source hashes
 - [x] Export seeded URFDLB reference datasets with `make export-reference-fixtures`
 - [x] Replace implicit 147.5 MB generation with a reproducible compact embedded asset
 - [x] Gate first-ever solve time and default cache size in `make test-kociemba`
 - [ ] Run paired native reference benchmarks against Cube Explorer and nissy/vcube
 
-Current validation passed `go test -p 2 ./...`, `go vet -p 2 ./...`, builds of
+Validation for the optimal change passed `go test -p 2 ./...`, `go vet -p 2 ./...`, builds of
 all tools, **138/138 CLI E2E cases**, `make test-kociemba`,
 `make test-kociemba-cold`, the extended `make test-optimal`, `make test-nxn`,
-`make test-docs` and `make test-web`. The first-ever plain solve still uses only
-the **3,337,787-byte** compact asset and measured **271.96 ms**, inside its
+`make test-docs`. The expanded optimal oracle passed **70 independent physical
+checks**. The first-ever plain solve still uses only
+the **3,337,787-byte** compact asset and measured **256.84 ms**, inside its
 1-second/10-MB gate. The three load-bearing invariant files remain unchanged;
 every new optimal answer is checked against the full-cube contract. The earlier
 paired min2phaseCXX run passed 1,000 independent physical replays.

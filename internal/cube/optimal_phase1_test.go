@@ -52,7 +52,7 @@ func TestOptimalSortedTableOracle(t *testing.T) {
 	if db == nil {
 		t.Fatal("sorted phase-one database failed")
 	}
-	t.Logf("sorted phase-one generation/load %v; %d pruning bytes", time.Since(start), len(db.distance))
+	t.Logf("sorted phase-one generation/load %v; %d pruning bytes", time.Since(start), db.distance.size())
 	r := rand.New(rand.NewSource(2026100723))
 	for trial := 0; trial < 1000; trial++ {
 		state := identityCubie()
@@ -84,9 +84,11 @@ func TestOptimalSortedTableOracle(t *testing.T) {
 		}
 	}
 	var hist [4]uint64
-	for _, v := range db.distance {
-		for shift := 0; shift < 8; shift += 2 {
-			hist[(v>>shift)&3]++
+	for _, chunk := range db.distance {
+		for _, v := range chunk {
+			for shift := 0; shift < 8; shift += 2 {
+				hist[(v>>shift)&3]++
+			}
 		}
 	}
 	t.Logf("modulo-three histogram, unknown means >=11: %v", hist)

@@ -57,6 +57,11 @@ func TestOptimalAxisCoordinateTransitions(t *testing.T) {
 		views := twoPhaseViews(cubeFromCoordinates(state), tables)
 		for axis := 0; axis < 3; axis++ {
 			root := views[axis*2].root
+			inverse := root.inverse()
+			co, eo, sorted := s.inverseAxis(state.inverse(), axis)
+			if co != inverse.twist() || eo != inverse.flip() || sorted != sliceSorted(inverse) {
+				t.Fatal("inverse coordinates disagree with sticker rotation/recoloring")
+			}
 			if s.axes[0][axis] != (axisCoordinate{root.twist(), root.flip(), root.slice()}) {
 				t.Fatal("optimal axis disagrees with sticker rotation/recoloring")
 			}
@@ -70,6 +75,12 @@ func TestOptimalAxisCoordinateTransitions(t *testing.T) {
 				next := root.mul(cubieMoves[mapped])
 				if got != (axisCoordinate{next.twist(), next.flip(), next.slice()}) {
 					t.Fatal("optimal axis transition disagrees with cubie move")
+				}
+				if s.axisMoves[axis]&(1<<m) != 0 {
+					a, b, c := s.inverseAxis(state.mul(cubieMoves[m]).inverse(), axis)
+					if a != co || b != eo || c != sorted {
+						t.Fatal("subgroup move changed the inverse coordinate")
+					}
 				}
 			}
 		}
@@ -166,6 +177,49 @@ func TestOptimalLargeTableOracle(t *testing.T) {
 	}
 }
 
+func TestOptimalInversePruningOracle(t *testing.T) {
+	if os.Getenv("CUBE_OPTIMAL_TABLES") != "1" {
+		t.Skip("make test-optimal")
+	}
+	tables := solverTables()
+	huge := optimalPhase1Tables(tables, time.Time{})
+	if huge == nil {
+		t.Fatal("sorted phase-one tables failed")
+	}
+	r := rand.New(rand.NewSource(2026100801))
+	for trial := 0; trial < 1000; trial++ {
+		state := identityCubie()
+		var scramble [14]int
+		for i := range scramble {
+			scramble[i] = r.Intn(18)
+			state = state.mul(cubieMoves[scramble[i]])
+		}
+		last := (1 << 18) - 1
+		for left := len(scramble); left > 0; left-- {
+			s := largeOptimalSearch{t: tables, huge: huge}
+			s.initializeAxes(state)
+			m := scramble[left-1]/3*3 + 2 - scramble[left-1]%3
+			candidates := s.inverseCandidates(left, 0, (1<<18)-1)
+			if candidates&(1<<m) == 0 {
+				t.Fatal("inverse pruning removed a known solving suffix", trial, left)
+			}
+			for axis, h := range s.hugeBound[0] {
+				if h == left {
+					last &^= s.axisMoves[axis]
+				}
+			}
+			final := scramble[0]/3*3 + 2 - scramble[0]%3
+			if last&(1<<final) == 0 {
+				t.Fatal("forward pruning removed a known last move", trial, left)
+			}
+			state = state.mul(cubieMoves[m])
+		}
+		if state != identityCubie() {
+			t.Fatal("known suffix did not solve")
+		}
+	}
+}
+
 func TestOptimalUniformBenchmark(t *testing.T) {
 	if os.Getenv("CUBE_OPTIMAL_BENCH") != "1" {
 		t.Skip("make bench-optimal")
@@ -198,7 +252,8 @@ func TestOptimalUniformBenchmark(t *testing.T) {
 		state := uniformCubie(r)
 		c := cubeFromCoordinates(state)
 		started = time.Now()
-		result, err := SolveOptimal(c, limit)
+		stats := &optimalSearchStats{}
+		result, err := solveOptimal(c, limit, stats)
 		elapsed := time.Since(started)
 		if readCubie(c) != state {
 			t.Fatal("optimal solver mutated input")
@@ -208,7 +263,7 @@ func TestOptimalUniformBenchmark(t *testing.T) {
 				t.Fatal("unexpected early failure", err)
 			}
 			timedOut++
-			t.Logf("state %d: censored >%v (%v)", i, limit, elapsed)
+			t.Logf("state %d: censored >%v (%v), %d nodes; iterations %v", i, limit, elapsed, stats.nodes, stats.iterations)
 			continue
 		}
 		c.ApplyMoves(result.Solution)
@@ -216,7 +271,7 @@ func TestOptimalUniformBenchmark(t *testing.T) {
 			t.Fatal("optimal solver contract")
 		}
 		solved++
-		t.Logf("state %d: proved %d turns in %v", i, TurnCount(result.Solution), elapsed)
+		t.Logf("state %d: proved %d turns in %v, %d nodes; iterations %v", i, TurnCount(result.Solution), elapsed, stats.nodes, stats.iterations)
 	}
 	t.Logf("uniform distribution: %d/%d proved, %d/%d timed out at %v", solved, cases, timedOut, cases, limit)
 }
