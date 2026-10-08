@@ -49,17 +49,29 @@ a fresh cached subprocess took **625.88 ms**. Its **147,502,080-byte** phase-one
 database took **120.99 s** to generate under that policy; the coordinator measured
 about **37 s / 161 MB** for a plain empty-cache solve on performance cores.
 
-Optimal search adds full-corner and two six-edge databases: **44,089,920 +
-21,288,960 + 21,288,960 bytes**, with **47,900,160 bytes** of factorized transitions.
-Generation took **67.53 s**, measured peak RSS **665 MB**; cache **134,568,064 bytes**.
-Two 12-turn states were independently cross-checked with the IDA* finder and
-proved in **6.96 / 8.07 ms** using the larger tables. Superflip uses Reid's published
-20-turn lower bound and a physically replayed witness, including all 24 grips.
-The uniform-state benchmark (seed `2026100714`, one thread, CPU profiling enabled)
-returned **0/10 proved and 10/10 timeouts at 180 s**; return times **180.002–180.209 s**.
-The few-minute target remains **unmet**. `make bench-optimal` reproduces all ten
-states and three-minute budgets; timeouts stay in the reported distribution. The paired
-min2phaseCXX reference on the identical 1,000 states measured **5.28 ms mean /
+Optimal search retains the **134,568,064-byte** full-corner/six-edge cache
+`optimal-v1.bin` and adds the **1,021,870,144-byte** sorted phase-one cache
+`optimal-phase1-sorted-sym16-cap11-v1.bin`: 168 twist classes under
+16 symmetries, 4.09 billion entries, two-bit modulo-three distances through ten
+and an admissible saturated bound of eleven. Generation took **23m08.27s**,
+measured directly at **2.82 GB peak RSS / 5.50 GB peak memory footprint**; cached
+setup took **1.75 s**. Three axis bounds, their equal-bound increment, inverse
+root selection and two workers reduce completed depth-fifteen node counts by
+about **7.6×** on the first two uniform fixtures. Large tables remain exclusive
+to deep optimal calls; default cold start and cache are unchanged.
+
+The uniform benchmark now proves **9/20**, with **11/20 right-censored at
+180 seconds**, under background QoS and two search workers without profiling
+(seed `2026100714`). Proven times span **13.42–176.67 s**; **5/20** finish within
+60 seconds. The full-sample median is **above 180 s**, so the practical optimal
+target is **unmet**; the all-under-ten-minute target remains unestablished.
+The first ten fixtures improved from **0/10** to **5/10** at the same budget.
+Warm search peaked at **1.19 GB RSS**. `make bench-optimal` preserves all twenty
+outcomes and three-minute budgets. The oracle passed **59 independent physical
+checks**, including physical BFS distances 6/7/8 and superflip in all 24 grips;
+separate finder cross-checks proved **12/12/13/14-turn** fixtures. Next work
+should strengthen inverse-state pruning or improve search throughput.
+The paired min2phaseCXX reference on the identical 1,000 states measured **5.28 ms mean /
 53.22 ms p99**, **19.746 mean / 20 max turns**, with every answer physically
 replayed. Its **991,712-byte cache / 24.73 ms cold cached process** beat the
 engine's prior large-cache/cold-start costs. The reference was run privately in
@@ -287,24 +299,23 @@ No look-ahead, extended cross, or color neutrality is claimed.
 - [x] Up to three pre-moves, shared quarter-turn/inverse paths, phase-two inverse pruning
 - [x] Compact default: 1,000/1,000 at ≤20 turns, 12.29 ms mean and 106.08 ms p99
 - [x] Full-corner and disjoint six-edge optimal databases, lazy cache generation
+- [x] Saturated sorted phase-one table under 16 symmetries, three-axis bounds and two-worker optimal search
 - [x] Optimal distance oracle: short/deep finder cross-checks and superflip = 20
-- [ ] Reach the few-minute proven-optimal target: measured 0/10 at 180 s, with all ten observations censored
+- [ ] Reach the practical proven-optimal target: 9/20 proved at 180 s, 11 censored, full-sample median >180 s
 - [x] Paired min2phaseCXX comparison on the exact 1,000 fixtures, with physical replay and source hashes
 - [x] Export seeded URFDLB reference datasets with `make export-reference-fixtures`
 - [x] Replace implicit 147.5 MB generation with a reproducible compact embedded asset
 - [x] Gate first-ever solve time and default cache size in `make test-kociemba`
 - [ ] Run paired native reference benchmarks against Cube Explorer and nissy/vcube
 
-Compact-default validation on 2026-10-07 completed by 22:40 local:
-`go test -p 2 ./...`, `go vet -p 2 ./...`, `make build`, **133/133 CLI E2E cases**,
-`make test-kociemba` (fresh empty cache, 1,000 warm states and 200 independent
-physical states), `make test-cfop`, `make test-beginner`, `make test-first-layer`,
-`make test-web` and `make test-optimal` all passed. Compact table generation also
-passed exhaustive pair-distance comparisons and roundtrip checks. The three
-load-bearing test files remain unchanged; every new solver answer is checked
-against the full-cube contract. The earlier paired min2phaseCXX run passed 1,000
-independent physical replays. The earlier ten-state optimal benchmark remains
-0/10 proved at 180 seconds; optimal performance was not revisited in this run.
+Current validation passed `go test -p 2 ./...`, `go vet -p 2 ./...`, builds of
+all tools, **138/138 CLI E2E cases**, `make test-kociemba`,
+`make test-kociemba-cold`, the extended `make test-optimal`, `make test-nxn`,
+`make test-docs` and `make test-web`. The first-ever plain solve still uses only
+the **3,337,787-byte** compact asset and measured **271.96 ms**, inside its
+1-second/10-MB gate. The three load-bearing invariant files remain unchanged;
+every new optimal answer is checked against the full-cube contract. The earlier
+paired min2phaseCXX run passed 1,000 independent physical replays.
 
 ### 6.3 Big Cube Support
 - [x] 4x4 reduction method (centers, edges, OLL/PLL parity)

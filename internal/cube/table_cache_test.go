@@ -22,6 +22,9 @@ func TestCacheWritersReportPersistenceFailures(t *testing.T) {
 		{"phase-one", func() string { return tableCachePath("phase1-sym8-v1.bin") }, func() error {
 			return savePackedPattern("phase1-sym8-v1.bin", []byte{0x10})
 		}},
+		{"optimal-sorted-phase-one", func() string { return tableCachePath("optimal-phase1-sorted-sym16-cap11-v1.bin") }, func() error {
+			return savePackedPatternLimit("optimal-phase1-sorted-sym16-cap11-v1.bin", []byte{0xfc}, time.Now().Add(time.Second))
+		}},
 		{"optimal", optimalCachePath, func() error { return saveOptimalPatterns(&optimalPatterns{}, time.Time{}) }},
 	} {
 		for _, failure := range []string{"parent-is-file", "rename-to-directory", "read-only-directory"} {
@@ -174,6 +177,9 @@ func TestCacheIOChecksDeadlineDuringTransfer(t *testing.T) {
 	t.Setenv("CUBE_CACHE_DIR", cache)
 	if err := saveOptimalPatterns(&optimalPatterns{}, time.Now().Add(-time.Second)); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal("expired cache write", err)
+	}
+	if err := savePackedPatternLimit("optimal-phase1-sorted-sym16-cap11-v1.bin", []byte{0xfc}, time.Now().Add(-time.Second)); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("expired sorted pattern cache write", err)
 	}
 	if _, err := os.Stat(cache); !os.IsNotExist(err) {
 		t.Fatal("expired cache write touched the filesystem", err)

@@ -45,6 +45,7 @@ checksums and move-fingerprint headers, are:
 | `edges-v1.bin` | 14,256,064 | Four-edge databases for CFOP and exact-state search, generated on first use |
 | `phase1-sym8-v1.bin` | 147,502,144 | Optional large phase-one table (140.67 MiB) |
 | `optimal-v1.bin` | 134,568,064 | Full-corner and two six-edge databases for deep optimal search (128.33 MiB) |
+| `optimal-phase1-sorted-sym16-cap11-v1.bin` | 1,021,870,144 | Saturated sorted phase-one database for deep optimal search (974.53 MiB) |
 
 Versioned filenames, checksums, dimensions and move fingerprints guard cached
 data. Loaders reject non-regular files before opening them, including FIFOs and
@@ -59,9 +60,14 @@ file, allowing a few minutes and about 1.6 GiB of temporary memory. The command
 reports success only after persistence and exits nonzero with a diagnostic on
 failure. `CUBE_LARGE_TABLES=1` selects that table for Kociemba; ordinary solves
 ignore it even when it exists. Deep `--optimal` search generates `optimal-v1.bin`
-lazily (about one minute in the recorded run), and can reuse an existing large
-phase-one cache without generating it. Optimal initialization, including cache
-I/O and generation, counts toward `--time-limit`; timed compact/edge setup skips
+lazily (about one minute in the recorded run) and the saturated sorted table
+`optimal-phase1-sorted-sym16-cap11-v1.bin` (23m08.27s in the recorded run).
+The latter fixes the four slice edges in place, uses sixteen symmetries and stores
+two-bit modulo-three distances through ten, with an admissible bound of eleven
+for remaining states. Its three oriented bounds, inverse root selection and two
+search workers strengthen deep optimal search. The two optimal files total
+**1,156,438,208 bytes**; ordinary solves use neither. Optimal initialization,
+including cache I/O and generation, counts toward `--time-limit`; timed compact/edge setup skips
 optional writes, and expired large-database writes never publish partial caches.
 
 Two Go oracles check 200 seeded scrambles and 200 uniformly generated legal

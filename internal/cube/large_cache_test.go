@@ -15,7 +15,9 @@ func TestPackedPatternCacheIntegrity(t *testing.T) {
 	const filename = "pattern-test.bin"
 	want := bytes.Repeat([]byte{0x11}, 16)
 	want[0] = 0x10
-	savePackedPattern(filename, want)
+	if err := savePackedPattern(filename, want); err != nil {
+		t.Fatal(err)
+	}
 	if got := loadPackedPattern(filename, len(want)); !bytes.Equal(got, want) {
 		t.Fatal("pattern cache round trip", got)
 	}
@@ -36,6 +38,44 @@ func TestPackedPatternCacheIntegrity(t *testing.T) {
 		}
 		if loadPackedPattern(filename, len(want)) != nil {
 			t.Fatal("invalid packed pattern cache accepted")
+		}
+	}
+}
+
+func TestSaturatedPatternCacheIntegrity(t *testing.T) {
+	t.Setenv("CUBE_CACHE_DIR", t.TempDir())
+	const filename = "optimal-phase1-sorted-sym16-cap11-v1.bin"
+	// Code three is a valid saturated two-bit bound, including packed 0xff;
+	// the four-bit phase-one reader must still reject unfinished nibbles.
+	want := []byte{0xfc, 0xff, 0x39, 0xe4}
+	if err := savePackedPatternLimit(filename, want, time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if got := loadPatternBytes(filename, len(want), time.Now().Add(time.Second)); !bytes.Equal(got, want) {
+		t.Fatal("saturated pattern cache round trip", got)
+	}
+	if loadPackedPattern(filename, len(want)) != nil {
+		t.Fatal("four-bit reader accepted saturated two-bit data")
+	}
+	if loadPatternBytes(filename, len(want), time.Now().Add(-time.Second)) != nil {
+		t.Fatal("expired saturated pattern cache load")
+	}
+	path := tableCachePath(filename)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mutate := range []func([]byte) []byte{
+		func(d []byte) []byte { d[len(d)-1] ^= 1; return d },
+		func(d []byte) []byte { return d[:len(d)-1] },
+		func(d []byte) []byte { return append(d, 0) },
+		func(d []byte) []byte { d[32] ^= 1; sum := sha256.Sum256(d[32:]); copy(d, sum[:]); return d },
+	} {
+		if err := os.WriteFile(path, mutate(append([]byte(nil), data...)), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if loadPatternBytes(filename, len(want), time.Now().Add(time.Second)) != nil {
+			t.Fatal("invalid saturated pattern cache accepted")
 		}
 	}
 }
