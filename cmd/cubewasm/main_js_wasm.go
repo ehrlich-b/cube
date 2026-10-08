@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall/js"
 
@@ -21,24 +22,27 @@ type request struct {
 	Method   string `json:"method"`
 	Target   string `json:"target"`
 	MaxDepth int    `json:"maxDepth"`
+	Size     int    `json:"size"`
 }
 
 type snapshot struct {
+	Size   int                 `json:"size"`
 	CFEN   string              `json:"cfen"`
 	Solved bool                `json:"solved"`
 	Faces  map[string][]string `json:"faces"`
 }
 
-var moveToken = regexp.MustCompile(`^(?:[URFDLB]w?|[MESxyz])(?:'|2)?$`)
-var faceToken = regexp.MustCompile(`^(?:[WYROGB?][1-9]?)+$`)
+var moveToken = regexp.MustCompile(`^(?:[1-7]?[URFDLB]w?|[MESxyz])(?:'|2)?$`)
+var faceToken = regexp.MustCompile(`^(?:[WYROGB?](?:[1-9][0-9]?)?)+$`)
+var faceRun = regexp.MustCompile(`[WYROGB?]([0-9]*)`)
 
 func parseMoves(text string) ([]cube.Move, error) {
-	if len(text) > 8192 {
-		return nil, fmt.Errorf("move input exceeds 8192 characters")
+	if len(text) > 65536 {
+		return nil, fmt.Errorf("move input exceeds 65536 characters")
 	}
 	for _, token := range strings.Fields(text) {
 		if !moveToken.MatchString(token) {
-			return nil, fmt.Errorf("invalid 3x3 move %q; separate WCA moves with spaces", token)
+			return nil, fmt.Errorf("invalid move %q; separate WCA moves with spaces", token)
 		}
 	}
 	return cube.ParseMoves(text)
@@ -46,8 +50,8 @@ func parseMoves(text string) ([]cube.Move, error) {
 
 // Bound numeric runs before using the general NxN parser, just like cube learn.
 func parseCFEN(text string, pattern bool) (*cfen.CFENState, error) {
-	if len(text) > 128 || !strings.HasPrefix(text, "YB|") {
-		return nil, fmt.Errorf("use 3x3 CFEN in YB storage order: U/R/F/D/L/B")
+	if len(text) > 600 || !strings.HasPrefix(text, "YB|") {
+		return nil, fmt.Errorf("use 2x2 through 7x7 CFEN in YB storage order: U/R/F/D/L/B")
 	}
 	faces := strings.Split(strings.TrimPrefix(text, "YB|"), "/")
 	if len(faces) != 6 {
@@ -55,15 +59,26 @@ func parseCFEN(text string, pattern bool) (*cfen.CFENState, error) {
 	}
 	for _, face := range faces {
 		if !faceToken.MatchString(face) || (!pattern && strings.Contains(face, "?")) {
-			return nil, fmt.Errorf("use colors W Y R O G B and runs 1–9; ? is only allowed in search targets")
+			return nil, fmt.Errorf("use colors W Y R O G B and runs 1–49; ? is only allowed in search targets")
+		}
+		count := 0
+		for _, run := range faceRun.FindAllStringSubmatch(face, -1) {
+			n := 1
+			if run[1] != "" {
+				n, _ = strconv.Atoi(run[1])
+			}
+			count += n
+			if n > 49 || count > 49 {
+				return nil, fmt.Errorf("CFEN runs must total at most 49 stickers per face")
+			}
 		}
 	}
 	state, err := cfen.ParseCFEN(text)
 	if err != nil {
 		return nil, err
 	}
-	if state.Dimension != 3 {
-		return nil, fmt.Errorf("the website supports 3x3 cubes")
+	if state.Dimension < 2 || state.Dimension > 7 {
+		return nil, fmt.Errorf("the website supports 2x2 through 7x7 cubes")
 	}
 	return state, nil
 }
@@ -72,7 +87,7 @@ func view(c *cube.Cube) snapshot {
 	text, _ := cfen.GenerateCFEN(c)
 	faces := make(map[string][]string, 6)
 	for f := cube.Front; f <= cube.Down; f++ {
-		stickers := make([]string, 0, 9)
+		stickers := make([]string, 0, c.Size*c.Size)
 		for _, row := range c.Faces[f] {
 			for _, color := range row {
 				stickers = append(stickers, color.String())
@@ -80,7 +95,7 @@ func view(c *cube.Cube) snapshot {
 		}
 		faces[f.String()] = stickers
 	}
-	return snapshot{text, c.IsSolved(), faces}
+	return snapshot{c.Size, text, c.IsSolved(), faces}
 }
 
 func tokens(moves []cube.Move) []string {
@@ -92,7 +107,14 @@ func tokens(moves []cube.Move) []string {
 }
 
 func dispatch(req request) (any, error) {
-	c := cube.NewCube(3)
+	size := req.Size
+	if size == 0 {
+		size = 3
+	}
+	if size < 2 || size > 7 {
+		return nil, fmt.Errorf("cube size must be between 2 and 7")
+	}
+	c := cube.NewCube(size)
 	if req.CFEN != "" {
 		state, err := parseCFEN(req.CFEN, false)
 		if err != nil {
@@ -102,32 +124,65 @@ func dispatch(req request) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := cube.Validate3x3(c); err != nil {
-			return nil, err
+		if req.Size != 0 && req.Size != c.Size {
+			return nil, fmt.Errorf("CFEN size does not match requested size")
+		}
+		if c.Size == 3 {
+			if err := cube.Validate3x3(c); err != nil {
+				return nil, err
+			}
+		} else {
+			counts := make(map[cube.Color]int)
+			for _, face := range c.Faces {
+				for _, row := range face {
+					for _, color := range row {
+						counts[color]++
+					}
+				}
+			}
+			for color := cube.White; color <= cube.Green; color++ {
+				if counts[color] != c.Size*c.Size {
+					return nil, fmt.Errorf("color %s has %d stickers; expected %d", color, counts[color], c.Size*c.Size)
+				}
+			}
 		}
 	}
 	moves, err := parseMoves(req.Moves)
 	if err != nil {
 		return nil, err
 	}
-	c.ApplyMoves(moves)
+	if err := c.ApplyMoves(moves); err != nil {
+		return nil, err
+	}
 	switch req.Op {
 	case "state", "twist":
 		return map[string]any{"state": view(c), "moves": tokens(moves)}, nil
 	case "solve":
 		method := req.Method
-		if method == "" || method == "auto" {
+		if c.Size != 3 {
+			if method != "" && method != "auto" && method != "reduction" {
+				return nil, fmt.Errorf("%s is 3x3-only; use reduction for this size", method)
+			}
+			method = "reduction"
+		} else if method == "" || method == "auto" {
 			method = "kociemba"
 		}
-		solver, err := cube.GetSolver(method)
-		if err != nil {
-			return nil, err
+		var solver cube.Solver
+		if method == "reduction" && c.Size != 3 {
+			solver = &cube.ReductionSolver{}
+		} else {
+			solver, err = cube.GetSolver(method)
+			if err != nil {
+				return nil, err
+			}
 		}
 		result, err := solver.Solve(c)
 		if err != nil {
 			return nil, err
 		}
-		c.ApplyMoves(result.Solution)
+		if err := c.ApplyMoves(result.Solution); err != nil {
+			return nil, err
+		}
 		if !c.IsSolved() {
 			return nil, fmt.Errorf("%s returned a solution that does not solve all six faces", method)
 		}
@@ -135,8 +190,11 @@ func dispatch(req request) (any, error) {
 		for _, stage := range result.Stages {
 			stages = append(stages, map[string]any{"name": stage.Name, "cases": stage.Cases, "moves": tokens(stage.Moves), "turns": cube.TurnCount(stage.Moves), "after": view(stage.After)})
 		}
-		return map[string]any{"state": view(c), "moves": tokens(result.Solution), "method": method, "stages": stages}, nil
+		return map[string]any{"state": view(c), "moves": tokens(result.Solution), "method": method, "stages": stages, "solveMs": float64(result.Duration.Microseconds()) / 1000}, nil
 	case "learn":
+		if c.Size != 3 {
+			return nil, fmt.Errorf("lessons are 3x3-only")
+		}
 		lesson, err := cube.PlanBeginner(c)
 		if err != nil {
 			return nil, err
@@ -151,12 +209,18 @@ func dispatch(req request) (any, error) {
 		}
 		return map[string]any{"steps": steps, "moves": tokens(lesson.Moves()), "state": view(lesson.Final)}, nil
 	case "find":
+		if c.Size != 3 {
+			return nil, fmt.Errorf("search is 3x3-only")
+		}
 		if req.MaxDepth < 0 || req.MaxDepth > 10 {
 			return nil, fmt.Errorf("search depth must be between 0 and 10")
 		}
 		target, err := parseCFEN(req.Target, true)
 		if err != nil {
 			return nil, err
+		}
+		if target.Dimension != 3 {
+			return nil, fmt.Errorf("search targets must be 3x3")
 		}
 		goal, err := target.ToCube()
 		if err != nil {
@@ -180,8 +244,8 @@ func invoke(_ js.Value, args []js.Value) (result any) {
 			result = encode(map[string]any{"ok": false, "error": fmt.Sprint(recovered)})
 		}
 	}()
-	if len(args) != 1 || args[0].Type() != js.TypeString || len(args[0].String()) > 16384 {
-		return encode(map[string]any{"ok": false, "error": "pass one JSON request of at most 16384 characters"})
+	if len(args) != 1 || args[0].Type() != js.TypeString || len(args[0].String()) > 131072 {
+		return encode(map[string]any{"ok": false, "error": "pass one JSON request of at most 131072 characters"})
 	}
 	var req request
 	if err := json.Unmarshal([]byte(args[0].String()), &req); err != nil {

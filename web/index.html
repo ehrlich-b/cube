@@ -21,21 +21,24 @@
         <div><p class="eyebrow">MAKE YOUR NEXT MOVE</p><h1>Your cube. Every move.</h1><p class="lede">Explore a sequence, find a solution, or learn one turn at a time.</p></div>
         <span class="engine-label"><i></i> Powered by Go · Runs locally</span>
       </div>
+      <div class="size-picker"><label for="size">Cube size</label><select id="size" disabled><option value="2">2 × 2</option><option value="3" selected>3 × 3</option><option value="4">4 × 4</option><option value="5">5 × 5</option><option value="6">6 × 6</option><option value="7">7 × 7</option></select><span id="size-note" hidden>Lessons, CFOP and Search are available on 3 × 3.</span></div>
       <div class="workspace">
         <section class="cube-card" aria-label="Interactive cube">
           <div class="card-top"><span id="state-label" class="state-badge">Loading engine…</span><div class="view-toggle" aria-label="Cube view"><button id="view-3d" aria-pressed="true">3D cube</button><button id="view-net" aria-pressed="false">2D net</button></div></div>
           <div id="stage" class="stage" aria-label="3D cube; drag stickers to turn layers, or the background to orbit" aria-describedby="view-hint" tabindex="0"><div class="cube-shadow"></div><div id="camera" class="camera"><div id="cube" class="cube"></div></div></div>
           <div id="net" class="net" hidden aria-label="Unfolded cube net"></div>
           <div class="viewer-foot"><span id="view-hint">Drag stickers to turn · background to orbit</span><button id="home-view" class="text-button">Center view ↺</button></div>
-          <div class="main-actions"><button id="scramble" class="secondary" disabled>↝ &nbsp; Scramble</button><div class="solve-actions"><label class="sr-only" for="solve-method">Solve method</label><select id="solve-method" disabled><option value="kociemba" selected>Kociemba</option><option value="beginner">Beginner</option><option value="cfop">CFOP</option></select><button id="solve" class="primary" disabled>Solve this cube <span>→</span></button></div></div>
+          <div class="main-actions"><button id="scramble" class="secondary" disabled>↝ &nbsp; Scramble</button><div class="solve-actions"><label class="sr-only" for="solve-method">Solve method</label><select id="solve-method" disabled><option value="kociemba" selected>Kociemba</option><option value="beginner">Beginner</option><option value="cfop">CFOP</option><option value="reduction" hidden disabled>Reduction</option></select><button id="solve" class="primary" disabled>Solve this cube <span>→</span></button></div></div>
+          <button id="cancel-task" class="text-button" hidden>Cancel computation</button>
           <div class="history-bar"><div><button id="undo" aria-label="Undo last move" disabled>↶ Undo</button><button id="redo" aria-label="Redo last move" disabled>↷ Redo</button></div><button id="reset" disabled>Reset cube</button></div>
           <div class="scramble-line"><span>SCRAMBLE</span><output id="scramble-text">Start solved, or mix things up.</output></div>
         </section>
         <section class="control-card" aria-label="Cube tools">
           <div class="tabs" role="tablist" aria-label="Mode"><button id="tab-practice" role="tab" aria-selected="true" aria-controls="practice">Practice</button><button id="tab-lesson" role="tab" aria-selected="false" aria-controls="lesson" tabindex="-1">Lesson</button><button id="tab-search" role="tab" aria-selected="false" aria-controls="search" tabindex="-1">Search</button></div>
           <div id="practice" class="panel" role="tabpanel" aria-labelledby="tab-practice">
-            <div class="section-heading"><h2>Give it a turn</h2><span class="small-pill">3 × 3</span></div>
+            <div class="section-heading"><h2>Give it a turn</h2><span id="size-label" class="small-pill">3 × 3</span></div>
             <p class="muted">Click a move, or use your keyboard. Hold <kbd>shift</kbd> for a prime turn.</p>
+            <div class="layer-picker"><label for="turn-layer">Layer <select id="turn-layer"><option value="1">1 · outer</option><option value="2">2</option><option value="3">3</option></select></label><label for="turn-width">Turn <select id="turn-width"><option value="single">Single layer</option><option value="wide">Wide · 1 to layer</option></select></label><span>Keys 1–<span id="layer-max">7</span> pick a layer from the named face.</span></div>
             <div id="move-buttons" class="move-grid"></div>
             <div class="notation"><span><b>R</b> clockwise</span><span><b>R′</b> counterclockwise</span><span><b>R2</b> half turn</span></div>
             <label class="field-label" for="algorithm">PLAY AN ALGORITHM</label>
@@ -74,6 +77,7 @@
       <dt><kbd>M</kbd> <kbd>E</kbd> <kbd>S</kbd></dt><dd>Middle slices, like L, D, F</dd>
       <dt><kbd>X</kbd> <kbd>Y</kbd> <kbd>Z</kbd></dt><dd>Rotate the whole cube, like R, U, F</dd>
       <dt><kbd>Shift</kbd> + move key</dt><dd>Reverse the turn (prime)</dd>
+      <dt><kbd>1</kbd>–<kbd>7</kbd></dt><dd>Select a layer from the named face; choose Wide to turn layers 1 through that layer. For example: 2R, 3Rw.</dd>
       <dt><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd></dt><dd>Orbit while the cube has focus</dd>
       <dt><kbd>?</kbd> / <kbd>Esc</kbd></dt><dd>Toggle help / close or cancel a drag</dd>
     </dl>

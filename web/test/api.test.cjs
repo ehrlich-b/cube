@@ -41,6 +41,38 @@ function rejects(request, pattern) {
   }
   console.log("PASS twist: faces, slices, rotations, wide turns, inverses and CFEN round trips");
 
+  for (const size of [2, 3, 4, 5, 6, 7]) {
+    const home = call({ op: "state", size }).state;
+    assert.equal(home.size, size);
+    assert.equal(home.solved, true);
+    for (const face of Object.values(home.faces)) assert.equal(face.length, size * size);
+    const tokens = ["R", "L", "U", "D", "F", "B", "x", "y", "z", "Rw", "Uw", "Fw"];
+    for (let layer = 2; layer <= size; layer++) for (const face of "RLUDFB") tokens.push(`${layer}${face}`, `${layer}${face}w`);
+    if (size % 2) tokens.push("M", "E", "S");
+    for (const token of tokens) for (const suffix of ["", "'", "2"]) {
+      const move = token + suffix;
+      const next = call({ op: "twist", size, cfen: home.cfen, moves: move }).state;
+      assert.deepEqual(call({ op: "state", cfen: next.cfen }).state, next);
+      assert.equal(call({ op: "twist", cfen: next.cfen, moves: inverse(move) }).state.cfen, home.cfen, `${size}x${size} ${move} inverse`);
+    }
+    const scramble = size > 3 ? "2R U 2F' Rw D2 L B'" : "R U F2 L' B";
+    const start = call({ op: "twist", size, moves: scramble }).state;
+    const solution = call({ op: "solve", cfen: start.cfen });
+    assert.equal(solution.method, size === 3 ? "kociemba" : "reduction");
+    assert.ok(solution.moves.length > 0);
+    assert.equal(solution.state.solved, true);
+    assert.equal(call({ op: "twist", cfen: start.cfen, moves: solution.moves.join(" ") }).state.solved, true);
+    assert.deepEqual(call({ op: "state", cfen: start.cfen }).state, start, "solver preserves the input");
+    if (size !== 3) {
+      rejects({ op: "solve", size, method: "cfop" }, /3x3-only/);
+      rejects({ op: "learn", size }, /3x3-only/);
+      rejects({ op: "find", size, target: home.cfen }, /3x3-only/);
+    }
+    rejects({ op: "twist", size, moves: `${size + 1}R` }, /invalid|outside/);
+    if (size % 2 === 0) rejects({ op: "twist", size, moves: "M" }, /even/);
+    console.log(`PASS ${size}x${size}: every layer, wide depth, inverse, CFEN and solution replay (${solution.moves.length} moves, ${solution.solveMs.toFixed(1)} ms)`);
+  }
+
   for (const scramble of ["R U R' U'", "R U F2 L' B", "x y R U F2 L' B D2 R2 U' F L2 B'", "R2 U F' D B2 L' U2 F R' D2 L B' U R2 F2 D' L2 U' B R"]) {
     const start = call({ op: "twist", moves: scramble }).state;
     const solution = call({ op: "solve", cfen: start.cfen });
@@ -146,8 +178,12 @@ function rejects(request, pattern) {
 
   rejects({ op: "twist", moves: "R garbage U" }, /invalid/);
   rejects({ op: "twist", moves: "999Rw" }, /invalid/);
-  rejects({ op: "twist", moves: "R ".repeat(5000) }, /exceeds/);
-  rejects({ op: "state", cfen: "YB|Y999999999/R9/B9/W9/O9/G9" }, /runs 1–9/);
+  rejects({ op: "twist", moves: "R ".repeat(32769) }, /exceeds/);
+  rejects({ op: "state", cfen: "YB|Y999999999/R9/B9/W9/O9/G9" }, /runs 1–49/);
+  rejects({ op: "state", cfen: "YB|Y99/R49/B49/W49/O49/G49" }, /at most 49/);
+  rejects({ op: "state", cfen: "YB|" + Array(6).fill("Y49Y49").join("/") }, /at most 49/);
+  rejects({ op: "state", size: 8 }, /between 2 and 7/);
+  rejects({ op: "state", size: 4, cfen: solved.cfen }, /does not match/);
   rejects({ op: "state", cfen: "YB|?9/R9/B9/W9/O9/G9" }, /only allowed/);
   rejects({ op: "state", cfen: "YB|W9/R9/B9/W9/O9/G9" }, /color|sticker|center/i);
   rejects({ op: "state", cfen: "WB|W9/R9/B9/Y9/O9/G9" }, /YB/);

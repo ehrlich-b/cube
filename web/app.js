@@ -6,8 +6,9 @@ const view = new CubeView($("cube"), $("net"), $("camera"), $("stage"));
 let engine, state, initial, history = [], historyIndex = 0, busy = false, running = false, sequence = null, job = null;
 let scramble = "", baseCFEN = "", currentMode = "practice";
 let restoring = true;
+let size = 3, saved3x3Method = "kociemba", scrambledCache;
 const pendingHash = location.hash.slice(1);
-const primaryControls = ["scramble", "solve", "solve-method", "reset", "run-algorithm", "start-lesson", "find", "import", "export"];
+const primaryControls = ["scramble", "solve", "solve-method", "size", "turn-layer", "turn-width", "reset", "run-algorithm", "start-lesson", "find", "import", "export"];
 
 function notice(message, error = false) {
   $("notice").textContent = message;
@@ -17,25 +18,66 @@ function notice(message, error = false) {
 function updateControls() {
   const locked = !engine || busy || !!job;
   for (const id of primaryControls) $(id).disabled = locked;
-  for (const button of document.querySelectorAll("[data-move]")) button.disabled = locked;
+  for (const button of document.querySelectorAll("[data-move]")) button.disabled = locked || (size % 2 === 0 && /^[MES]/.test(button.dataset.move));
+  for (const id of ["tab-lesson", "tab-search", "start-lesson", "find"]) $(id).disabled = locked || size !== 3;
   $("undo").disabled = locked || historyIndex === 0;
   $("redo").disabled = locked || historyIndex === history.length - 1;
   $("back-step").disabled = locked || !sequence || sequence.index === 0;
   $("step").disabled = locked || !sequence || sequence.index === sequence.moves.length;
   $("play").disabled = !engine || !!job || !sequence || (busy && !running) || (!running && sequence.index === sequence.moves.length);
   $("scrubber").disabled = locked;
-  for (const button of $("sequence-moves").querySelectorAll("button")) button.disabled = locked;
+  $("sequence-moves").inert = locked;
   $("play").textContent = running ? "Pause" : "Play";
+  $("cancel-task").hidden = !job;
   if (engine && state && !busy && !job && !restoring) persistHash();
 }
 
 function showState(next) {
+  if (size !== next.size) configureSize(next.size);
   state = next;
   view.render(state);
   $("state-label").textContent = state.solved ? "● Solved" : "● Mixed";
   $("state-label").classList.toggle("mixed", !state.solved);
   $("cfen").value = state.cfen;
   updateControls();
+}
+
+function configureSize(nextSize) {
+  if (size === 3) saved3x3Method = $("solve-method").value;
+  size = nextSize;
+  initial = engine({ op: "state", size }).state;
+  $("size").value = size;
+  $("size-label").textContent = `${size} × ${size}`;
+  $("layer-max").textContent = size;
+  $("size-note").hidden = size === 3;
+  for (const option of $("solve-method").options) {
+    option.hidden = option.disabled = (option.value === "reduction") === (size === 3);
+  }
+  $("solve-method").value = size === 3 ? saved3x3Method : "reduction";
+  $("turn-layer").replaceChildren(...Array.from({ length: size }, (_, index) => {
+    const option = document.createElement("option");
+    option.value = index + 1;
+    option.textContent = index === 0 ? "1 · outer" : String(index + 1);
+    return option;
+  }));
+  $("turn-width").value = "single";
+  updateMoveLabels();
+  if (size !== 3) setMode("practice");
+}
+
+function selectedMove(token) {
+  if (!/^[URFDLB]/.test(token)) return token;
+  const depth = Number($("turn-layer").value);
+  const wide = $("turn-width").value === "wide";
+  return (depth === 1 ? "" : depth) + token[0] + (wide ? (depth === 1 ? "" : "w") : "") + token.slice(1);
+}
+
+function updateMoveLabels() {
+  for (const button of $("move-buttons").children) {
+    const token = selectedMove(button.dataset.move);
+    button.textContent = token.replace("'", "′");
+    button.setAttribute("aria-label", `Turn ${token}`);
+  }
 }
 
 function record(next) {
@@ -62,8 +104,8 @@ function freshState(next, newScramble = "", newBase = "") {
   showState(next);
 }
 
-async function turn(token, duration = Number($("speed").value), settle = null) {
-  const next = engine({ op: "twist", cfen: state.cfen, moves: token }).state;
+async function turn(token, duration = Number($("speed").value), settle = null, next = null) {
+  next ??= engine({ op: "twist", cfen: state.cfen, moves: token }).state;
   await (settle ? settle() : view.animate(token, duration));
   record(next);
   showState(next);
@@ -96,53 +138,66 @@ function refreshPlayback() {
   if (!sequence) return;
   $("progress").textContent = `${sequence.index} / ${sequence.moves.length}`;
   $("scrubber").value = sequence.index;
-  [...$("sequence-moves").querySelectorAll("button")].forEach((button, index) => {
+  const first = sequence.highlighted < 0 ? 0 : Math.min(sequence.highlighted, sequence.index);
+  const last = sequence.highlighted < 0 ? sequence.moves.length - 1 : Math.max(sequence.highlighted, sequence.index);
+  for (let index = first; index <= last && index < sequence.moves.length; index++) {
+    const button = sequence.buttons[index];
     button.classList.toggle("done", index < sequence.index);
     button.classList.toggle("current", index === sequence.index);
     if (index === sequence.index) button.setAttribute("aria-current", "step");
     else button.removeAttribute("aria-current");
-  });
+  }
+  sequence.highlighted = sequence.index;
   updateControls();
 }
 
-function prepareSequence(moves, kind, title, expected, stages = []) {
-  const frames = [state];
-  for (const move of moves) frames.push(engine({ op: "twist", cfen: frames.at(-1).cfen, moves: move }).state);
-  if (expected && frames.at(-1).cfen !== expected) throw new Error("Sequence did not reach its verified checkpoint.");
-  sequence = { moves, frames, index: 0, historyStart: historyIndex, kind, title, stages };
-  $("sequence-kind").textContent = kind;
-  $("sequence-title").textContent = title;
-  $("sequence-count").textContent = `${moves.length} moves`;
-  $("scrubber").max = moves.length;
-  $("sequence-moves").replaceChildren();
-  $("sequence-moves").classList.toggle("grouped", stages.length > 0);
-  const appendMove = (parent, move, index) => {
-    const button = document.createElement("button");
-    button.textContent = move;
-    button.title = `Jump to after move ${index + 1}`;
-    button.addEventListener("click", () => jump(index + 1));
-    parent.append(button);
-  };
-  if (stages.length) {
-    if (stages.flatMap(stage => stage.moves).join(" ") !== moves.join(" ")) throw new Error("Stage moves differ from the verified solution.");
-    let index = 0;
-    for (const stage of stages) {
-      const group = document.createElement("section");
-      group.className = "sequence-stage";
-      group.dataset.stage = stage.name;
-      const heading = document.createElement("h3");
-      heading.textContent = `${stage.name} · ${stage.turns} turns`;
-      const cases = document.createElement("p");
-      cases.className = "case-name";
-      cases.textContent = stage.cases.join(" + ");
-      const buttons = document.createElement("div");
-      group.append(heading, cases, buttons);
-      for (const move of stage.moves) appendMove(buttons, move, index++);
-      $("sequence-moves").append(group);
+async function prepareSequence(moves, kind, title, expected, stages = []) {
+  const wasBusy = busy;
+  busy = true;
+  updateControls();
+  try {
+    const frames = [state];
+    for (const [index, move] of moves.entries()) {
+      frames.push(engine({ op: "twist", cfen: frames.at(-1).cfen, moves: move }).state);
+      if (index % 32 === 31) await new Promise(requestAnimationFrame);
     }
-  } else moves.forEach((move, index) => appendMove($("sequence-moves"), move, index));
-  $("playback").hidden = false;
-  refreshPlayback();
+    if (expected && frames.at(-1).cfen !== expected) throw new Error("Sequence did not reach its verified checkpoint.");
+    sequence = { moves, frames, index: 0, historyStart: historyIndex, kind, title, stages, buttons: [], highlighted: -1 };
+    $("sequence-kind").textContent = kind;
+    $("sequence-title").textContent = title;
+    $("sequence-count").textContent = `${moves.length} moves`;
+    $("scrubber").max = moves.length;
+    $("sequence-moves").replaceChildren();
+    $("sequence-moves").classList.toggle("grouped", stages.length > 0);
+    const appendMove = (parent, move, index) => {
+      const button = document.createElement("button");
+      button.textContent = move;
+      button.title = `Jump to after move ${index + 1}`;
+      button.addEventListener("click", () => jump(index + 1));
+      sequence.buttons.push(button);
+      parent.append(button);
+    };
+    if (stages.length) {
+      if (stages.flatMap(stage => stage.moves).join(" ") !== moves.join(" ")) throw new Error("Stage moves differ from the verified solution.");
+      let index = 0;
+      for (const stage of stages) {
+        const group = document.createElement("section");
+        group.className = "sequence-stage";
+        group.dataset.stage = stage.name;
+        const heading = document.createElement("h3");
+        heading.textContent = `${stage.name} · ${stage.turns} turns`;
+        const cases = document.createElement("p");
+        cases.className = "case-name";
+        cases.textContent = stage.cases.join(" + ");
+        const buttons = document.createElement("div");
+        group.append(heading, cases, buttons);
+        for (const move of stage.moves) appendMove(buttons, move, index++);
+        $("sequence-moves").append(group);
+      }
+    } else moves.forEach((move, index) => appendMove($("sequence-moves"), move, index));
+    $("playback").hidden = false;
+    refreshPlayback();
+  } finally { busy = wasBusy; updateControls(); }
 }
 
 function jump(index) {
@@ -169,7 +224,7 @@ async function stepSequence() {
   busy = true;
   updateControls();
   try {
-    await turn(sequence.moves[sequence.index]);
+    await turn(sequence.moves[sequence.index], Number($("speed").value), null, sequence.frames[sequence.index + 1]);
     sequence.index++;
     finishSequence();
     refreshPlayback();
@@ -202,8 +257,9 @@ function compute(request, label) {
       updateControls();
       if (error) reject(error); else resolve(result);
     };
-    const timer = setTimeout(() => finish(new Error("The search took more than 30 seconds. Try a smaller depth or a more flexible target.")), 30000);
-    job = { cancel: () => finish(new Error("Search canceled.")) };
+    const timeout = request.op === "solve" && size !== 3 ? 120000 : 30000;
+    const timer = setTimeout(() => finish(new Error(request.op === "find" ? "The search took more than 30 seconds. Try a smaller depth or a more flexible target." : "The solver reached its time limit. Try again or use a simpler state.")), timeout);
+    job = { cancel: () => finish(new Error(`${request.op === "find" ? "Search" : "Computation"} canceled.`)) };
     updateControls();
     worker.onmessage = ({ data }) => finish(data.ok ? null : new Error(data.error), data.data);
     worker.onerror = event => finish(new Error(event.message || "The cube worker could not start."));
@@ -212,6 +268,7 @@ function compute(request, label) {
 }
 
 function setMode(mode) {
+  if (size !== 3 && mode !== "practice") return;
   currentMode = mode;
   for (const name of ["practice", "lesson", "search"]) {
     $(name).hidden = name !== mode;
@@ -222,8 +279,11 @@ function setMode(mode) {
 
 async function solve() {
   clearSequence();
+  const started = performance.now();
   const result = await compute({ op: "solve", cfen: state.cfen, method: $("solve-method").value }, "Finding a verified solution…");
-  prepareSequence(result.moves, "SOLUTION", `Your path to solved · ${result.method}`, result.state.cfen, result.stages);
+  $("cube").dataset.solveMs = result.solveMs;
+  $("cube").dataset.solveWallMs = performance.now() - started;
+  await prepareSequence(result.moves, "SOLUTION", `Your path to solved · ${result.method}`, result.state.cfen, result.stages);
   notice(result.moves.length ? "Solution ready. Play, step through, or drag the slider to explore." : "Your cube is already solved.");
 }
 
@@ -233,7 +293,7 @@ async function hint() {
   const step = result.steps[0];
   if (!step) { $("lesson-content").textContent = "All six faces are solved. You’ve reached the final checkpoint."; notice("Lesson complete."); return; }
   showLesson(step);
-  prepareSequence(step.moves, "CHECKPOINT", step.title, step.after.cfen);
+  await prepareSequence(step.moves, "CHECKPOINT", step.title, step.after.cfen);
   notice("Follow the moves, check your cube, then get the next hint. Your own turns are always recoverable.");
 }
 
@@ -274,7 +334,7 @@ async function find() {
   const result = await pending;
   if (!result.found) { $("search-result").textContent = `No path found within ${maxDepth} moves.`; notice("Search finished. Try a larger depth or allow more wildcard stickers."); return; }
   $("search-result").textContent = result.moves.length ? `Found ${result.moves.length} moves: ${result.moves.join(" ")}` : "Your cube already matches this target.";
-  prepareSequence(result.moves, "SEARCH RESULT", "Your path to the pattern", result.state.cfen);
+  await prepareSequence(result.moves, "SEARCH RESULT", "Your path to the pattern", result.state.cfen);
   notice("Search complete. Play the result to reach your target.");
 }
 
@@ -284,7 +344,8 @@ function randomScramble() {
   for (let i = 0; i < 20; i++) {
     let face;
     do { face = faces[crypto.getRandomValues(new Uint32Array(1))[0] % 6]; } while (face === last);
-    moves.push(face + suffixes[crypto.getRandomValues(new Uint32Array(1))[0] % 3]);
+    const depth = size > 3 ? 1 + crypto.getRandomValues(new Uint32Array(1))[0] % Math.floor(size / 2) : 1;
+    moves.push((depth === 1 ? "" : depth) + face + suffixes[crypto.getRandomValues(new Uint32Array(1))[0] % 3]);
     last = face;
   }
   return moves;
@@ -301,16 +362,16 @@ async function mix() {
       // Save each committed frame even while the next scramble turn animates.
       persistHash();
     }
-    notice("Fresh scramble. Try a sequence, a lesson, or a full solution.");
+    notice(size === 3 ? "Fresh scramble. Try a sequence, a lesson, or a full solution." : "Fresh scramble. Explore layers or play a full solution.");
   }
   finally { busy = false; updateControls(); }
 }
 
 async function algorithm() {
-  const moves = engine({ op: "twist", moves: $("algorithm").value }).moves;
+  const moves = engine({ op: "twist", size, moves: $("algorithm").value }).moves;
   if (!moves.length) throw new Error("Type an algorithm first, for example R U R' U'.");
   clearSequence();
-  prepareSequence(moves, "ALGORITHM", "Explore your sequence");
+  await prepareSequence(moves, "ALGORITHM", "Explore your sequence");
   await playSequence();
 }
 
@@ -319,17 +380,21 @@ async function restoreHash(text) {
   const newBase = params.get("state") || "";
   const newScramble = params.get("scramble") || "";
   const alg = params.get("alg") || "";
+  const sizeText = params.get("size") || "3";
+  if (!/^[2-7]$/.test(sizeText)) throw new Error("Invalid cube size in this link.");
+  const nextSize = Number(sizeText);
   // Validate the entire link before changing any visible state.
-  const next = engine({ op: "state", cfen: newBase, moves: newScramble }).state;
-  const moves = engine({ op: "twist", moves: alg }).moves;
+  const next = engine({ op: "state", size: nextSize, cfen: newBase, moves: newScramble }).state;
+  const moves = engine({ op: "twist", size: nextSize, moves: alg }).moves;
   const indexText = params.get("index") || "0";
   if (!/^\d+$/.test(indexText) || Number(indexText) > moves.length) throw new Error("Invalid playback position in this link.");
   const index = Number(indexText);
   const current = engine({ op: "twist", cfen: next.cfen, moves: moves.slice(0, index).join(" ") }).state;
-  if (params.has("current") && engine({ op: "state", cfen: params.get("current") }).state.cfen !== current.cfen) {
+  if (params.has("current") && engine({ op: "state", size: nextSize, cfen: params.get("current") }).state.cfen !== current.cfen) {
     throw new Error("The saved cube does not match its playback position.");
   }
   const kind = params.get("kind") || "ALGORITHM";
+  if (nextSize !== 3 && ["CHECKPOINT", "SEARCH RESULT"].includes(kind)) throw new Error("Lessons and search are 3x3-only.");
   if (!["ALGORITHM", "SOLUTION", "CHECKPOINT", "SEARCH RESULT"].includes(kind)) throw new Error("Invalid sequence kind in this link.");
   const title = params.get("title") || "Shared sequence";
   const stages = JSON.parse(params.get("stages") || "[]");
@@ -352,7 +417,7 @@ async function restoreHash(text) {
     $("algorithm").value = params.get("draft") ?? alg;
     if (lesson) { showLesson(lesson); setMode("lesson"); }
     if (moves.length || params.has("index")) {
-      prepareSequence(moves, kind, title, null, stages);
+      await prepareSequence(moves, kind, title, null, stages);
       history = sequence.frames.slice(0, index + 1);
       historyIndex = index;
       sequence.index = index;
@@ -366,7 +431,10 @@ async function restoreHash(text) {
 
 function persistHash() {
   const params = new URLSearchParams();
-  const scrambled = engine({ op: "state", cfen: baseCFEN, moves: scramble }).state;
+  const key = `${size}:${baseCFEN}:${scramble}`;
+  if (scrambledCache?.key !== key) scrambledCache = { key, state: engine({ op: "state", size, cfen: baseCFEN, moves: scramble }).state };
+  const scrambled = scrambledCache.state;
+  if (size !== 3) params.set("size", size);
   const start = sequence ? sequence.frames[0] : state;
   if (start.cfen !== scrambled.cfen) params.set("state", start.cfen);
   else { if (baseCFEN) params.set("state", baseCFEN); if (scramble) params.set("scramble", scramble); }
@@ -413,7 +481,7 @@ for (const prime of [false, true]) for (const face of ["U", "D", "L", "R", "F", 
   button.disabled = true;
   button.classList.toggle("prime", prime);
   button.setAttribute("aria-label", `Turn ${token}`);
-  button.addEventListener("click", () => safe(() => manualTurn(token)));
+  button.addEventListener("click", () => safe(() => manualTurn(selectedMove(token))));
   $("move-buttons").append(button);
 }
 for (const token of ["M", "E", "S", "x", "y", "z", "Rw", "Lw", "Uw", "Dw", "Fw", "Bw"]) {
@@ -426,10 +494,10 @@ for (const token of ["M", "E", "S", "x", "y", "z", "Rw", "Lw", "Uw", "Dw", "Fw",
 }
 for (const mode of ["practice", "lesson", "search"]) $(`tab-${mode}`).addEventListener("click", () => setMode(mode));
 document.querySelector(".tabs").addEventListener("keydown", event => {
-  const modes = ["practice", "lesson", "search"];
+  const modes = size === 3 ? ["practice", "lesson", "search"] : ["practice"];
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   event.preventDefault();
-  const index = event.key === "Home" ? 0 : event.key === "End" ? 2 : (modes.indexOf(currentMode) + (event.key === "ArrowRight" ? 1 : 2)) % 3;
+  const index = event.key === "Home" ? 0 : event.key === "End" ? modes.length - 1 : (modes.indexOf(currentMode) + (event.key === "ArrowRight" ? 1 : modes.length - 1)) % modes.length;
   setMode(modes[index]);
   $(`tab-${modes[index]}`).focus();
 });
@@ -440,6 +508,9 @@ $("algorithm").addEventListener("input", () => { if (engine && state && !restori
 $("start-lesson").addEventListener("click", () => safe(hint));
 $("find").addEventListener("click", () => safe(find));
 $("cancel-search").addEventListener("click", () => job?.cancel());
+$("cancel-task").addEventListener("click", () => job?.cancel());
+$("size").addEventListener("change", () => { configureSize(Number($("size").value)); freshState(initial); notice(`${size} × ${size} cube ready.`); });
+for (const id of ["turn-layer", "turn-width"]) $(id).addEventListener("change", updateMoveLabels);
 $("play").addEventListener("click", () => safe(playSequence));
 $("step").addEventListener("click", () => safe(stepSequence));
 $("back-step").addEventListener("click", () => jump(sequence.index - 1));
@@ -452,6 +523,7 @@ for (const mode of ["3d", "net"]) $(`view-${mode}`).addEventListener("click", ()
   view.cancelDrag();
   $("stage").hidden = mode !== "3d";
   $("net").hidden = mode !== "net";
+  if (mode === "3d") view.orient();
   $("view-3d").setAttribute("aria-pressed", String(mode === "3d"));
   $("view-net").setAttribute("aria-pressed", String(mode === "net"));
   $("view-hint").textContent = mode === "3d" ? "Drag stickers to turn · background to orbit" : "U above · L F R B across · D below";
@@ -476,15 +548,18 @@ window.addEventListener("keydown", event => {
   if (event.key === "?") { event.preventDefault(); $("keyboard-help").togglePopover(); return; }
   if ($("keyboard-help").matches(":popover-open")) return;
   const key = event.key.toLowerCase();
+  if (/^[1-7]$/.test(key) && Number(key) <= size && !busy && !job) {
+    event.preventDefault(); $("turn-layer").value = key; updateMoveLabels(); return;
+  }
   const token = "xyz".includes(key) && key.length === 1 ? key : "urfdlbmes".includes(key) && key.length === 1 ? key.toUpperCase() : "";
   if (!token) return;
   event.preventDefault();
-  safe(() => manualTurn(token + (event.shiftKey ? "'" : "")));
+  safe(() => manualTurn(selectedMove(token + (event.shiftKey ? "'" : ""))));
 });
 
 safe(async () => {
   engine = await loadEngine();
-  initial = engine({ op: "state" }).state;
+  configureSize(3);
   freshState(initial);
   try {
     if (pendingHash) await restoreHash(pendingHash);
