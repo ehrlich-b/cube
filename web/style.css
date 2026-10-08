@@ -17,3 +17,5 @@
 .update-notice{position:sticky;top:12px;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:8px;background:#fffef9;color:#37553b;font-size:13px;line-height:1.6}
 .view-toggle button,.text-button,.history-bar button,.tabs button,.move-grid button.prime,.advanced summary,.sequence-moves button{color:#52664c}
 :is(button,a,input,textarea,select,summary,[tabindex]):focus-visible{outline-color:#42663b}
+/* Async tasks can return focus to their trigger after a pointer activation. */
+button:focus{outline:3px solid #42663b;outline-offset:3px}
