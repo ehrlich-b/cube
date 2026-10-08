@@ -1,4 +1,4 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop test-nxn import-algorithms web web-pages test-web test-web-smoke test-docs bench-kociemba test-phase1-tables test-optimal bench-optimal export-reference-fixtures test-kociemba-cold generate-tables
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop test-nxn import-algorithms web web-pages test-pages test-web test-web-smoke test-docs bench-kociemba test-phase1-tables test-optimal bench-optimal export-reference-fixtures test-kociemba-cold generate-tables
 
 # Build the binary
 build:
@@ -34,8 +34,11 @@ web:
 
 # Export only runtime assets; keep test packages out of GitHub Pages.
 web-pages: web
-	mkdir -p dist/web
-	cp web/index.html web/style.css web/icon.svg web/app.js web/cube-view.js web/engine.js web/worker.js web/cube.wasm web/wasm_exec.js dist/web/
+	node web/build-pages.mjs
+
+# Exercise the actual static export at /cube/ without binding a local server.
+test-pages: web-pages
+	node web/test/pages.mjs
 
 test-web: web
 	node web/test/api.test.cjs

@@ -370,17 +370,70 @@ including hard-state Solve completion and 55 animation frames during its cold
 worker's setup/search. Go tests, vet, all 133 CLI E2E cases and both 200-state
 independent Kociemba/CFOP oracles also passed under background QoS.
 
-To publish, run this **single command yourself** from the repository root:
+`make web-pages` rebuilds `dist/web` from a fixed list of runtime files. It
+includes `index.html` and `.nojekyll`, fingerprints every other asset with a
+SHA-256 digest of the complete release, and rewrites the HTML, module imports,
+worker URLs and WASM URL to those relative filenames. Changing either JS or
+WASM gives the entire dependency graph new URLs, including the Go runtime.
+Cached binaries from a previous release therefore cannot be paired with new
+JavaScript. Pages controls caching of `index.html`; a cached document can still
+show the previous release until it revalidates.
+
+Run the publishing readiness gate without starting a server or publishing:
 
 ```bash
-taskpolicy -b nice -n 15 make web-pages && npx --yes gh-pages --dist dist/web --nojekyll
+taskpolicy -b nice -n 15 make test-pages
+```
+
+It builds the exact Pages artifact, then serves only those static files through
+headless Playwright request routing at `https://ehrlich-b.github.io/cube/`.
+Unknown paths return 404 rather than falling back to the app. Direct links use
+`/cube/index.html#...` or `/cube/#...`; the hash restores the cube and playback
+without server-side routing. The harness checks relative paths and correct
+`.wasm` / JS module MIME types, denies external requests and APIs, and supplies
+no COOP/COEP headers. It verifies `crossOriginIsolated === false` and that
+`SharedArrayBuffer` is unavailable while face turns, cold Solve and Search
+workers still work. Workers receive a compiled WebAssembly module and create
+their own runtime memory; they do not share a buffer.
+
+The gate also checks console/runtime errors, copied share links, control names,
+DOM focus order, keyboard tab navigation, help, face/prime turns and playback,
+and computed control text and focus-outline contrast. This is a basic control
+accessibility pass, not a full screen-reader audit. A fresh 390×844 load uses
+4× Chromium CPU throttling and must become interactive within 15 seconds.
+Transfer is local and unthrottled, so this timing excludes an internet download.
+The test reports raw, gzip (level 9) and Brotli (quality 11) byte estimates for
+the whole export and WASM; actual Pages compression is not assumed. It changes
+WASM alone and JS alone and tests redeploys with poisoned old asset URLs.
+Reports and screenshots stay in `.scratch/pages-readiness.json` and
+`.scratch/pages-390x844.png`. The existing Playwright devDependency and a
+provisioned Chromium are required; the test installs nothing. It can run in CI
+with `make test-pages` (omit the macOS-only `taskpolicy` prefix on Linux).
+
+The 2026-10-08 check (Go 1.26.2, Chromium 153, Mac background QoS) measured
+**1.371 seconds to interactive** at 390×844 with 4× CPU throttling and local
+transfer. Initial load requested **9,671,932 uncompressed bytes**; the worker
+entry point loads on demand. The enabled controls passed the checks above,
+with a minimum measured text contrast of **5.22:1** on the initial view.
+
+| Pages export | Raw bytes | Gzip estimate | Brotli estimate |
+|---|---:|---:|---:|
+| All runtime assets | 9,673,579 | 5,009,496 | 4,530,967 |
+| WASM alone | 9,573,518 | 4,979,772 | 4,505,423 |
+
+To publish, run this **single command yourself** from the repository root,
+after verifying that `origin` is the intended GitHub repository:
+
+```bash
+taskpolicy -b nice -n 15 make test-pages && taskpolicy -b nice -n 15 npx --yes gh-pages --dist dist/web --nojekyll
 ```
 
 This builds and publishes only runtime assets to the `gh-pages` branch of the
-current repository's origin. GitHub Pages must separately be configured to
-serve that branch's root. All asset paths are relative, including worker and
-WASM paths, so repository subpaths work. Publishing and Pages configuration
-are intentionally not performed by this implementation task.
+current repository's origin after the readiness gate passes. GitHub Pages must
+separately be configured to serve that branch's root, as described in
+[GitHub's publishing-source documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+Publishing and Pages configuration are intentionally not performed by this
+implementation task.
 
 ## Command Overview
 
