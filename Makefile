@@ -1,4 +1,4 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop import-algorithms web web-pages test-web test-web-smoke
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop import-algorithms web web-pages test-web test-web-smoke bench-kociemba test-phase1-tables test-optimal bench-optimal
 
 # Build the binary
 build:
@@ -102,6 +102,20 @@ test-beginner: build
 # Independent uniform physical-state and geometry replay oracle
 test-kociemba: build
 	python3 test/kociemba_oracle.py
+
+# Loaded-table latency in one process over 1,000 uniform legal states.
+bench-kociemba:
+	CUBE_BENCH=1 go test -p 2 ./internal/cube -run '^TestTwoPhaseBenchmark1000$$' -v -count=1 -timeout=20m
+
+test-phase1-tables:
+	CUBE_PHASE1_TABLES=1 go test -p 2 ./internal/cube -run '^(TestPhaseOneLargeTableOracle|TestPhaseOneSymmetryCoordinates)$$' -v -count=1 -timeout=25m
+
+test-optimal: build
+	CUBE_OPTIMAL_TABLES=1 go test -p 2 ./internal/cube -run '^(TestOptimalLargeTableOracle|TestCertifiedSuperflip)$$' -v -count=1 -timeout=25m
+	python3 test/optimal_oracle.py
+
+bench-optimal:
+	CUBE_OPTIMAL_BENCH=1 go test -p 2 ./internal/cube -run '^TestOptimalUniformBenchmark$$' -v -count=1 -timeout=45m
 
 # Reproducible CSV import; rejected rows retain their original data and reason.
 import-algorithms:

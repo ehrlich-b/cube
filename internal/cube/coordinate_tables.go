@@ -17,6 +17,9 @@ type coordinateTables struct {
 	Twist, Flip, Slice, Corner                                               []uint16
 	Edge2, Slice2                                                            []uint16
 	TwistSlice, FlipSlice, TwistFlip, CornerSlice, EdgeSlice, CornerDistance []uint8
+	CornerComb, EdgeComb                                                     []uint8
+	PermInverse, SliceInverse                                                []uint16
+	ConjTwist, ConjFlip                                                      []uint16
 }
 
 var tablesLock = make(chan struct{}, 1)
@@ -93,6 +96,9 @@ func solverTablesLimit(deadline time.Time) *coordinateTables {
 	t.CornerSlice = pairPruning(t.Corner, t.Slice2, 24, true, deadline)
 	t.EdgeSlice = pairPruning(t.Edge2, t.Slice2, 24, true, deadline)
 	t.CornerDistance = pairPruning(t.Corner, make([]uint16, 18), 1, false, deadline)
+	t.CornerComb, t.PermInverse, t.SliceInverse = phase2PermutationCoordinates(deadline)
+	t.EdgeComb = pairPruning(t.Edge2, cornerCombinationMoves(), 140, true, deadline)
+	t.ConjTwist, t.ConjFlip = phase1ConjugateCoordinates(deadline)
 	if tableDeadlineExceeded(deadline) {
 		return nil
 	}
@@ -131,6 +137,9 @@ func pairPruning(a, b []uint16, bSize int, phase2 bool, deadline time.Time) []ui
 	}
 	dist := make([]uint8, len(a)/18*bSize)
 	for i := range dist {
+		if i&65535 == 0 && tableDeadlineExceeded(deadline) {
+			return nil
+		}
 		dist[i] = 255
 	}
 	dist[0] = 0
@@ -166,7 +175,7 @@ func coordinateCachePath() string {
 		}
 		dir = filepath.Join(base, "cube")
 	}
-	return filepath.Join(dir, "coordinates-v2.gob")
+	return filepath.Join(dir, "coordinates-v4.gob")
 }
 
 func loadCoordinateTables() *coordinateTables {
@@ -183,7 +192,7 @@ func loadCoordinateTablesLimit(deadline time.Time) *coordinateTables {
 	}
 	defer f.Close()
 	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() < 32 || info.Size() > 16<<20 || tableDeadlineExceeded(deadline) {
+	if err != nil || !info.Mode().IsRegular() || info.Size() < 32 || info.Size() > 32<<20 || tableDeadlineExceeded(deadline) {
 		return nil
 	}
 	// Allocate only the checked size, even if the file grows after Stat.
@@ -204,6 +213,12 @@ func loadCoordinateTablesLimit(deadline time.Time) *coordinateTables {
 		return nil
 	}
 	if len(t.Twist) != 2187*18 || len(t.Flip) != 2048*18 || len(t.Slice) != 495*18 || len(t.Corner) != 40320*18 || len(t.Edge2) != 40320*18 || len(t.Slice2) != 24*18 || len(t.TwistSlice) != 2187*495 || len(t.FlipSlice) != 2048*495 || len(t.TwistFlip) != 2187*2048 || len(t.CornerSlice) != 40320*24 || len(t.EdgeSlice) != 40320*24 || len(t.CornerDistance) != 40320 {
+		return nil
+	}
+	if len(t.CornerComb) != 40320 || len(t.EdgeComb) != 40320*140 || len(t.PermInverse) != 40320 || len(t.SliceInverse) != 24 {
+		return nil
+	}
+	if len(t.ConjTwist) != 2187 || len(t.ConjFlip) != 2048*495 {
 		return nil
 	}
 	return &t
@@ -237,9 +252,17 @@ func saveCoordinateTables(t *coordinateTables) {
 }
 
 func (t *coordinateTables) phase1Bound(co, eo, sl int) int {
-	return max(int(t.TwistSlice[co*495+sl]), int(t.FlipSlice[eo*495+sl]), int(t.TwistFlip[co*2048+eo]))
+	return max(int(t.TwistSlice[co*495+sl]), int(t.FlipSlice[eo*495+sl]), int(t.TwistFlip[co*2048+eo]), int(t.TwistFlip[int(t.ConjTwist[co])*2048+int(t.ConjFlip[eo*495+sl])]))
 }
 
 func (t *coordinateTables) phase2Bound(cp, ep, sp int) int {
-	return max(int(t.CornerSlice[cp*24+sp]), int(t.EdgeSlice[ep*24+sp]))
+	return max(int(t.CornerSlice[cp*24+sp]), int(t.EdgeSlice[ep*24+sp]), int(t.EdgeComb[ep*140+int(t.CornerComb[cp])]), int(t.EdgeComb[int(t.PermInverse[ep])*140+int(t.CornerComb[t.PermInverse[cp]])]))
+}
+
+func (t *coordinateTables) phase2Pruned(cp, ep, sp, left int) bool {
+	return int(t.CornerSlice[cp*24+sp]) > left || int(t.EdgeSlice[ep*24+sp]) > left || int(t.EdgeComb[ep*140+int(t.CornerComb[cp])]) > left || int(t.EdgeComb[int(t.PermInverse[ep])*140+int(t.CornerComb[t.PermInverse[cp]])]) > left
+}
+
+func (t *coordinateTables) phase2InverseBound(cp, ep, sp int) int {
+	return t.phase2Bound(int(t.PermInverse[cp]), int(t.PermInverse[ep]), int(t.SliceInverse[sp]))
 }

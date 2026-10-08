@@ -75,6 +75,7 @@ func TestOptimalTableInitializationWaitDeadline(t *testing.T) {
 	}{
 		{"coordinates", tablesLock, func(d time.Time) bool { return solverTablesLimit(d) != nil }},
 		{"edges", edgeLock, func(d time.Time) bool { return searchEdgePatternsLimit(d) != nil }},
+		{"large optimal", optimalLock, func(d time.Time) bool { return optimalPatternTables(solverTables(), d) != nil }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.lock <- struct{}{}

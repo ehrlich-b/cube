@@ -39,34 +39,66 @@ and shortest-sequence pattern search.
 - Optimal search is exponential on deep states; wildcard heuristics are weaker
   than exact-state heuristics. Use Kociemba for general scramble solving.
 
-Earlier measurements on this Mac under background QoS (2026-10-07): CLI searches of
-exact depths 8/9/10 took **0.72/0.46/0.52 seconds**, including table setup.
-Ten seeded targets per depth averaged **0.29/1.58/9.40 ms** with tables loaded.
-The independent Python oracle replayed **200 uniform physical states**, including
-all 24 grips, with this before/after comparison:
+Native measurements on this Mac under background QoS (2026-10-07, Go 1.26.2,
+`nice -n 15`, one search thread) use **1,000 uniform legal states in one process**.
+The seed is `2026100709`; table setup and a fresh cached subprocess are measured
+separately from the warm solves. Every answer is replayed against the original
+stickers and the input is checked for mutation.
 
-| Kociemba search | Mean turns | Max | ≤20 turns | Fresh CLI mean / max |
-|---|---:|---:|---:|---:|
-| First solution (before) | 21.730 | 22 | 2.5% | 68.51 / 256.60 ms |
-| Six views, improving solutions | **19.775** | **21** | **98.5%** | **162.53 / 1069.96 ms** |
+| Two-phase search | Mean turns | Max | ≤20 turns | Warm mean | Warm p99 | Warm max |
+|---|---:|---:|---:|---:|---:|---:|
+| c862379 (CPU profile enabled) | 19.801 | 21 | 98.8% | 88.80 ms | 1000.08 ms | 1000.52 ms |
+| Symmetry-reduced phase one | **19.932** | **20** | **100%** | **6.37 ms** | **73.39 ms** | **252.56 ms** |
 
-The seeded 200-uniform-state Go sample with loaded tables averaged **19.790**
-turns, maximum **21**, with mean/max solve time **89.47 / 1000.19 ms**
-(before: **21.675 / 22** turns, **18.47 / 267.90 ms**).
-These samples are not worst-case bounds; a 20-turn solution is a stopping goal,
-not a guarantee. Grip rotations are separate from face-turn length.
-The anytime search improves its incumbent across three axes and their inverses,
-tightens the total-length bound, and combines twist/slice, flip/slice and
-twist/flip pruning. It returns the best verified solution after one second, or
-stops early at 20 turns. If no solution was found, it reports a timeout.
+A **fresh process with cached tables took 885.49 ms**, including a solve of the
+first uniform fixture. These are seeded sample measurements, not worst-case
+bounds. `make bench-kociemba` reproduces the warm sample and cold cached process;
+`make test-kociemba` independently constructs and physically replays 200 states
+in Python, including all 24 grips, and requires every answer to be ≤20 turns.
 
-Kociemba tables are generated deterministically on first use and cached under
-the user's cache directory (`cube/coordinates-v2.gob`); `CUBE_CACHE_DIR` overrides
-the location. The expanded tables took **1.83 seconds** to generate in native Go.
-One-time loading/generation is separate from Kociemba's search budget, including
-in browser workers; `--optimal` still includes setup in its time limit.
-Search's four-edge tables take about **0.49 seconds** to generate in memory.
-No generated tables are committed; a missing or invalid cache is rebuilt.
+The native search uses an exact phase-one database with **295,004,160 states**:
+291 corner-orientation classes under eight U/D-axis rotations, paired with
+flip/slice in the same symmetry frame. Four-bit distances occupy
+**147,502,080 bytes (140.67 MiB)**. Generation took **120.99 seconds**; its
+breadth-first frontier temporarily needs roughly **1.6 GiB**. Representative
+stabilizers are handled as zero-cost equivalences, and final layers are filled
+by reverse scanning. `make test-phase1-tables` checks admissibility, consistency,
+and descending witnesses through the whole distance range (maximum 12).
+
+Three axes, inverse views and one pre-move share a resumable search budget.
+Phase two uses corner/slice, edge/slice and edge/corner-combination-plus-parity
+bounds, including inverse pruning. The move and pruning strategy is informed
+by [min2phase](https://github.com/cs0x7f/min2phase); paired timings against
+min2phase/Cube Explorer and nissy/vcube remain to be measured on this machine.
+
+Tables are generated deterministically and cached in the user's cache directory
+(`cube/coordinates-v4.gob`, `cube/phase1-sym8-v1.bin`); `CUBE_CACHE_DIR` overrides
+that directory. Native first use without the large cache includes its generation.
+Kociemba setup is separate from its search budget. WASM uses the smaller pair
+pruning tables, and native `CUBE_SMALL_TABLES=1` selects that fallback. The native
+warm figures above do not describe the fallback. Checksums, dimensions and move
+fingerprints guard the large caches; invalid or unavailable caches are rebuilt.
+No generated tables are committed.
+
+Optimal search retains the small databases for states within ten turns. Deep
+states lazily build full-corner and two disjoint six-edge databases:
+**88,179,840 corner states** and **42,577,920 states per edge group**, packed into
+**44,089,920 + 21,288,960 + 21,288,960 bytes**. Factorized six-edge transitions
+use **47,900,160 bytes** rather than expanding all 64 orientation masks. The
+checksummed `optimal-v1.bin` is **134,568,064 bytes (128.33 MiB)**. Generation took
+**67.53 seconds**, with **665 MB peak RSS** in the measured table-oracle process.
+Loading the optimal cache took **382.43 ms** in a separate run. With both large
+caches and the small search tables loaded, allow about **300 MiB** of resident
+table data. An existing phase-one cache strengthens optimal search in all three
+axes; optimal search does not generate that additional cache when it is absent.
+Optimal setup is included in `--time-limit`, and interrupted builds never publish
+partial tables. `make test-optimal` checks distances against the exact IDA* finder
+and independently replays short states and superflip in every grip.
+
+Superflip is recognized by exact cubie coordinates and uses
+[Reid's published 20-turn lower bound](https://www.math.rwth-aachen.de/~Martin.Schoenert/Cube-Lovers/michael_reid__superflip_requires_20_face_turns.html)
+plus a replayed 20-turn witness. General states exhaust every shorter IDA* depth
+before an answer is returned; a timeout remains an explicit error.
 
 ## Algorithm database and CFOP
 

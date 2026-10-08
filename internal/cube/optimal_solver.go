@@ -24,13 +24,37 @@ func SolveOptimal(c *Cube, limit time.Duration) (*SolverResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	// IDA* proves every smaller depth impossible before returning its answer.
-	result, ok, timedOut := exactCoordinateSearchLimit(readCubie(work), nil, 22, start.Add(limit))
+	deadline := start.Add(limit)
+	if tableDeadlineExceeded(deadline) {
+		return nil, fmt.Errorf("optimal search time limit exceeded (%s)", limit)
+	}
+	state := readCubie(work)
+	result, ok := certifiedSuperflip(state)
+	timedOut := false
+	if !ok {
+		// Cheap databases handle short states without generating large tables.
+		// IDA* proves every smaller depth impossible before returning an answer.
+		result, ok, timedOut = exactCoordinateSearchLimit(state, nil, 10, deadline)
+		if !ok && !timedOut {
+			t := solverTablesLimit(deadline)
+			if t == nil {
+				timedOut = true
+			} else {
+				db := optimalPatternTables(t, deadline)
+				if db == nil {
+					timedOut = true
+				} else {
+					cachedPhase1PatternTables(t, deadline)
+					result, ok, timedOut = largeOptimalSearchLimit(state, t, db, deadline)
+				}
+			}
+		}
+	}
 	if timedOut {
 		return nil, fmt.Errorf("optimal search time limit exceeded (%s); use --method kociemba for a fast solution", limit)
 	}
 	if !ok {
-		return nil, fmt.Errorf("no optimal solution found within 22 face turns")
+		return nil, fmt.Errorf("no optimal solution found within 20 face turns")
 	}
 	moves := append(compactGrip(rotations), result...)
 	check := c.clone()

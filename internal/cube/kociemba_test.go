@@ -37,6 +37,36 @@ func TestTwoPhaseViewsAndResumption(t *testing.T) {
 	}
 }
 
+func TestTwoPhasePreMoveViews(t *testing.T) {
+	tables := solverTables()
+	c := NewCube(3)
+	scramble, _ := ParseMoves("R U F2 L' B")
+	c.ApplyMoves(scramble)
+	views := preMoveViews(twoPhaseViews(c, tables), tables)
+	if len(views) != 54 {
+		t.Fatal("missing pre-move/inverse/axis views", len(views))
+	}
+	for i := range views {
+		s := &views[i]
+		var path []int
+		for calls := 0; calls < 1000000 && path == nil; calls++ {
+			var done bool
+			path, done = s.advance(tables, 29, 1)
+			if done {
+				s.startDepth(s.depth + 1)
+			}
+		}
+		if path == nil {
+			t.Fatal("pre-move view did not finish", i)
+		}
+		check := c.clone()
+		check.ApplyMoves(s.moves(path))
+		if !check.IsSolved() {
+			t.Fatal("pre-move/inverse/axis view failed replay", i)
+		}
+	}
+}
+
 func TestPhaseOneCombinedPruning(t *testing.T) {
 	tables := solverTables()
 	rng := rand.New(rand.NewSource(2026100711))
@@ -61,6 +91,7 @@ func TestPhaseOneCombinedPruning(t *testing.T) {
 
 func TestKociembaBudgetAndTarget(t *testing.T) {
 	solverTables()
+	phase1PatternTables(solverTables()) // Search budget excludes all one-time tables.
 	c := NewCube(3)
 	moves, _ := ParseMoves("R U F2 L' B D2 R F U2 B' L2 U R2 D F' L B2 D' R U2")
 	c.ApplyMoves(moves)
