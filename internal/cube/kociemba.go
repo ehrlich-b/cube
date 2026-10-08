@@ -6,8 +6,9 @@ import (
 	"time"
 )
 
-// KociembaOptions controls an anytime two-phase search. TargetLength is a
-// stopping goal in face turns, not a guarantee or a proof of optimality.
+// KociembaOptions controls a time-limited two-phase search. TargetLength is a
+// stopping goal in face turns, not a proof of optimality. Successful results
+// have at most max(20, TargetLength) face turns, including on timeout.
 // TimeLimit covers search; one-time table initialization is separate so cold
 // Web Workers can finish building tables and still receive a search budget.
 type KociembaOptions struct {
@@ -31,11 +32,13 @@ type twoPhase struct {
 	endpoint                                   cubie
 	endpointPrev                               int
 	path                                       [30]int
-	one                                        [13]phaseNode
-	two                                        [19]phaseNode
+	one                                        [31]phaseNode
+	two                                        [31]phaseNode
 	depth, level                               int
 	depth2, level2                             int
 	active2                                    bool
+	nodes                                      uint64
+	complete                                   bool
 }
 
 func (s *twoPhase) startDepth(depth int) {
@@ -48,6 +51,7 @@ func (s *twoPhase) startDepth(depth int) {
 // total bound tightens immediately when any view finds a shorter solution.
 func (s *twoPhase) advance(t *coordinateTables, bound, quantum int) ([]int, bool) {
 	for visited := 0; visited < quantum; visited++ {
+		s.nodes++
 		if !s.active2 && s.pendingAlternate {
 			s.pendingAlternate, s.alternateActive = false, true
 			state := cubieMoves[s.preMoves[0]/3*3+1].mul(s.endpoint)
@@ -55,7 +59,7 @@ func (s *twoPhase) advance(t *coordinateTables, bound, quantum int) ([]int, bool
 			continue
 		}
 		if s.active2 {
-			if s.depth2 > min(12, bound-s.depth) {
+			if s.depth2 > s.phaseTwoDepth(bound) {
 				s.active2 = false
 				continue
 			}
@@ -116,7 +120,7 @@ func (s *twoPhase) advance(t *coordinateTables, bound, quantum int) ([]int, bool
 			// A final subgroup move just duplicates an endpoint at a smaller
 			// phase-one depth. Move it into phase two instead.
 			s.level--
-			if s.depth > 0 && isPhase2Move(s.path[s.depth-1]) {
+			if !s.complete && s.depth > 0 && isPhase2Move(s.path[s.depth-1]) {
 				continue
 			}
 			state := s.root
@@ -136,7 +140,7 @@ func (s *twoPhase) advance(t *coordinateTables, bound, quantum int) ([]int, bool
 		// A subgroup excursion of fewer than five turns cannot produce a
 		// new phase-one endpoint with our canonical consecutive-face rule.
 		// Its subgroup turns belong at the start of phase two instead.
-		if n.a == 0 && n.b == 0 && n.c == 0 && s.depth-s.level < 5 {
+		if !s.complete && n.a == 0 && n.b == 0 && n.c == 0 && s.depth-s.level < 5 {
 			s.level--
 			continue
 		}
@@ -262,13 +266,27 @@ func preMoveViews(base [6]twoPhase, t *coordinateTables) []twoPhase {
 }
 
 func solveTwoPhase(c *Cube) (*SolverResult, error) {
-	return SolveKociemba(c, KociembaOptions{TargetLength: 20, TimeLimit: time.Second})
+	return solveKociemba(c, KociembaOptions{TargetLength: 20, TimeLimit: time.Second}, &kociembaSearch{softLimit: true})
 }
 
-// SolveKociemba returns the best verified solution found before the search
-// budget expires, or stops early on reaching TargetLength. If the budget is
-// too short to find even one solution, it returns an explicit timeout error.
+// SolveKociemba stops on reaching TargetLength or the explicit search deadline.
+// At expiry it may return an incumbent only within max(20, TargetLength) face
+// turns; otherwise it returns a time-limit error. Use KociembaSolver.Solve for
+// the default quality search, which continues until <=20 without a deadline.
 func SolveKociemba(c *Cube, options KociembaOptions) (*SolverResult, error) {
+	return solveKociemba(c, options, &kociembaSearch{})
+}
+
+// Keep clock injection local to each solve so regression tests do not race with
+// other callers. Nodes count DFS cursor operations, including pruning/backtrack
+// work, rather than depending on elapsed time or processor speed.
+type kociembaSearch struct {
+	now       func() time.Time
+	softLimit bool
+	nodes     uint64
+}
+
+func solveKociemba(c *Cube, options KociembaOptions, search *kociembaSearch) (*SolverResult, error) {
 	start := time.Now()
 	if options.TargetLength < 1 || options.TargetLength > 30 {
 		return nil, fmt.Errorf("Kociemba target length must be between 1 and 30")
@@ -300,14 +318,17 @@ func SolveKociemba(c *Cube, options KociembaOptions) (*SolverResult, error) {
 		phase1PatternTables(t)
 	}
 	base := twoPhaseViews(work, t)
-	deadline := time.Now().Add(options.TimeLimit)
+	now := search.now
+	if now == nil {
+		now = time.Now
+	}
+	deadline := now().Add(options.TimeLimit)
+	expired := func() bool { return !search.softLimit && !now().Before(deadline) }
 	bound := max(20, options.TargetLength)
-	fallback := time.Now().Add(options.TimeLimit * 4 / 5)
-	restarted := false
 	var best []Move
 	stage := 0
 searchStages:
-	for stage <= 12 {
+	for stage <= 13+max(20, options.TargetLength) {
 		views := phaseOneStageViews(base, t, stage)
 
 		pending := make([]bool, len(views))
@@ -316,22 +337,20 @@ searchStages:
 			pending[i] = true
 		}
 		for active > 0 {
-			if !time.Now().Before(deadline) {
+			if expired() {
 				break searchStages
-			}
-			if best == nil && !restarted && !time.Now().Before(fallback) {
-				bound, restarted, stage = 30, true, 0
-				continue searchStages
 			}
 			for i := range views {
 				if !pending[i] {
 					continue
 				}
-				if !time.Now().Before(deadline) {
+				if expired() {
 					break searchStages
 				}
 				s := &views[i]
+				before := s.nodes
 				path, done := s.advance(t, bound-len(s.preMoves), 1024)
+				search.nodes += s.nodes - before
 				if path != nil {
 					candidate := s.moves(path)
 					if best == nil || len(candidate) < len(best) {
@@ -351,7 +370,10 @@ searchStages:
 		stage++
 	}
 	if best == nil {
-		return nil, fmt.Errorf("Kociemba time limit exceeded (%s) before finding a solution", options.TimeLimit)
+		if expired() {
+			return nil, fmt.Errorf("Kociemba time limit exceeded (%s) before finding a solution within %d face turns", options.TimeLimit, max(20, options.TargetLength))
+		}
+		return nil, fmt.Errorf("Kociemba search exhausted without a solution within %d face turns", max(20, options.TargetLength))
 	}
 	moves := append(compactGrip(rotations), best...)
 	check := c.clone()
@@ -463,6 +485,21 @@ var phase1SearchCandidates, phase2SearchCandidates = func() ([19]int, [19]int) {
 // A view cannot advance to an expensive deeper reduction while another axis
 // still has cheap endpoints at this length. Pre-moves keep depth at least seven.
 func phaseOneStageViews(base [6]twoPhase, t *coordinateTables, stage int) []twoPhase {
+	if stage > 12 {
+		// The fast reductions cap each phase. If they exhaust, enumerate every
+		// phase-one depth from zero through the total bound in one original
+		// view, with unrestricted phase-two suffixes and no endpoint shortcuts.
+		// Any solution splits at its last non-subgroup turn (or at depth zero
+		// for an all-subgroup solution), so this finite fallback is complete.
+		s := base[0]
+		s.complete = true
+		depth := stage - 13
+		if t.twoPhaseBound(s.root.twist(), s.root.flip(), s.root.slice()) > depth {
+			return nil
+		}
+		s.startDepth(depth)
+		return []twoPhase{s}
+	}
 	var views []twoPhase
 	for _, s := range base {
 		if t.twoPhaseBound(s.root.twist(), s.root.flip(), s.root.slice()) <= stage {
@@ -491,10 +528,17 @@ func (s *twoPhase) preSuffix() []int {
 
 func (s *twoPhase) startPhaseTwo(t *coordinateTables, state cubie, prev, bound int) {
 	s.two[0] = phaseNode{a: permutationRank(state.cp[:]), b: permutationRank(state.ep[:8]), c: permutationRank(state.ep[8:]), next: phase2SearchCandidates[prev]}
-	s.depth2 = min(12, bound-s.depth)
+	s.depth2 = s.phaseTwoDepth(bound)
 	if max(t.phase2Bound(s.two[0].a, s.two[0].b, s.two[0].c), t.phase2InverseBound(s.two[0].a, s.two[0].b, s.two[0].c)) > s.depth2 {
 		s.active2 = false
 		return
 	}
 	s.level2, s.active2 = 0, true
+}
+
+func (s *twoPhase) phaseTwoDepth(bound int) int {
+	if s.complete {
+		return bound - s.depth
+	}
+	return min(12, bound-s.depth)
 }

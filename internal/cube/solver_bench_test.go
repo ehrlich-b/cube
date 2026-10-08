@@ -51,6 +51,18 @@ func TestTwoPhaseBenchmark1000(t *testing.T) {
 	if os.Getenv("CUBE_BENCH") != "1" {
 		t.Skip("make bench-kociemba")
 	}
+	runTwoPhaseBenchmark(t, 1000)
+}
+
+func TestTwoPhaseDeterminism10000(t *testing.T) {
+	if os.Getenv("CUBE_DETERMINISM") != "1" {
+		t.Skip("CUBE_DETERMINISM=1 go test ./internal/cube -run '^TestTwoPhaseDeterminism10000$'")
+	}
+	runTwoPhaseBenchmark(t, 10000)
+}
+
+func runTwoPhaseBenchmark(t *testing.T, count int) {
+	t.Helper()
 	start := time.Now()
 	solverTables()
 
@@ -67,16 +79,25 @@ func TestTwoPhaseBenchmark1000(t *testing.T) {
 	}
 	t.Logf("cold cached process including solve: %v", time.Since(start))
 	r := rand.New(rand.NewSource(2026100709))
-	durations := make([]time.Duration, 1000)
+	durations := make([]time.Duration, count)
 	hist := make(map[int]int)
 	var total time.Duration
+	var maxNodes uint64
+	worstWork, worstTime := 0, 0
 	for i := range durations {
 		state := uniformCubie(r)
 		c := cubeFromCoordinates(state)
 		start = time.Now()
-		result, err := SolveKociemba(c, KociembaOptions{TargetLength: 20, TimeLimit: time.Second})
+		search := &kociembaSearch{softLimit: true}
+		result, err := solveKociemba(c, KociembaOptions{TargetLength: 20, TimeLimit: time.Second}, search)
 		durations[i] = time.Since(start)
 		total += durations[i]
+		if durations[i] > durations[worstTime] {
+			worstTime = i
+		}
+		if search.nodes > maxNodes {
+			maxNodes, worstWork = search.nodes, i
+		}
 
 		if err != nil {
 			t.Fatalf("state %d: %v", i, err)
@@ -90,14 +111,16 @@ func TestTwoPhaseBenchmark1000(t *testing.T) {
 		}
 		hist[TurnCount(result.Solution)]++
 	}
+	maxTime := durations[worstTime]
 	sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
-	t.Logf("1000 uniform states; warm mean %v p99 %v max %v; lengths %v", total/1000, durations[989], durations[999], hist)
+	p99 := durations[(count*99+99)/100-1]
+	t.Logf("%d uniform states; warm mean %v p99 %v max %v (state %d); max DFS operations %d (state %d); lengths %v", count, total/time.Duration(count), p99, maxTime, worstTime, maxNodes, worstWork, hist)
 	for length, count := range hist {
 		if length > 20 {
 			t.Errorf("length target missed: %d states at %d turns", count, length)
 		}
 	}
-	if total/1000 >= 50*time.Millisecond || durations[989] >= 250*time.Millisecond {
+	if total/time.Duration(count) >= 50*time.Millisecond || p99 >= 250*time.Millisecond {
 		t.Error("warm latency target missed: mean <50ms and p99 <250ms required")
 	}
 }
@@ -107,7 +130,7 @@ func TestTwoPhaseColdBenchmark(t *testing.T) {
 		t.Skip("benchmark subprocess")
 	}
 	c := cubeFromCoordinates(uniformCubie(rand.New(rand.NewSource(2026100709))))
-	result, err := SolveKociemba(c, KociembaOptions{TargetLength: 20, TimeLimit: time.Second})
+	result, err := (&KociembaSolver{}).Solve(c)
 	if err != nil {
 		t.Fatal(err)
 	}

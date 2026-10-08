@@ -17,7 +17,12 @@ Face turns are clockwise when looking directly at that face. An apostrophe
 reverses the turn; `2` means a half turn. Keep spaces between moves.
 
 The default method is Kociemba, a two-phase solver. It returns verified moves;
-it does not promise a shortest solution. Beginner uses layer-by-layer move
+default 3×3 solves keep searching until they find at most 20 face turns, even
+past the former one-second budget. It does not promise a shortest solution.
+With explicit `--time-limit` or `--target-length` flags, the search honors a hard
+deadline and errors unless it has a solution within `max(20, target)` face turns.
+A target below 20 is a stopping goal; expiry can return a ≤20 incumbent.
+Table setup is separate from that search deadline. Beginner uses layer-by-layer move
 groups. CFOP prints Cross, F2L, OLL and PLL checkpoints with database case names.
 
 ```sh

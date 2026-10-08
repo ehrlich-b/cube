@@ -222,16 +222,28 @@ func TestKociembaBudgetAndTarget(t *testing.T) {
 	moves, _ := ParseMoves("R U F2 L' B D2 R F U2 B' L2 U R2 D F' L B2 D' R U2")
 	c.ApplyMoves(moves)
 	before := readCubie(c)
-	// An impossible stopping goal forces budget expiry AFTER an incumbent.
-	started := time.Now()
-	result, err := SolveKociemba(c, KociembaOptions{TargetLength: 1, TimeLimit: 100 * time.Millisecond})
+	// Measure the work to the first <=20 incumbent, then expire the injected
+	// clock immediately after that work. CPU scheduling cannot change the test.
+	first := &kociembaSearch{softLimit: true}
+	if _, err := solveKociemba(c, KociembaOptions{20, time.Second}, first); err != nil {
+		t.Fatal(err)
+	}
+	epoch := time.Unix(0, 0)
+	search := &kociembaSearch{}
+	search.now = func() time.Time {
+		if search.nodes >= first.nodes {
+			return epoch.Add(100 * time.Millisecond)
+		}
+		return epoch
+	}
+	result, err := solveKociemba(c, KociembaOptions{1, 100 * time.Millisecond}, search)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if elapsed := time.Since(started); elapsed < 100*time.Millisecond || elapsed > time.Second {
-		t.Fatalf("budget not respected: %v", elapsed)
+	if search.nodes != first.nodes {
+		t.Fatalf("expired search continued: %d operations, want %d", search.nodes, first.nodes)
 	}
-	if len(result.Solution) == 0 || len(result.Solution) > 30 || readCubie(c) != before {
+	if len(result.Solution) == 0 || TurnCount(result.Solution) > 20 || readCubie(c) != before {
 		t.Fatal("timeout lost incumbent or mutated input")
 	}
 	check := c.clone()
@@ -252,5 +264,100 @@ func TestKociembaBudgetAndTarget(t *testing.T) {
 	result, err = SolveKociemba(near, KociembaOptions{TargetLength: 1, TimeLimit: time.Second})
 	if err != nil || TurnCount(result.Solution) != 1 {
 		t.Fatal("one-turn target did not stop on its solution", result, err)
+	}
+}
+
+func TestKociembaDeadlineCase198(t *testing.T) {
+	c := NewCube(3)
+	moves, err := ParseMoves("D' F2 D' R' U' F' U' B2 D F' R B2 U' R' U2 D2 B' D2 B D' R2 F' B' D' L U' B U' F U")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.ApplyMoves(moves)
+	before := readCubie(c)
+	epoch := time.Unix(0, 0)
+	calls := 0
+	now := func() time.Time {
+		calls++
+		if calls <= 2 {
+			return epoch
+		}
+		if calls < 250 {
+			return epoch.Add(850 * time.Millisecond)
+		}
+		return epoch.Add(time.Second)
+	}
+	// Before the fix this exact clock triggered the 80% restart at bound 30
+	// and returned a verified 21-turn solution at the deadline.
+	result, err := solveKociemba(c, KociembaOptions{20, time.Second}, &kociembaSearch{now: now})
+	if result != nil || err == nil || !strings.Contains(err.Error(), "time limit exceeded") {
+		t.Fatal("hard deadline silently missed the <=20 requirement", result, err)
+	}
+	for _, soft := range []bool{false, true} {
+		calls = 0
+		tiny := &kociembaSearch{softLimit: soft, now: func() time.Time {
+			calls++
+			return epoch.Add(time.Duration(calls) * time.Second)
+		}}
+		result, err = solveKociemba(c, KociembaOptions{20, time.Nanosecond}, tiny)
+		if !soft {
+			if result != nil || err == nil || !strings.Contains(err.Error(), "time limit exceeded") || tiny.nodes != 0 {
+				t.Fatal("tiny hard deadline must error before search", result, err, tiny.nodes)
+			}
+			continue
+		}
+		if err != nil || TurnCount(result.Solution) > 20 {
+			t.Fatal("default quality must survive a tiny soft deadline", result, err)
+		}
+		check := c.clone()
+		check.ApplyMoves(result.Solution)
+		if !check.IsSolved() || readCubie(c) != before {
+			t.Fatal("default quality violated replay/input contract")
+		}
+		t.Logf("case 198: %d turns, %d deterministic DFS operations", TurnCount(result.Solution), tiny.nodes)
+	}
+}
+
+func TestKociembaCompleteFallback(t *testing.T) {
+	tables := solverTables()
+	for _, text := range []string{"U R2 D' F2", "R U F'", "R U R' U' F2"} {
+		c := NewCube(3)
+		scramble, err := ParseMoves(text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.ApplyMoves(scramble)
+		base := twoPhaseViews(c, tables)
+		var solution []Move
+		for depth := 0; depth <= len(scramble) && solution == nil; depth++ {
+			views := phaseOneStageViews(base, tables, 13+depth)
+			if len(views) == 0 {
+				if tables.twoPhaseBound(base[0].root.twist(), base[0].root.flip(), base[0].root.slice()) <= depth {
+					t.Fatal("fallback omitted a feasible reduction depth")
+				}
+				continue
+			}
+			if len(views) != 1 || !views[0].complete || views[0].phaseTwoDepth(20) != 20-depth {
+				t.Fatal("fallback retained a fast-search depth restriction")
+			}
+			s := &views[0]
+			for {
+				path, done := s.advance(tables, len(scramble), 1)
+				if path != nil {
+					solution = s.moves(path)
+					break
+				}
+				if done {
+					break
+				}
+			}
+		}
+		if solution == nil || TurnCount(solution) > len(scramble) {
+			t.Fatal("complete fallback lost an existing bounded solution", text)
+		}
+		c.ApplyMoves(solution)
+		if !c.IsSolved() {
+			t.Fatal("complete fallback failed replay", text)
+		}
 	}
 }
