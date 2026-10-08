@@ -54,6 +54,174 @@ async function runAlgorithm(page, moves) {
   await page.waitForFunction(() => document.getElementById("play").textContent === "Play");
 }
 
+async function savedStateRegressions(page, baseURL, solved) {
+  const failures = [];
+  const stickers = () => page.locator("#cube .sticker").evaluateAll(nodes => nodes.map(node =>
+    `${node.dataset.face}:${node.dataset.index}:${node.dataset.color}`).sort());
+  const checks = [
+    ["blank/invalid CFEN preserves the cube and history", async () => {
+      await page.goto(`${baseURL}?import`);
+      await idle(page);
+      await page.locator("#speed").selectOption("70", { force: true });
+      await runAlgorithm(page, "R U");
+      const mixed = await page.locator("#cfen").inputValue();
+      const visible = await stickers();
+      const savedURL = page.url();
+      for (const input of ["", "   ", "not a CFEN", "YB|W9/R9/B9/W9/O9/G9"]) {
+        await page.locator("#cfen").fill(input);
+        await page.locator("#import").click();
+        assert.equal(await page.locator("#notice").getAttribute("class"), "notice error", `reject ${JSON.stringify(input)}`);
+        assert.ok((await page.locator("#notice").textContent()).trim());
+        assert.deepEqual(await stickers(), visible, "failed import preserves visible stickers");
+        assert.equal(page.url(), savedURL, "failed import preserves saved state");
+        assert.equal(await page.locator("#progress").textContent(), "2 / 2");
+        assert.equal(await page.locator("#undo").isEnabled(), true);
+        assert.equal(await page.locator("#redo").isEnabled(), false);
+      }
+      await page.locator("#undo").click();
+      const afterR = await page.evaluate(() => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", moves: "R" }))).data.state.cfen);
+      assert.equal(await page.locator("#cfen").inputValue(), afterR);
+      await page.locator("#undo").click();
+      assert.equal(await page.locator("#cfen").inputValue(), solved);
+      await page.locator("#redo").click();
+      await page.locator("#redo").click();
+      assert.equal(await page.locator("#cfen").inputValue(), mixed, "both turns remain redoable");
+    }],
+    ["edited algorithm drafts survive share/reload beside prepared playback", async () => {
+      await page.goto(`${baseURL}?draft`);
+      await idle(page);
+      await page.locator("#speed").selectOption("70", { force: true });
+      await runAlgorithm(page, "R U");
+      const mixed = await page.locator("#cfen").inputValue();
+      for (const draft of [" F\n", "R U (", ""]) {
+        await page.locator("#algorithm").fill(draft);
+        await page.locator("#share").click();
+        const shared = await page.evaluate(() => globalThis.copiedText);
+        assert.equal(new URLSearchParams(new URL(shared).hash.slice(1)).get("draft"), draft, "share includes the exact visible draft");
+        await page.reload();
+        await idle(page);
+        assert.equal(await page.locator("#algorithm").inputValue(), draft);
+        assert.equal(await page.locator("#cfen").inputValue(), mixed);
+        assert.equal(await page.locator("#progress").textContent(), "2 / 2");
+        assert.deepEqual(await page.locator("#sequence-moves button").allTextContents(), ["R", "U"]);
+        await page.goto(`${baseURL}?fresh`);
+        await idle(page);
+        await page.goto(shared);
+        await idle(page);
+        assert.equal(await page.locator("#algorithm").inputValue(), draft, "a shared link restores the draft too");
+        assert.equal(await page.locator("#cfen").inputValue(), mixed);
+      }
+      await page.locator("#speed").selectOption("70");
+      await runAlgorithm(page, "F");
+      const afterF = await page.evaluate(cfen => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves: "F" }))).data.state.cfen, mixed);
+      assert.equal(await page.locator("#cfen").inputValue(), afterF, "Play above the draft runs the edited text");
+      await page.goto(baseURL);
+      await idle(page);
+      await page.locator("#algorithm").fill("R U (");
+      await page.reload();
+      await idle(page);
+      assert.equal(await page.locator("#algorithm").inputValue(), "R U (", "an unprepared incomplete draft also survives");
+      assert.equal(await page.locator("#cfen").inputValue(), solved);
+      assert.equal(await page.locator("#playback").isVisible(), false);
+    }],
+    ["reload restores the first committed scramble turn exactly", async () => {
+      for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: width === 1280 ? 800 : 844 });
+        await page.goto(`${baseURL}?scramble=${width}`);
+        await idle(page);
+        // Capture the first committed render and stop at the next animation.
+        // This avoids racing a later turn between reading CFEN and reloading.
+        await page.evaluate(() => {
+          const target = document.getElementById("cube");
+          const observer = new MutationObserver(() => {
+            if (target.dataset.solved !== "false") return;
+            observer.disconnect();
+            Element.prototype.animate = () => ({ finished: new Promise(() => {}) });
+            // Allow the completed turn's continuation to save its frame first.
+            queueMicrotask(() => {
+              globalThis.partialScramble = {
+                cfen: document.getElementById("cfen").value,
+                url: location.href,
+                stickers: [...target.querySelectorAll(".sticker")].map(node => `${node.dataset.face}:${node.dataset.index}:${node.dataset.color}`).sort()
+              };
+            });
+          });
+          observer.observe(target, { attributes: true, childList: true });
+        });
+        await page.locator("#scramble").click();
+        await page.waitForFunction(() => !!globalThis.partialScramble);
+        const partial = await page.evaluate(() => globalThis.partialScramble);
+        assert.notEqual(partial.cfen, solved);
+        const expected = await page.evaluate(() => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", moves: document.getElementById("scramble-text").textContent.split(" ")[0] }))).data.state.cfen);
+        assert.equal(partial.cfen, expected, "snapshot is exactly the first scramble turn");
+        assert.equal(new URLSearchParams(new URL(partial.url).hash.slice(1)).get("current"), partial.cfen, "the committed frame is saved while Scramble is busy");
+        await page.reload();
+        await idle(page);
+        assert.equal(await page.locator("#cfen").inputValue(), partial.cfen);
+        assert.deepEqual(await stickers(), partial.stickers);
+      }
+      await page.setViewportSize({ width: 1280, height: 800 });
+    }],
+    ["restored lessons retain instructions/checks and can continue", async () => {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto(`${baseURL}?lesson#scramble=F+R+U+B+L+D`);
+      await idle(page);
+      await page.locator("#tab-lesson").click();
+      await page.locator("#start-lesson").click();
+      await idle(page);
+      const lesson = await page.locator("#lesson-content").textContent();
+      const moves = await page.locator("#sequence-moves button").allTextContents();
+      assert.ok(moves.length > 1);
+      await page.locator("#step").click();
+      await idle(page);
+      const checkpoint = await page.locator("#cfen").inputValue();
+      const shared = page.url();
+      await page.reload();
+      await idle(page);
+      assert.equal(await page.locator("#cfen").inputValue(), checkpoint);
+      assert.equal(await page.locator("#progress").textContent(), `1 / ${moves.length}`);
+      assert.equal(await page.locator("#lesson-content").textContent(), lesson);
+      assert.equal(await page.locator("#tab-lesson").getAttribute("aria-selected"), "true");
+      assert.equal(await page.locator(".checkpoint-check").isVisible(), true);
+      assert.equal(await page.locator("#lesson-content .lesson-action").count() > 0, true);
+      await page.locator(".control-card").evaluate(node => node.scrollIntoView({ block: "start" }));
+      await page.screenshot({ path: path.join(screens, "lesson-restored-1280x800.png") });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.reload();
+      await idle(page);
+      assert.equal(await page.locator("#lesson-content").textContent(), lesson);
+      assert.equal(await page.locator("#cfen").inputValue(), checkpoint);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      await page.locator("#lesson").evaluate(node => node.scrollIntoView({ block: "start" }));
+      await page.screenshot({ path: path.join(screens, "lesson-restored-390x844.png") });
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.locator("#speed").selectOption("70");
+      await page.locator("#play").click();
+      await idle(page);
+      await page.waitForFunction(() => document.getElementById("play").textContent === "Play");
+      assert.match(await page.locator("#notice").textContent(), /Compare the check above/);
+      assert.equal(await page.locator(".checkpoint-check").isVisible(), true);
+      await page.locator("#lesson-content button").click();
+      await idle(page);
+      assert.equal(await page.locator(".checkpoint-check").isVisible(), true, "restored Next hint replans from the new cube");
+      await page.goto(`${baseURL}?fresh`);
+      await idle(page);
+      await page.goto(shared);
+      await idle(page);
+      assert.equal(await page.locator("#lesson-content").textContent(), lesson, "shared checkpoints retain their lesson too");
+      assert.equal(await page.locator("#cfen").inputValue(), checkpoint);
+    }]
+  ];
+  for (const [name, check] of checks) {
+    try { await check(); console.log(`PASS browser: ${name}`); }
+    catch (error) { failures.push(new Error(name, { cause: error })); console.error(`FAIL browser: ${name}: ${error.message}`); }
+  }
+  if (failures.length) throw new AggregateError(failures, "Saved-state browser regressions failed");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(baseURL);
+  await idle(page);
+}
+
 async function stickerPoint(page, face, index) {
   const sticker = page.locator(`#cube .sticker[data-face="${face}"][data-index="${index}"]`);
   const box = await sticker.boundingBox();
@@ -170,6 +338,8 @@ try {
   assert.equal(await page.locator(".sticker").count(), 54);
   assert.equal(await page.locator("#solve-method").inputValue(), "kociemba");
   await page.screenshot({ path: path.join(screens, "cube-1280x800.png") });
+
+  await savedStateRegressions(page, `http://127.0.0.1:${port}/web/`, solved);
 
   await page.locator("#help-toggle").click();
   assert.equal(await page.locator("#keyboard-help").evaluate(help => help.matches(":popover-open")), true);
@@ -524,7 +694,7 @@ try {
   assert.equal(await page.locator("#cube").getAttribute("data-solved"), "false");
   assert.deepEqual(errors, []);
   console.log("PASS browser: 390px phone layout, native touch turn/cancellation and no browser errors");
-  console.log(`Screenshots: ${path.relative(root, screens)}/{cube,drag,search,cfop}-{1280x800,390x844}.png, touch-390x844.png`);
+  console.log(`Screenshots: ${path.relative(root, screens)}/{cube,drag,search,cfop,lesson-restored}-{1280x800,390x844}.png, touch-390x844.png`);
 } finally {
   if (context) await context.close();
   if (server && server.exitCode === null) { server.kill("SIGTERM"); await once(server, "exit"); }

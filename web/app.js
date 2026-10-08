@@ -232,6 +232,13 @@ async function hint() {
   const result = await compute({ op: "learn", cfen: state.cfen }, "Planning your next beginner checkpoint…");
   const step = result.steps[0];
   if (!step) { $("lesson-content").textContent = "All six faces are solved. You’ve reached the final checkpoint."; notice("Lesson complete."); return; }
+  showLesson(step);
+  prepareSequence(step.moves, "CHECKPOINT", step.title, step.after.cfen);
+  notice("Follow the moves, check your cube, then get the next hint. Your own turns are always recoverable.");
+}
+
+function showLesson(step) {
+  $("lesson-content").replaceChildren();
   const title = document.createElement("h3");
   title.textContent = step.title;
   $("lesson-content").append(title);
@@ -253,8 +260,6 @@ async function hint() {
   next.textContent = "Next hint →";
   next.addEventListener("click", () => { if (!busy && !job) safe(hint); });
   $("lesson-content").append(next);
-  prepareSequence(step.moves, "CHECKPOINT", step.title, step.after.cfen);
-  notice("Follow the moves, check your cube, then get the next hint. Your own turns are always recoverable.");
 }
 
 async function find() {
@@ -290,7 +295,14 @@ async function mix() {
   freshState(initial, moves.join(" "));
   busy = true;
   updateControls();
-  try { for (const move of moves) await turn(move, 65); notice("Fresh scramble. Try a sequence, a lesson, or a full solution."); }
+  try {
+    for (const move of moves) {
+      await turn(move, 65);
+      // Save each committed frame even while the next scramble turn animates.
+      persistHash();
+    }
+    notice("Fresh scramble. Try a sequence, a lesson, or a full solution.");
+  }
   finally { busy = false; updateControls(); }
 }
 
@@ -302,7 +314,7 @@ async function algorithm() {
   await playSequence();
 }
 
-function restoreHash(text) {
+async function restoreHash(text) {
   const params = new URLSearchParams(text);
   const newBase = params.get("state") || "";
   const newScramble = params.get("scramble") || "";
@@ -326,8 +338,19 @@ function restoreHash(text) {
   }
   restoring = true;
   try {
+    // Rebuild teaching text from the sequence's starting cube, including links
+    // saved before lessons carried their instructions through a reload.
+    let lesson;
+    if (kind === "CHECKPOINT") {
+      const result = await compute({ op: "learn", cfen: next.cfen }, "Restoring your beginner checkpoint…");
+      lesson = result.steps[0];
+      if (!lesson || lesson.moves.join(" ") !== moves.join(" ")) throw new Error("The saved moves do not match this beginner checkpoint.");
+      const after = engine({ op: "twist", cfen: next.cfen, moves: moves.join(" ") }).state;
+      if (after.cfen !== lesson.after.cfen) throw new Error("The saved lesson did not reach its verified checkpoint.");
+    }
     freshState(next, newScramble, newBase);
-    $("algorithm").value = alg;
+    $("algorithm").value = params.get("draft") ?? alg;
+    if (lesson) { showLesson(lesson); setMode("lesson"); }
     if (moves.length || params.has("index")) {
       prepareSequence(moves, kind, title, null, stages);
       history = sequence.frames.slice(0, index + 1);
@@ -348,19 +371,15 @@ function persistHash() {
   if (start.cfen !== scrambled.cfen) params.set("state", start.cfen);
   else { if (baseCFEN) params.set("state", baseCFEN); if (scramble) params.set("scramble", scramble); }
   params.set("current", state.cfen);
+  // The editor is independent of prepared playback. Keep even empty or
+  // incomplete text verbatim without treating it as executable notation.
+  params.set("draft", $("algorithm").value);
   if (sequence) {
     params.set("alg", sequence.moves.join(" "));
     params.set("index", sequence.index);
     params.set("kind", sequence.kind);
     params.set("title", sequence.title);
     if (sequence.stages.length) params.set("stages", JSON.stringify(sequence.stages));
-  } else if ($("algorithm").value.trim()) {
-    // A valid draft remains shareable before Run. Incomplete input must not
-    // make an otherwise valid saved cube unloadable.
-    try {
-      const moves = engine({ op: "twist", moves: $("algorithm").value }).moves;
-      if (moves.length) params.set("alg", moves.join(" "));
-    } catch { /* Keep the current cube without the incomplete draft. */ }
   }
   const hash = `#${params}`;
   if (location.hash !== hash) historyReplace(hash);
@@ -417,7 +436,7 @@ document.querySelector(".tabs").addEventListener("keydown", event => {
 $("scramble").addEventListener("click", () => safe(mix));
 $("solve").addEventListener("click", () => safe(solve));
 $("run-algorithm").addEventListener("click", () => safe(algorithm));
-$("algorithm").addEventListener("input", () => { if (engine && state && !busy && !job && !restoring) persistHash(); });
+$("algorithm").addEventListener("input", () => { if (engine && state && !restoring) persistHash(); });
 $("start-lesson").addEventListener("click", () => safe(hint));
 $("find").addEventListener("click", () => safe(find));
 $("cancel-search").addEventListener("click", () => job?.cancel());
@@ -438,7 +457,9 @@ for (const mode of ["3d", "net"]) $(`view-${mode}`).addEventListener("click", ()
   $("view-hint").textContent = mode === "3d" ? "Drag stickers to turn · background to orbit" : "U above · L F R B across · D below";
 });
 $("import").addEventListener("click", () => safe(() => {
-  const next = engine({ op: "state", cfen: $("cfen").value.trim() }).state;
+  const cfen = $("cfen").value.trim();
+  if (!cfen) throw new Error("Enter a CFEN cube state before importing.");
+  const next = engine({ op: "state", cfen }).state;
   freshState(next, "", next.cfen);
   notice("Physical cube state imported.");
 }));
@@ -446,7 +467,7 @@ $("export").addEventListener("click", () => { $("cfen").value = state.cfen; $("c
 $("share").addEventListener("click", () => safe(async () => {
   if (!engine || busy || job) return;
   persistHash();
-  await copy(location.href, "Link copied. It includes the current cube, sequence and playback position.");
+  await copy(location.href, "Link copied. It includes the current cube, algorithm draft, sequence and playback position.");
 }));
 function historyReplace(hash) { window.history.replaceState(null, "", hash || location.pathname); }
 window.addEventListener("hashchange", () => { if (engine && !busy && !job) safe(() => restoreHash(location.hash.slice(1))); });
@@ -466,7 +487,7 @@ safe(async () => {
   initial = engine({ op: "state" }).state;
   freshState(initial);
   try {
-    if (pendingHash) restoreHash(pendingHash);
+    if (pendingHash) await restoreHash(pendingHash);
     else notice("Ready when you are. Turn a face or start with a scramble.");
   } finally { restoring = false; }
   updateControls();
