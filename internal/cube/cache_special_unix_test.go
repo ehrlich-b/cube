@@ -29,6 +29,9 @@ func TestCacheLoadersRejectSpecialFiles(t *testing.T) {
 		{"phase-one", func() string { return filepath.Join(filepath.Dir(coordinateCachePath()), "phase1-sym8-v1.bin") }, func() bool {
 			return loadPackedPatternLimit("phase1-sym8-v1.bin", 16, time.Now().Add(100*time.Millisecond)) != nil
 		}},
+		{"optimal-sorted-phase-one", func() string { return tableCachePath("optimal-phase1-sorted-sym16-cap11-v1.bin") }, func() bool {
+			return loadPatternBytes("optimal-phase1-sorted-sym16-cap11-v1.bin", 16, time.Now().Add(100*time.Millisecond)) != nil
+		}},
 		{"optimal", optimalCachePath, func() bool {
 			return loadOptimalPatterns(time.Now().Add(100*time.Millisecond)) != nil
 		}},

@@ -16,6 +16,7 @@ class MarkdownTests(unittest.TestCase):
             "edges-v1.bin": 64 + 190080 * (18 * 4 + 3),
             "phase1-sym8-v1.bin": 64 + 291 * 2048 * 495 // 2,
             "optimal-v1.bin": 64 + 40320 * 2187 // 2 + (12 * 11 * 10 * 9 * 8 * 7) * (64 + 18 * 4),
+            "optimal-phase1-sorted-sym16-cap11-v1.bin": 64 + 168 * 2048 * 495 * 24 // 4,
         }
         for document in ("README.md", "docs/solvers.md"):
             text = (docs.ROOT / document).read_text()

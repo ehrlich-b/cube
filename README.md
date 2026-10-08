@@ -92,6 +92,7 @@ The cache files and their complete on-disk sizes are:
 | `edges-v1.bin` | 14,256,064 | Four-edge databases for CFOP and exact-state search, generated on first use |
 | `phase1-sym8-v1.bin` | 147,502,144 | Optional large phase-one table, explicitly built with `cube tables build --large` |
 | `optimal-v1.bin` | 134,568,064 | Full-corner and two six-edge databases, generated lazily for deep `--optimal` search |
+| `optimal-phase1-sorted-sym16-cap11-v1.bin` | 1,021,870,144 | Saturated sorted phase-one database, generated lazily for deep `--optimal` search (974.53 MiB) |
 
 All files live in the same cache directory. Ordinary Kociemba needs only the
 compact file. Missing, unreadable, corrupt or non-regular cache files fall back
@@ -133,28 +134,61 @@ Optimal search retains the small databases for states within ten turns. Deep
 `--optimal` states lazily build full-corner and two disjoint six-edge databases:
 **88,179,840 corner states** and **42,577,920 states per edge group**, packed into
 **44,089,920 + 21,288,960 + 21,288,960 bytes**. Factorized six-edge transitions
-use **47,900,160 bytes** rather than expanding all 64 orientation masks. The
-checksummed `optimal-v1.bin` is **134,568,064 bytes (128.33 MiB)**. Generation took
-**67.53 seconds**, with **665 MB peak RSS** in the measured table-oracle process.
-Loading the optimal cache took **393.25 ms** in a separate run. With both large
-caches and the small search tables loaded, allow about **300 MiB** of resident
-table data. An existing phase-one cache strengthens optimal search in all three
-axes; optimal search does not generate that additional cache when it is absent.
-A one-time stderr message states the size and expected build time before
-generating the optimal cache. Optimal setup is included in `--time-limit`, and
-interrupted builds never publish partial tables. `make test-optimal` checks distances against the exact IDA* finder
-and independently replays short states and superflip in every grip.
+use **47,900,160 bytes**. Their checksummed `optimal-v1.bin` is
+**134,568,064 bytes (128.33 MiB)**; earlier generation took **67.53 seconds**.
 
-The uniform-state benchmark (seed `2026100714`, ten states, one search thread,
-background QoS, CPU profiling enabled) returned **0/10 proven solutions** and
-**10/10 timeouts at 180 seconds**; observed return times were **180.002–180.209 s**.
-All ten observations are censored above three minutes, so no uncensored mean,
-median or p99 is claimed. **The few-minute random-state optimal target is not
-met.** `make bench-optimal` reproduces the same ten states and three-minute
-budgets without profiling. The two fixed 12-turn finder cross-checks solved in
-**6.96 / 8.07 ms** with the larger tables; these are short-scramble results,
-separate from the uniform-state distribution. Larger or more effective optimal
-pruning remains necessary before comparing performance with nissy/vcube.
+The stronger heuristic follows [Kociemba’s huge optimal coordinate](https://kociemba.org/math/optimal.htm):
+it fixes the four slice edges in place as well as orienting all cubies. Sixteen U/D-axis symmetries reduce corner twists to **168 classes**,
+with **4,087,480,320 combined entries**. The [modulo-three encoding](https://kociemba.org/math/pruning.htm) uses two bits
+for exact distances through ten turns; remaining entries give the admissible lower bound
+**eleven**. Saturation retains consistency across moves. The parent's bound
+and a small lookup recover each child's bound, avoiding division in the search.
+The cache is **1,021,870,144 bytes (974.53 MiB)**, including its checksum and move
+fingerprint; the two optimal caches total **1,156,438,208 bytes**. Metadata and
+moves are reconstructed from native coordinates and occupy about 1.2 MB.
+Generation took **23m08.27s**, with **2,822,651,904 bytes peak RSS** and
+**5,500,473,664 bytes peak memory footprint**, measured directly on the test
+executable under Mac background QoS. A fresh cached setup took **1.75 s**;
+a profiled warm search peaked at **1.20 GB RSS**.
+
+Search takes the maximum of the corner, six-edge and three oriented sorted
+phase-one bounds. Three equal positive phase-one bounds imply one additional
+turn. Forward and inverse root bounds select the search direction. At depth
+thirteen and above, two workers partition the eighteen root moves; both must
+finish to disprove a depth. Tables are shared and `GOMAXPROCS=2` bounds CPU work.
+Compared with the previous phase-one heuristic, completed depth-fifteen searches
+on the first two uniform fixtures visited **126,450 / 141,599 nodes**, versus
+**957,974 / 1,077,891**: about **7.6 times fewer**. The two-worker measurements
+were **0.306 / 0.432 s**, versus **2.78 / 3.78 s** for the smaller heuristic in
+one worker. An eight-edge pattern-table experiment reduced nodes less and
+increased elapsed time, so it is not part of the solver.
+
+Large generation is opt-in through deep `--optimal` calls, with a one-time
+stderr message. Ordinary solves retain the compact default tables and cache.
+Optimal setup is included in `--time-limit`; interrupted builds never publish
+partial tables. `make test-optimal` checks short distances against the separate
+IDA* finder, independently proves three fixed distances by physical-sticker
+BFS, checks deeper finder fixtures, and replays superflip in every grip.
+
+The uniform-state benchmark (seed `2026100714`, **twenty states**, two search
+workers, background QoS, no CPU profiling, **180-second limit per state**)
+proved **9/20** and timed out on **11/20**. Proven solve times, in increasing
+order, were **13.42, 13.74, 18.05, 19.04, 57.60, 60.67, 71.41, 76.94 and
+176.67 seconds**. Eight answers had optimal length **17**, and one had length
+**18**; every answer passed full-cube replay and input-immutability checks.
+**Five of twenty finished within 60 seconds. The full-sample median exceeds
+180 seconds**, because eleven observations are right-censored above that limit.
+No solved-only median is presented as the uniform-state median. On the original
+first ten fixtures, **5/10** now finish at the same budget, compared with the
+previous **0/10** profiled result. Warm benchmark RSS peaked at
+**1,193,705,472 bytes (1.19 GB)**, and cached setup took **2.01 seconds**.
+
+**The practical optimal target is not met.** The median-under-60-second target
+fails in this sample; completion within ten minutes for all twenty states was
+not established by the three-minute trials. `make bench-optimal` reproduces
+the twenty fixtures and budgets. Stronger inverse-state heuristics or further
+search improvements remain necessary. The rejected eight-edge experiment and
+all generated native caches stay outside Git.
 
 Superflip is recognized by exact cubie coordinates and uses
 [Reid's published 20-turn lower bound](https://www.math.rwth-aachen.de/~Martin.Schoenert/Cube-Lovers/michael_reid__superflip_requires_20_face_turns.html)

@@ -129,11 +129,11 @@ test-phase1-tables:
 	CUBE_PHASE1_TABLES=1 go test -p 2 ./internal/cube -run '^(TestPhaseOneLargeTableOracle|TestPhaseOneSymmetryCoordinates)$$' -v -count=1 -timeout=25m
 
 test-optimal: build
-	CUBE_OPTIMAL_TABLES=1 go test -p 2 ./internal/cube -run '^(TestOptimalLargeTableOracle|TestCertifiedSuperflip)$$' -v -count=1 -timeout=25m
+	CUBE_OPTIMAL_TABLES=1 go test -p 2 ./internal/cube -run '^(TestOptimalLargeTableOracle|TestOptimalSortedTableOracle|TestCertifiedSuperflip)$$' -v -count=1 -timeout=25m
 	python3 test/optimal_oracle.py
 
 bench-optimal:
-	CUBE_OPTIMAL_BENCH=1 go test -p 2 ./internal/cube -run '^TestOptimalUniformBenchmark$$' -v -count=1 -timeout=45m
+	CUBE_OPTIMAL_BENCH=1 go test -p 2 ./internal/cube -run '^TestOptimalUniformBenchmark$$' -v -count=1 -timeout=100m
 
 export-reference-fixtures:
 	CUBE_REFERENCE_FIXTURES=1 go test -p 2 ./internal/cube -run '^TestReferenceFixtureExport$$' -v -count=1

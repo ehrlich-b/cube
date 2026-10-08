@@ -44,8 +44,11 @@ func SolveOptimal(c *Cube, limit time.Duration) (*SolverResult, error) {
 				if db == nil {
 					timedOut = true
 				} else {
-					cachedPhase1PatternTables(t, deadline)
-					result, ok, timedOut = largeOptimalSearchLimit(state, t, db, deadline)
+					if optimalPhase1Tables(t, deadline) == nil {
+						timedOut = true
+					} else {
+						result, ok, timedOut = largeOptimalSearchLimit(state, t, db, deadline)
+					}
 				}
 			}
 		}

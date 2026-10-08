@@ -68,6 +68,8 @@ func TestOptimalSolverColdCacheDeadline(t *testing.T) {
 }
 
 func TestOptimalTableInitializationWaitDeadline(t *testing.T) {
+	// Prerequisite setup is outside the budget for waiting on each held lock.
+	solverTables()
 	for _, tc := range []struct {
 		name string
 		lock chan struct{}
@@ -75,6 +77,7 @@ func TestOptimalTableInitializationWaitDeadline(t *testing.T) {
 	}{
 		{"coordinates", tablesLock, func(d time.Time) bool { return solverTablesLimit(d) != nil }},
 		{"edges", edgeLock, func(d time.Time) bool { return searchEdgePatternsLimit(d) != nil }},
+		{"sorted phase one", optimalPhase1Lock, func(d time.Time) bool { return optimalPhase1Tables(solverTables(), d) != nil }},
 		{"large optimal", optimalLock, func(d time.Time) bool { return optimalPatternTables(solverTables(), d) != nil }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

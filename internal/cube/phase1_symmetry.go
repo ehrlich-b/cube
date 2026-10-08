@@ -236,6 +236,22 @@ func loadPackedPattern(filename string, size int) []uint8 {
 }
 
 func loadPackedPatternLimit(filename string, size int, deadline time.Time) []uint8 {
+	d := loadPatternBytes(filename, size, deadline)
+	if d == nil || d[0]&15 != 0 {
+		return nil
+	}
+	for i, value := range d {
+		if i&65535 == 0 && tableDeadlineExceeded(deadline) {
+			return nil
+		}
+		if value&15 == 15 || value>>4 == 15 {
+			return nil
+		}
+	}
+	return d
+}
+
+func loadPatternBytes(filename string, size int, deadline time.Time) []uint8 {
 	if tableDeadlineExceeded(deadline) {
 		return nil
 	}
@@ -272,16 +288,8 @@ func loadPackedPatternLimit(filename string, size int, deadline time.Time) []uin
 	if n, err := reader.Read(extra[:]); n != 0 || err != io.EOF {
 		return nil
 	}
-	if !bytes.Equal(header[:32], hash.Sum(nil)) || d[0]&15 != 0 || tableDeadlineExceeded(deadline) {
+	if !bytes.Equal(header[:32], hash.Sum(nil)) || tableDeadlineExceeded(deadline) {
 		return nil
-	}
-	for i, value := range d {
-		if i&65535 == 0 && tableDeadlineExceeded(deadline) {
-			return nil
-		}
-		if value&15 == 15 || value>>4 == 15 {
-			return nil
-		}
 	}
 	return d
 }
@@ -305,17 +313,30 @@ func cachedPhase1PatternTables(t *coordinateTables, deadline time.Time) *phase1P
 }
 
 func savePackedPattern(filename string, data []uint8) error {
-	return writeTableCache(tableCachePath(filename), "pattern-*.bin", time.Time{}, func(f *os.File) error {
+	return savePackedPatternLimit(filename, data, time.Time{})
+}
+
+func savePackedPatternLimit(filename string, data []uint8, deadline time.Time) error {
+	return writeTableCache(tableCachePath(filename), "pattern-*.bin", deadline, func(f *os.File) error {
+		fileWriter := tableDeadlineWriter{f, deadline}
+		if _, err := fileWriter.Write(make([]byte, 32)); err != nil {
+			return err
+		}
 		fingerprint := edgeMoveFingerprint()
 		hash := sha256.New()
-		hash.Write(fingerprint[:])
-		hash.Write(data)
-		for _, part := range [][]byte{hash.Sum(nil), fingerprint[:], data} {
-			if _, err := f.Write(part); err != nil {
+		// Chunk both the file transfer and checksum so a gigabyte-scale table
+		// cannot spend the remaining search budget in an unchecked hash call.
+		writer := tableDeadlineWriter{io.MultiWriter(f, hash), deadline}
+		for _, part := range [][]byte{fingerprint[:], data} {
+			if _, err := writer.Write(part); err != nil {
 				return err
 			}
 		}
-		return nil
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		_, err := fileWriter.Write(hash.Sum(nil))
+		return err
 	})
 }
 
