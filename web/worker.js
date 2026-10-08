@@ -4,7 +4,8 @@ let engine;
 // Register before loading finishes so the first request is never lost.
 self.onmessage = async ({ data }) => {
   try {
-    engine ??= loadEngine({ module: data.module, worker: !!data.request?.prepareFrames });
+    engine ??= loadEngine({ module: data.module, worker: !!data.request?.prepareFrames,
+      cachedAssets: data.assets, onAsset: (key, bytes) => self.postMessage({ type: "asset", key, bytes }) });
     const started = performance.now();
     self.postMessage({ type: "progress", phase: "loading" });
     const call = await engine;

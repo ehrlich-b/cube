@@ -132,7 +132,7 @@ try {
   checkPaths(files);
   const originalFiles = files;
   const requests = [], failures = [], errors = [], responseTypes = new Map();
-  let assetFault, workerFault, versionFault;
+  let assetFault, workerFault, versionFault, blockSolverAssets = false;
   context = await chromium.launchPersistentContext(path.join(temporary, "profile"), { executablePath: await executable(), headless: true, viewport: { width: 390, height: 844 }, args: ["--disable-gpu"], serviceWorkers: "block" });
   await context.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText: async text => { globalThis.copiedText = text; } } });
@@ -164,6 +164,7 @@ try {
     }
     const contentType = mime[path.extname(asset)];
     responseTypes.set(asset, contentType);
+    if (blockSolverAssets && asset.endsWith(".gz")) return route.abort("internetdisconnected");
     if (workerFault && /^worker\./.test(asset)) return route.abort("internetdisconnected");
     if (versionFault && asset === "version.json") return route.abort("internetdisconnected");
     if (assetFault && /^coordinates-web-v1\.bin\./.test(asset)) {
@@ -302,6 +303,117 @@ try {
   assert.ok(requests.some(request => /^nxn-7-v1\.bin\./.test(request.asset)), "First 7x7 solve fetches its own table");
   assert.equal(requests.some(request => /^nxn-[456]-v1\.bin\./.test(request.asset)), false, "Unselected NxN dimensions remain unfetched");
   console.log(`First solver use: 3x3 ${first3x3Ms}ms; 7x7 ${JSON.stringify(first7x7)} (including asset loading and playback preparation)`);
+
+  // Every case starts a fresh page/runtime, with no table bytes in memory.
+  const solvedPage = await context.newPage();
+  const solvedErrors = [];
+  solvedPage.on("pageerror", error => solvedErrors.push(error.message));
+  for (const cubeSize of [2, 3, 4, 5, 6, 7]) for (const grip of ["", "x"]) {
+    const params = new URLSearchParams({ size: String(cubeSize), scramble: grip });
+    const before = requests.length;
+    await solvedPage.goto(`${site}#${params}`);
+    await idle(solvedPage, cubeSize);
+    const cfen = await solvedPage.locator("#cfen").inputValue();
+    assert.equal(await solvedPage.locator("#cube").getAttribute("data-solved"), "true");
+    await solvedPage.locator("#solve").click();
+    await idle(solvedPage, cubeSize);
+    assert.equal(await solvedPage.locator("#notice").evaluate(node => node.classList.contains("error")), false, `Cold solved ${cubeSize}x${cubeSize} ${grip}`);
+    assert.equal(await solvedPage.locator("#sequence-title").textContent(), `Your path to solved · ${cubeSize === 3 ? "kociemba" : "reduction"}`);
+    const moves = await solvedPage.locator("#sequence-moves button").allTextContents();
+    assert.ok(moves.every(move => /^[xyz](?:2|')?$/.test(move)), "Solved grips return only rotations");
+    assert.equal(await solvedPage.locator("#cfen").inputValue(), cfen, "Solved input remains unchanged");
+    assert.equal(await solvedPage.evaluate(({ cfen, moves }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves }))).data.state.solved, { cfen, moves: moves.join(" ") }), true);
+    assert.equal(requests.slice(before).some(request => request.asset.endsWith(".gz")), false, "Solved grips need no solver assets");
+  }
+  assert.deepEqual(solvedErrors, [], "Cold solved grips have no uncaught errors");
+  await solvedPage.close();
+  console.log("PASS Pages: cold solved and rotated 2x2–7x7 return only rotations without table downloads");
+
+  const cachePage = await context.newPage();
+  const cacheErrors = [];
+  cachePage.on("pageerror", error => cacheErrors.push(error.message));
+  await cachePage.addInitScript(() => {
+    const NativeWorker = globalThis.Worker;
+    globalThis.pagesWorkerStarts = globalThis.pagesWorkerStops = 0;
+    globalThis.Worker = class extends NativeWorker {
+      constructor(...args) {
+        super(...args);
+        globalThis.pagesWorkerStarts++;
+        this.addEventListener("message", ({ data }) => {
+          if (data.type === "progress") globalThis.pagesWorkerPhase = data.phase;
+        });
+      }
+      terminate() { globalThis.pagesWorkerStops++; return super.terminate(); }
+    };
+  });
+  await cachePage.goto(site);
+  await idle(cachePage);
+  const assertCachedSolve = async cubeSize => {
+    const cfen = await cachePage.locator("#cfen").inputValue();
+    const before = requests.length;
+    await cachePage.locator("#solve").click();
+    await idle(cachePage, cubeSize);
+    assert.equal(await cachePage.locator("#notice").evaluate(node => node.classList.contains("error")), false, `Cached ${cubeSize}x${cubeSize} solve succeeds with downloads blocked`);
+    const moves = await cachePage.locator("#sequence-moves button").allTextContents();
+    assert.ok(moves.length > 0);
+    assert.equal(await cachePage.evaluate(({ cfen, moves }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves }))).data.state.solved, { cfen, moves: moves.join(" ") }), true);
+    assert.equal(await cachePage.locator("#cfen").inputValue(), cfen, "Offline solve preserves the input");
+    assert.equal(requests.slice(before).some(request => request.asset.endsWith(".gz")), false, "Verified table bytes are reused without a fetch");
+  };
+  for (const cubeSize of [3, 2, 4, 5, 6, 7]) {
+    await cachePage.locator("#size").selectOption(String(cubeSize));
+    await idle(cachePage, cubeSize);
+    const cfen = await cachePage.evaluate(size => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", size, moves: "R U" }))).data.state.cfen, cubeSize);
+    await cachePage.locator("#cfen").fill(cfen);
+    await cachePage.locator("#import").click();
+    await cachePage.locator("#solve").click();
+    await idle(cachePage, cubeSize);
+    assert.equal(await cachePage.locator("#notice").evaluate(node => node.classList.contains("error")), false, "Online solve installs verified bytes");
+    const starts = await cachePage.evaluate(() => pagesWorkerStarts);
+    blockSolverAssets = true;
+    await assertCachedSolve(cubeSize);
+    if (cubeSize === 3) assert.equal(await cachePage.evaluate(() => pagesWorkerStarts), starts + 1, "3x3 reuse survives runtime disposal");
+    blockSolverAssets = false;
+  }
+  blockSolverAssets = true;
+  for (const cubeSize of [4, 7, 3]) {
+    await cachePage.locator("#size").selectOption(String(cubeSize));
+    await idle(cachePage, cubeSize);
+    const cfen = await cachePage.evaluate(size => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", size, moves: "R U" }))).data.state.cfen, cubeSize);
+    await cachePage.locator("#cfen").fill(cfen);
+    await cachePage.locator("#import").click();
+    await assertCachedSolve(cubeSize);
+  }
+
+  // Terminate an actual 3x3 search, then create a new runtime using cached bytes.
+  const hard = await cachePage.evaluate(() => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", moves: "R2 U F' D B2 L' U2 F R' D2 L B' U R2 F2 D' L2 U' B R" }))).data.state.cfen);
+  await cachePage.locator("#cfen").fill(hard);
+  await cachePage.locator("#import").click();
+  await cachePage.locator("#tab-search").click();
+  await cachePage.locator("#target").fill(solved);
+  await cachePage.locator("#depth").fill("10");
+  const stops = await cachePage.evaluate(() => { pagesWorkerPhase = ""; return pagesWorkerStops; });
+  const beforeCancel = requests.length;
+  await cachePage.locator("#find").click();
+  await cachePage.waitForFunction(() => pagesWorkerPhase === "solving");
+  await cachePage.locator("#view-net").click();
+  assert.equal(await cachePage.locator("#net").isVisible(), true, "Search leaves view controls responsive");
+  await cachePage.locator("#cancel-search").click();
+  await idle(cachePage);
+  assert.match(await cachePage.locator("#notice").textContent(), /Search canceled/);
+  assert.equal(await cachePage.evaluate(() => pagesWorkerStops), stops + 1, "Cancellation terminates synchronous search");
+  assert.equal(await cachePage.locator("#cfen").inputValue(), hard);
+  assert.equal(await cachePage.locator("#search-result").textContent(), "");
+  assert.equal(requests.slice(beforeCancel).some(request => request.asset.endsWith(".gz")), false);
+  await cachePage.locator("#reset").click();
+  const retryCFEN = await cachePage.evaluate(() => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", moves: "R U" }))).data.state.cfen);
+  await cachePage.locator("#cfen").fill(retryCFEN);
+  await cachePage.locator("#import").click();
+  await assertCachedSolve(3);
+  blockSolverAssets = false;
+  assert.deepEqual(cacheErrors, [], "Asset cache and cancellation have no uncaught errors");
+  await cachePage.close();
+  console.log("PASS Pages: offline repeat solves for 2x2–7x7, size-switch reuse, 3x3 search termination and offline retry");
 
   const recoveryPage = await context.newPage();
   const recoveryErrors = [];

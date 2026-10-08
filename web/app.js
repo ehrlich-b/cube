@@ -1,5 +1,6 @@
 import { loadEngine } from "./engine.js";
 import { CubeView } from "./cube-view.js";
+import { solverAssets } from "./solver-assets.js";
 
 const $ = id => document.getElementById(id);
 const view = new CubeView($("cube"), $("net"), $("camera"), $("stage"));
@@ -8,6 +9,9 @@ let scramble = "", baseCFEN = "", currentMode = "practice";
 let restoring = true;
 let size = 3, saved3x3Method = "kociemba", scrambledCache;
 let computeWorker;
+// At most one compressed copy of each manifest asset (<4.6 MB total). Expanded
+// tables stay in the active worker and are released on size changes/cancel.
+const solverAssetBytes = new Map();
 const pendingHash = location.hash.slice(1);
 const buildVersion = new URL(import.meta.url).pathname.match(/\/app\.([a-f0-9]{16})\.js$/)?.[1];
 const primaryControls = ["scramble", "solve", "solve-method", "size", "turn-layer", "turn-width", "reset", "run-algorithm", "start-lesson", "find", "import", "export"];
@@ -307,7 +311,11 @@ function compute(request, label) {
     job = { cancel: () => finish(new Error(`${request.op === "find" ? "Search" : "Computation"} canceled.`)) };
     updateControls();
     worker.onmessage = ({ data }) => {
-      if (data.type === "progress" || data.type === "frames") {
+      if (data.type === "asset") {
+        if (Object.hasOwn(solverAssets, data.key) && data.bytes instanceof Uint8Array && data.bytes.length === solverAssets[data.key].bytes) {
+          solverAssetBytes.set(data.key, data.bytes);
+        }
+      } else if (data.type === "progress" || data.type === "frames") {
         phase = data.type === "frames" ? "replay" : data.phase;
         if (phase === "replay" && computedWallMs === undefined) computedWallMs = performance.now() - started;
         completed = data.completed || 0; total = data.total || 0;
@@ -319,7 +327,8 @@ function compute(request, label) {
       event.preventDefault();
       finish(Object.assign(new Error(event.message || "The cube worker could not start. Check your connection and try again."), { code: "asset-load" }));
     };
-    worker.postMessage({ request, module: engine.module });
+    const assets = [...solverAssetBytes].filter(([key]) => key === "coordinates" || key === `nxn-${size}`);
+    worker.postMessage({ request, module: engine.module, assets });
   });
 }
 
