@@ -504,6 +504,89 @@ async function playgroundRegressions(page, baseURL) {
   await idle(page);
 }
 
+// Count synchronous DOM work in each draw, before MutationObserver delivery can
+// batch multiple frames. Turn setup and committed-state renders are excluded.
+// The slab renderer writes only its transform and the SVG's turn-angle marker;
+// reprojecting stickers or depth-sorting their nodes violates this budget even
+// when the machine is fast. Wall-clock samples remain diagnostic only.
+async function measurePhoneFrames(page) {
+  const cpuRate = Number(process.argv.find(arg => arg.startsWith("--frame-cpu-rate="))?.split("=")[1] || 1);
+  assert.ok(Number.isFinite(cpuRate) && cpuRate >= 1, "frame CPU rate must be at least 1");
+  const session = cpuRate === 1 ? null : await page.context().newCDPSession(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#speed").selectOption("460");
+  await page.locator("#stage").evaluate(node => node.scrollIntoView({ block: "center" }));
+  try {
+    if (session) await session.send("Emulation.setCPUThrottlingRate", { rate: cpuRate });
+    const baseline = await page.evaluate(() => new Promise(resolve => {
+      const times = []; let last;
+      const tick = now => { if (last) times.push(now - last); last = now; if (times.length < 20) requestAnimationFrame(tick); else resolve(times); };
+      requestAnimationFrame(tick);
+    }));
+    await page.evaluate(async () => {
+      const { CubeView } = await import("./cube-view.js");
+      const draw = CubeView.prototype.drawSVG;
+      const frames = [];
+      const observer = new MutationObserver(() => {});
+      CubeView.prototype.drawSVG = function (...args) {
+        if (!this.preview || !this.root.hasAttribute("data-measure-frames")) return draw.apply(this, args);
+        observer.observe(this.root, { attributes: true, childList: true, subtree: true });
+        try { return draw.apply(this, args); }
+        finally {
+          const records = observer.takeRecords();
+          observer.disconnect();
+          frames.push({ mutations: records.length, elementsTouched: new Set(records.map(record => record.target)).size,
+            pointWrites: records.filter(record => record.type === "attributes" && record.attributeName === "points").length,
+            nodesAdded: records.reduce((sum, record) => sum + record.addedNodes.length, 0),
+            nodesRemoved: records.reduce((sum, record) => sum + record.removedNodes.length, 0) });
+        }
+      };
+      globalThis.phoneFrameWork = { frames, restore() { CubeView.prototype.drawSVG = draw; observer.disconnect(); } };
+      document.getElementById("cube").dataset.measureFrames = "true";
+    });
+    const intervals = [], renderTimes = [];
+    // Keep the original five-turn sample and animation-progress check. CPU
+    // throttling is scoped here so the other smoke checks run unchanged.
+    for (let index = 0; index < 5; index++) {
+      await page.locator("#step").evaluate(button => button.click());
+      await idle(page);
+      const samples = await page.locator("#cube svg").evaluate(svg => ({
+        render: JSON.parse(svg.dataset.frameTimes), intervals: JSON.parse(svg.dataset.frameIntervals)
+      }));
+      renderTimes.push(...samples.render);
+      intervals.push(...samples.intervals);
+    }
+    const summary = times => {
+      const sorted = [...times].sort((a, b) => a - b);
+      return { samples: times.length, meanMs: times.reduce((a, b) => a + b) / times.length,
+        p95Ms: sorted[Math.floor(sorted.length * .95)], maxMs: sorted.at(-1) };
+    };
+    assert.ok(intervals.length >= 10, "7x7 animation continues across phone-width turns");
+    const work = await page.evaluate(() => globalThis.phoneFrameWork.frames);
+    assert.ok(work.length > 0, "7x7 frame work was observed");
+    assert.equal(work.length, renderTimes.length, "every measured animation draw has a work sample");
+    const phoneFrameWork = { samples: work.length, cpuRate,
+      ...Object.fromEntries(Object.keys(work[0]).map(key => [key, Math.max(...work.map(frame => frame[key]))])) };
+    const metrics = { staticFrameMs: baseline.reduce((a, b) => a + b) / baseline.length,
+      phoneFrameInterval: summary(intervals), phoneRenderTime: summary(renderTimes), phoneFrameWork };
+    console.log(`7x7 frame work (per-frame maxima): ${JSON.stringify(metrics)}`);
+    assert.equal(phoneFrameWork.pointWrites, 0, "7x7 animation must not rewrite SVG sticker geometry");
+    assert.equal(phoneFrameWork.nodesAdded + phoneFrameWork.nodesRemoved, 0, "7x7 animation must not rebuild or reorder DOM nodes");
+    assert.ok(phoneFrameWork.mutations <= 2, `7x7 frame work performed ${phoneFrameWork.mutations} DOM mutations (2 per-frame budget)`);
+    return metrics;
+  } finally {
+    await page.evaluate(() => {
+      globalThis.phoneFrameWork?.restore();
+      delete globalThis.phoneFrameWork;
+      document.getElementById("cube").removeAttribute("data-measure-frames");
+    });
+    if (session) {
+      await session.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+      await session.detach();
+    }
+  }
+}
+
 async function nxnRegressions(page) {
   const metrics = [];
   for (const size of [2, 3, 4, 5, 6, 7]) {
@@ -602,39 +685,7 @@ async function nxnRegressions(page) {
       await page.setViewportSize({ width: 1280, height: 800 });
     }
     if (size === 7) {
-      await page.setViewportSize({ width: 390, height: 844 });
-      await page.locator("#speed").selectOption("460");
-      await page.locator("#stage").evaluate(node => node.scrollIntoView({ block: "center" }));
-      const baseline = await page.evaluate(() => new Promise(resolve => {
-        const times = []; let last;
-        const tick = now => { if (last) times.push(now - last); last = now; if (times.length < 20) requestAnimationFrame(tick); else resolve(times); };
-        requestAnimationFrame(tick);
-      }));
-      metrics.at(-1).staticFrameMs = baseline.reduce((a, b) => a + b) / baseline.length;
-      await page.locator("#cube").evaluate(root => root.dataset.measureFrames = "true");
-      const intervals = [], renderTimes = [];
-      // Sample several turns; a background-priority headless process can skip
-      // compositor ticks even on a static cube. Keep that pacing separate from
-      // the actual transform and style/layout cost, and report both.
-      for (let turn = 0; turn < 5; turn++) {
-        await page.locator("#step").evaluate(button => button.click());
-        await idle(page);
-        const samples = await page.locator("#cube svg").evaluate(svg => ({
-          render: JSON.parse(svg.dataset.frameTimes), intervals: JSON.parse(svg.dataset.frameIntervals)
-        }));
-        renderTimes.push(...samples.render);
-        intervals.push(...samples.intervals);
-      }
-      const summary = times => {
-        const sorted = [...times].sort((a, b) => a - b);
-        return { samples: times.length, meanMs: times.reduce((a, b) => a + b) / times.length,
-          p95Ms: sorted[Math.floor(sorted.length * .95)], maxMs: sorted.at(-1) };
-      };
-      assert.ok(intervals.length >= 10, "7x7 animation continues across phone-width turns");
-      metrics.at(-1).phoneFrameInterval = summary(intervals);
-      metrics.at(-1).phoneRenderTime = summary(renderTimes);
-      assert.ok(metrics.at(-1).phoneRenderTime.meanMs < 8, `7x7 frame work averaged ${metrics.at(-1).phoneRenderTime.meanMs.toFixed(1)} ms (8 ms budget)`);
-      await page.locator("#cube").evaluate(root => root.removeAttribute("data-measure-frames"));
+      Object.assign(metrics.at(-1), await measurePhoneFrames(page));
       await page.locator("#speed").selectOption("70");
       await page.setViewportSize({ width: 1280, height: 800 });
     }
@@ -803,6 +854,15 @@ try {
     await profilePhone(page);
     assert.deepEqual(errors, []);
     process.exitCode = 0;
+  } else if (process.argv.includes("--frame-budget-only")) {
+    await page.locator("#size").selectOption("7");
+    await idle(page);
+    await page.locator("#speed").selectOption("70", { force: true });
+    await runAlgorithm(page, "R U F L B");
+    await page.locator("#scrubber").fill("0");
+    await measurePhoneFrames(page);
+    assert.deepEqual(errors, []);
+    console.log("PASS browser: 7x7 phone frame work budget");
   } else if (process.argv.includes("--interactions-only")) {
     await playgroundRegressions(page, `http://127.0.0.1:${port}/web/`);
     assert.deepEqual(errors, []);
