@@ -2,7 +2,10 @@ package cube
 
 import (
 	"bytes"
+	"compress/gzip"
+	"context"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/gob"
 	"io"
 	"os"
@@ -11,13 +14,25 @@ import (
 )
 
 // Small, exact pattern databases provide admissible bounds in the face-turn
-// metric. No generated tables are repository artifacts. Cached bytes carry a
-// version and checksum; invalid/unavailable caches are rebuilt in memory.
+// metric. A reproducible compact asset ships with the executable; first use
+// copies it to the optional cache. Checksums, dimensions and move fingerprints
+// guard cached bytes; a corrupt/unavailable cache falls back to the asset.
 type coordinateTables struct {
-	Twist, Flip, Slice, Corner                                               []uint16
-	Edge2, Slice2                                                            []uint16
-	TwistSlice, FlipSlice, TwistFlip, CornerSlice, EdgeSlice, CornerDistance []uint8
+	TwistRepresentatives                                                        []uint16
+	NearPhase1Keys                                                              []uint32
+	NearPhase1Distances                                                         []uint8
+	nearPhase1                                                                  map[uint32]uint8
+	Twist, Flip, Slice, Corner                                                  []uint16
+	Edge2, Slice2                                                               []uint16
+	TwistSlice, FlipSlice, TwistFlip, CornerSlice, EdgeSlice, CornerDistance    []uint8
+	CornerComb, EdgeComb, CornerEdgeComb                                        []uint8
+	PermInverse, SliceInverse                                                   []uint16
+	PermSymCorner, PermSymEdge, SymSlice2, SymCornerComb, SymEdgeComb           []uint16
+	TwistSym, SliceSym, TwistFlipSym, SymTwist, SymFlip, SymFlipDelta, SymSlice []uint16
 }
+
+//go:embed tables/coordinates-v5.bin.gz
+var embeddedCoordinates []byte
 
 var tablesLock = make(chan struct{}, 1)
 var tables *coordinateTables
@@ -70,6 +85,25 @@ func solverTablesLimit(deadline time.Time) *coordinateTables {
 		tables = cached
 		return tables
 	}
+	if t := decodeCoordinateTables(embeddedCoordinates, deadline); t != nil {
+		tables = t
+		if deadline.IsZero() {
+			saveCoordinateBytes(embeddedCoordinates)
+		}
+		return t
+	}
+	t := generateCoordinateTables(deadline)
+	if t == nil {
+		return nil
+	}
+	tables = t
+	if deadline.IsZero() {
+		saveCoordinateTables(t)
+	}
+	return tables
+}
+
+func generateCoordinateTables(deadline time.Time) *coordinateTables {
 	t := &coordinateTables{}
 	t.Twist = makeMoveTable(2187, twistCubie, func(s cubie) int { return s.twist() }, false, deadline)
 	t.Flip = makeMoveTable(2048, flipCubie, func(s cubie) int { return s.flip() }, false, deadline)
@@ -93,16 +127,23 @@ func solverTablesLimit(deadline time.Time) *coordinateTables {
 	t.CornerSlice = pairPruning(t.Corner, t.Slice2, 24, true, deadline)
 	t.EdgeSlice = pairPruning(t.Edge2, t.Slice2, 24, true, deadline)
 	t.CornerDistance = pairPruning(t.Corner, make([]uint16, 18), 1, false, deadline)
+	t.CornerComb, t.PermInverse, t.SliceInverse = phase2PermutationCoordinates(deadline)
+	t.EdgeComb = pairPruning(t.Edge2, cornerCombinationMoves(), 140, true, deadline)
+
 	if tableDeadlineExceeded(deadline) {
 		return nil
 	}
-	// Publish only complete tables so a cancelled build can be retried.
-	tables = t
-	// Optional disk persistence must not extend a timed solve's setup.
-	if deadline.IsZero() {
-		saveCoordinateTables(t)
+	t.CornerEdgeComb = pairPruning(t.Corner, edgeCombinationMoves(), 140, true, deadline)
+	if tableDeadlineExceeded(deadline) {
+		return nil
 	}
-	return tables
+	t.compactPhase1()
+	t.compactPhase2()
+	t.generateNearPhase1()
+	if tableDeadlineExceeded(deadline) {
+		return nil
+	}
+	return t
 }
 
 func makeMoveTable(size int, decode func(int) cubie, encode func(cubie) int, phase2 bool, deadline time.Time) []uint16 {
@@ -131,6 +172,9 @@ func pairPruning(a, b []uint16, bSize int, phase2 bool, deadline time.Time) []ui
 	}
 	dist := make([]uint8, len(a)/18*bSize)
 	for i := range dist {
+		if i&65535 == 0 && tableDeadlineExceeded(deadline) {
+			return nil
+		}
 		dist[i] = 255
 	}
 	dist[0] = 0
@@ -166,7 +210,7 @@ func coordinateCachePath() string {
 		}
 		dir = filepath.Join(base, "cube")
 	}
-	return filepath.Join(dir, "coordinates-v2.gob")
+	return filepath.Join(dir, "coordinates-v5.bin.gz")
 }
 
 func loadCoordinateTables() *coordinateTables {
@@ -183,7 +227,7 @@ func loadCoordinateTablesLimit(deadline time.Time) *coordinateTables {
 	}
 	defer f.Close()
 	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() < 32 || info.Size() > 16<<20 || tableDeadlineExceeded(deadline) {
+	if err != nil || !info.Mode().IsRegular() || info.Size() < 64 || info.Size() > 10<<20 || tableDeadlineExceeded(deadline) {
 		return nil
 	}
 	// Allocate only the checked size, even if the file grows after Stat.
@@ -195,51 +239,148 @@ func loadCoordinateTablesLimit(deadline time.Time) *coordinateTables {
 	if n, err := f.Read(extra[:]); n != 0 || err != io.EOF {
 		return nil
 	}
+	return decodeCoordinateTables(data, deadline)
+}
+
+func decodeCoordinateTables(data []byte, deadline time.Time) *coordinateTables {
+	if len(data) < 64 || tableDeadlineExceeded(deadline) {
+		return nil
+	}
 	sum := sha256.Sum256(data[32:])
-	if !bytes.Equal(data[:32], sum[:]) || tableDeadlineExceeded(deadline) {
+	if !bytes.Equal(data[:32], sum[:]) {
+		return nil
+	}
+	fingerprint := edgeMoveFingerprint()
+	if !bytes.Equal(data[32:64], fingerprint[:]) {
+		return nil
+	}
+	z, err := gzip.NewReader(bytes.NewReader(data[64:]))
+	if err != nil {
+		return nil
+	}
+	defer z.Close()
+	payload, err := io.ReadAll(io.LimitReader(tableDeadlineReader{z, deadline}, 32<<20))
+	if err != nil || len(payload) == 32<<20 || tableDeadlineExceeded(deadline) {
 		return nil
 	}
 	var t coordinateTables
-	if gob.NewDecoder(bytes.NewReader(data[32:])).Decode(&t) != nil || tableDeadlineExceeded(deadline) {
+	if gob.NewDecoder(bytes.NewReader(payload)).Decode(&t) != nil || tableDeadlineExceeded(deadline) {
 		return nil
 	}
-	if len(t.Twist) != 2187*18 || len(t.Flip) != 2048*18 || len(t.Slice) != 495*18 || len(t.Corner) != 40320*18 || len(t.Edge2) != 40320*18 || len(t.Slice2) != 24*18 || len(t.TwistSlice) != 2187*495 || len(t.FlipSlice) != 2048*495 || len(t.TwistFlip) != 2187*2048 || len(t.CornerSlice) != 40320*24 || len(t.EdgeSlice) != 40320*24 || len(t.CornerDistance) != 40320 {
+	if len(t.Twist) != 2187*18 || len(t.Flip) != 2048*18 || len(t.Slice) != 495*18 || len(t.Corner) != 40320*18 || len(t.Edge2) != 40320*18 || len(t.Slice2) != 24*18 || len(t.TwistFlip) != 324*2048/2 || len(t.CornerDistance) != 40320 {
 		return nil
+	}
+	if len(t.CornerComb) != 40320 || len(t.PermInverse) != 40320 || len(t.SliceInverse) != 24 {
+		return nil
+	}
+	if len(t.TwistRepresentatives) != 168 || len(t.TwistSym) != 2187 || len(t.TwistFlipSym) != 2187 || len(t.SliceSym) != 495 || len(t.SymTwist) != 2187*16 || len(t.SymFlip) != 2048*16 || len(t.SymFlipDelta) != 495*16 || len(t.SymSlice) != 495*16 {
+		return nil
+	}
+	if len(t.TwistSlice) != (int(maxSliceClass(t.TwistSym)+1)*495+1)/2 || len(t.FlipSlice) != (int(maxSliceClass(t.SliceSym))+1)*2048/2 {
+		return nil
+	}
+	if len(t.PermSymCorner) != 40320 || len(t.PermSymEdge) != 40320 || len(t.SymSlice2) != 24*16 || len(t.SymCornerComb) != 140*16 || len(t.SymEdgeComb) != 140*16 {
+		return nil
+	}
+	cn, en := int(maxSliceClass(t.PermSymCorner)+1), int(maxSliceClass(t.PermSymEdge)+1)
+	if len(t.CornerSlice) != cn*24/2 || len(t.EdgeSlice) != en*24/2 || len(t.EdgeComb) != en*140/2 || len(t.CornerEdgeComb) != cn*140/2 {
+		return nil
+	}
+	if len(t.NearPhase1Keys) == 0 || len(t.NearPhase1Keys) != len(t.NearPhase1Distances) || len(t.NearPhase1Keys) > 1_000_000 {
+		return nil
+	}
+	t.nearPhase1 = make(map[uint32]uint8, len(t.NearPhase1Keys))
+	for i, key := range t.NearPhase1Keys {
+		if i&4095 == 0 && tableDeadlineExceeded(deadline) {
+			return nil
+		}
+		t.nearPhase1[key] = t.NearPhase1Distances[i]
 	}
 	return &t
 }
 
-func saveCoordinateTables(t *coordinateTables) {
-	path := coordinateCachePath()
-	if path == "" {
-		return
-	}
+func encodeCoordinateTables(t *coordinateTables) []byte {
 	var b bytes.Buffer
-	if gob.NewEncoder(&b).Encode(t) != nil {
+	z, _ := gzip.NewWriterLevel(&b, gzip.BestCompression)
+	if gob.NewEncoder(z).Encode(t) != nil || z.Close() != nil {
+		return nil
+	}
+	fingerprint := edgeMoveFingerprint()
+	payload := append(fingerprint[:], b.Bytes()...)
+	sum := sha256.Sum256(payload)
+	return append(sum[:], payload...)
+}
+
+func saveCoordinateTables(t *coordinateTables) { saveCoordinateBytes(encodeCoordinateTables(t)) }
+
+func saveCoordinateBytes(data []byte) {
+	path := coordinateCachePath()
+	if path == "" || data == nil || os.MkdirAll(filepath.Dir(path), 0700) != nil {
 		return
 	}
-	sum := sha256.Sum256(b.Bytes())
-	if os.MkdirAll(filepath.Dir(path), 0700) != nil {
-		return
-	}
-	f, err := os.CreateTemp(filepath.Dir(path), "coordinates-*.gob")
+	f, err := os.CreateTemp(filepath.Dir(path), "coordinates-*.gz")
 	if err != nil {
 		return
 	}
 	name := f.Name()
 	defer os.Remove(name)
-	_, e1 := f.Write(sum[:])
-	_, e2 := f.Write(b.Bytes())
-	e3 := f.Close()
-	if e1 == nil && e2 == nil && e3 == nil {
+	_, e1 := f.Write(data)
+	e2 := f.Close()
+	if e1 == nil && e2 == nil {
 		_ = os.Rename(name, path)
 	}
 }
 
 func (t *coordinateTables) phase1Bound(co, eo, sl int) int {
-	return max(int(t.TwistSlice[co*495+sl]), int(t.FlipSlice[eo*495+sl]), int(t.TwistFlip[co*2048+eo]))
+	conjCo := int(t.SymTwist[co*16+1])
+	conjEo := int(t.SymFlip[eo*16+1] ^ t.SymFlipDelta[sl*16+1])
+	return max(t.twistSliceBound(co, sl), t.flipSliceBound(eo, sl), t.twistFlipBound(co, eo), t.twistFlipBound(conjCo, conjEo))
 }
 
 func (t *coordinateTables) phase2Bound(cp, ep, sp int) int {
-	return max(int(t.CornerSlice[cp*24+sp]), int(t.EdgeSlice[ep*24+sp]))
+	return max(t.cornerSliceBound(cp, sp), t.edgeSliceBound(ep, sp), t.edgeCornerBound(ep, int(t.CornerComb[cp])), t.edgeCornerBound(int(t.PermInverse[ep]), int(t.CornerComb[t.PermInverse[cp]])), t.cornerEdgeBound(cp, int(t.CornerComb[ep])))
+}
+func (t *coordinateTables) phase2Pruned(cp, ep, sp, left int) bool {
+	return t.cornerSliceBound(cp, sp) > left || t.edgeSliceBound(ep, sp) > left || t.edgeCornerBound(ep, int(t.CornerComb[cp])) > left || t.edgeCornerBound(int(t.PermInverse[ep]), int(t.CornerComb[t.PermInverse[cp]])) > left || t.cornerEdgeBound(cp, int(t.CornerComb[ep])) > left
+}
+func (t *coordinateTables) phase2InverseBound(cp, ep, sp int) int {
+	return t.phase2Bound(int(t.PermInverse[cp]), int(t.PermInverse[ep]), int(t.SliceInverse[sp]))
+}
+
+// For search, any admissible bound above left suffices. Most shallow children
+// use the exact frontier; other children can stop after a compact pair check.
+func (t *coordinateTables) phase1Prune(co, eo, sl, left int) int {
+	if left <= 4 {
+		return t.nearPhase1Bound(co, eo, sl)
+	}
+	h := t.twistFlipBound(co, eo)
+	if h > left {
+		return h
+	}
+	h = max(h, t.twistFlipBound(int(t.SymTwist[co*16+1]), int(t.SymFlip[eo*16+1]^t.SymFlipDelta[sl*16+1])))
+	if h > left {
+		return h
+	}
+	h = max(h, t.twistSliceBound(co, sl))
+	if h > left {
+		return h
+	}
+	return max(h, t.flipSliceBound(eo, sl))
+}
+
+// Bound decompression work between deadline checks, including tiny --optimal
+// budgets. A cancelled load is never published to the shared table pointer.
+type tableDeadlineReader struct {
+	r        io.Reader
+	deadline time.Time
+}
+
+func (r tableDeadlineReader) Read(p []byte) (int, error) {
+	if tableDeadlineExceeded(r.deadline) {
+		return 0, context.DeadlineExceeded
+	}
+	if len(p) > 64<<10 {
+		p = p[:64<<10]
+	}
+	return r.r.Read(p)
 }

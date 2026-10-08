@@ -1,4 +1,4 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop test-nxn import-algorithms web web-pages test-web test-web-smoke test-docs
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop test-nxn import-algorithms web web-pages test-web test-web-smoke test-docs bench-kociemba test-phase1-tables test-optimal bench-optimal export-reference-fixtures test-kociemba-cold generate-tables
 
 # Build the binary
 build:
@@ -21,11 +21,11 @@ clean:
 
 # Run tests
 test:
-	go test ./...
+	go test -p 2 ./...
 
 # Run the CLI
 run:
-	go run ./cmd/cube
+	go run -p 2 ./cmd/cube
 
 # Static website; no JavaScript bundler or npm build step.
 web:
@@ -70,7 +70,7 @@ fmt:
 
 # Vet code
 vet:
-	go vet ./...
+	go vet -p 2 ./...
 
 # Lint code (requires golangci-lint)
 lint:
@@ -83,9 +83,9 @@ install-tools:
 
 # Build for multiple platforms
 build-all:
-	GOOS=linux GOARCH=amd64 go build -o dist/cube-linux-amd64 ./cmd/cube
-	GOOS=darwin GOARCH=amd64 go build -o dist/cube-darwin-amd64 ./cmd/cube
-	GOOS=windows GOARCH=amd64 go build -o dist/cube-windows-amd64.exe ./cmd/cube
+	GOOS=linux GOARCH=amd64 go build -p 2 -o dist/cube-linux-amd64 ./cmd/cube
+	GOOS=darwin GOARCH=amd64 go build -p 2 -o dist/cube-darwin-amd64 ./cmd/cube
+	GOOS=windows GOARCH=amd64 go build -p 2 -o dist/cube-windows-amd64.exe ./cmd/cube
 
 # Run end-to-end tests
 e2e-test: build
@@ -106,7 +106,34 @@ test-beginner: build
 
 # Independent uniform physical-state and geometry replay oracle
 test-kociemba: build
+	python3 test/cold_start_test.py
+	CUBE_BENCH=1 go test -p 2 ./internal/cube -run '^TestTwoPhaseBenchmark1000$$' -v -count=1 -timeout=20m
 	python3 test/kociemba_oracle.py
+
+# Fresh executable, empty cache, independent replay, 1s / 10MB hard budgets.
+test-kociemba-cold: build
+	python3 test/cold_start_test.py
+
+# Reproducible engine-owned compact asset; exhaustive quotient/BFS comparison.
+generate-tables:
+	CUBE_GENERATE_TABLES=1 go test -p 2 ./internal/cube -run '^TestCompactTableGeneration$$' -v -count=1 -timeout=5m
+
+# Loaded-table latency in one process over 1,000 uniform legal states.
+bench-kociemba:
+	CUBE_BENCH=1 go test -p 2 ./internal/cube -run '^TestTwoPhaseBenchmark1000$$' -v -count=1 -timeout=20m
+
+test-phase1-tables:
+	CUBE_PHASE1_TABLES=1 go test -p 2 ./internal/cube -run '^(TestPhaseOneLargeTableOracle|TestPhaseOneSymmetryCoordinates)$$' -v -count=1 -timeout=25m
+
+test-optimal: build
+	CUBE_OPTIMAL_TABLES=1 go test -p 2 ./internal/cube -run '^(TestOptimalLargeTableOracle|TestCertifiedSuperflip)$$' -v -count=1 -timeout=25m
+	python3 test/optimal_oracle.py
+
+bench-optimal:
+	CUBE_OPTIMAL_BENCH=1 go test -p 2 ./internal/cube -run '^TestOptimalUniformBenchmark$$' -v -count=1 -timeout=45m
+
+export-reference-fixtures:
+	CUBE_REFERENCE_FIXTURES=1 go test -p 2 ./internal/cube -run '^TestReferenceFixtureExport$$' -v -count=1
 
 # Reproducible CSV import; rejected rows retain their original data and reason.
 import-algorithms:

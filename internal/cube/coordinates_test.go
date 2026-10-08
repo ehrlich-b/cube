@@ -90,7 +90,7 @@ func TestKociembaOracle200(t *testing.T) {
 		if readCubie(c) != before {
 			t.Fatal("solver mutated input")
 		}
-		if len(result.Solution) == 0 || len(result.Solution) > 21 {
+		if len(result.Solution) == 0 || len(result.Solution) > 20 {
 			t.Fatalf("case %d: invalid length %d", n, len(result.Solution))
 		}
 		c.ApplyMoves(result.Solution)
@@ -106,7 +106,7 @@ func TestKociembaOracle200(t *testing.T) {
 		sumTime += elapsed
 		maxTime = max(maxTime, elapsed)
 	}
-	if total > 200*20 || atTarget < 190 {
+	if total > 200*20 || atTarget != 200 {
 		t.Fatalf("length distribution regressed: mean %.3f, <=20 %d/200", float64(total)/200, atTarget)
 	}
 	t.Logf("200 scrambles: mean %.3f max %d face turns; <=20 %.1f%%; mean %v max %v; histogram %v", float64(total)/200, longest, float64(atTarget)/2, sumTime/200, maxTime, histogram)
@@ -170,7 +170,7 @@ func TestKociembaUniformStates200(t *testing.T) {
 		if err != nil {
 			t.Fatalf("uniform state %d: %v", n, err)
 		}
-		if len(result.Solution) == 0 || len(result.Solution) > 21 {
+		if len(result.Solution) == 0 || len(result.Solution) > 20 {
 			t.Fatal("uniform state has invalid length", len(result.Solution))
 		}
 		c.ApplyMoves(result.Solution)
@@ -186,7 +186,7 @@ func TestKociembaUniformStates200(t *testing.T) {
 		elapsed += duration
 		maxTime = max(maxTime, duration)
 	}
-	if total > 200*20 || atTarget < 190 {
+	if total > 200*20 || atTarget != 200 {
 		t.Fatalf("length distribution regressed: mean %.3f, <=20 %d/200", float64(total)/200, atTarget)
 	}
 	t.Logf("200 uniform states: mean %.3f max %d face turns; <=20 %.1f%%; mean %v max %v; histogram %v", float64(total)/200, longest, float64(atTarget)/2, elapsed/200, maxTime, histogram)

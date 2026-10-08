@@ -43,34 +43,104 @@ and shortest-sequence pattern search.
 - Optimal search is exponential on deep states; wildcard heuristics are weaker
   than exact-state heuristics. Use Kociemba for general scramble solving.
 
-Earlier measurements on this Mac under background QoS (2026-10-07): CLI searches of
-exact depths 8/9/10 took **0.72/0.46/0.52 seconds**, including table setup.
-Ten seeded targets per depth averaged **0.29/1.58/9.40 ms** with tables loaded.
-The independent Python oracle replayed **200 uniform physical states**, including
-all 24 grips, with this before/after comparison:
+Native measurements use **1,000 uniform legal states in one process**, seed
+`2026100709`, one search thread, Go 1.26.2 and Mac background QoS
+(`taskpolicy -b nice -n 15`). Every answer is replayed against the original
+stickers and the input is checked for mutation. `make test-kociemba` gates
+**100% at ≤20 turns, warm mean <50 ms and p99 <250 ms**, runs a first-ever plain
+solve in a fresh process with an empty cache (**≤1 second and ≤10,000,000 cache
+bytes**), and independently constructs/replays 200 Python physical states,
+including all 24 grips. `make bench-kociemba` runs the warm sample alone;
+`make test-kociemba-cold` runs the cold gate alone.
 
-| Kociemba search | Mean turns | Max | ≤20 turns | Fresh CLI mean / max |
-|---|---:|---:|---:|---:|
-| First solution (before) | 21.730 | 22 | 2.5% | 68.51 / 256.60 ms |
-| Six views, improving solutions | **19.775** | **21** | **98.5%** | **162.53 / 1069.96 ms** |
+The compact default measured **19.889 mean / 20 max turns, 100% at ≤20**, with
+**12.29 ms warm mean / 106.08 ms p99 / 475.02 ms max**. The first-ever plain solve
+of the cold-gate scramble took **214.45 ms**, including setup, and wrote
+**3,337,787 bytes (3.338 MB)**. A fresh cached Go subprocess including a uniform
+solve took **156.81 ms**. The independent 200-state CLI oracle measured **19.935
+mean / 20 max turns**, **192.92 ms process mean / 821.07 ms max**, including
+cached table setup in each process. These are seeded measurements under the
+policy above, rather than worst-case bounds.
 
-The seeded 200-uniform-state Go sample with loaded tables averaged **19.790**
-turns, maximum **21**, with mean/max solve time **89.47 / 1000.19 ms**
-(before: **21.675 / 22** turns, **18.47 / 267.90 ms**).
-These samples are not worst-case bounds; a 20-turn solution is a stopping goal,
-not a guarantee. Grip rotations are separate from face-turn length.
-The anytime search improves its incumbent across three axes and their inverses,
-tightens the total-length bound, and combines twist/slice, flip/slice and
-twist/flip pruning. It returns the best verified solution after one second, or
-stops early at 20 turns. If no solution was found, it reports a timeout.
+Default tables quotient phase-one twist/slice and slice/flip coordinates under
+**16 U/D-axis symmetries (eight rotations and their mirrors)**, giving **168
+twist classes and 45 slice classes**. Twist/flip uses the eight symmetries that
+preserve flip independently of slice
+(**324 twist classes**), with four-bit distances in two frames. An exact
+**7,646-entry symmetry-reduced radius-five frontier** quickly rejects shallow
+dead ends; tests check every descending witness and closure of all layers below
+the frontier. Phase two has **2,768 corner and edge permutation classes**,
+paired with slice permutation and the other group's four-piece combination
+plus parity; inverse bounds preserve the existing correlation pruning.
+Three axes, inverse views and up to three pre-moves share a resumable total-length
+budget. A turn and its inverse share phase-one work; both phase-two endings are
+checked. Reductions advance together by phase-one plus pre-move length.
 
-Kociemba tables are generated deterministically on first use and cached under
-the user's cache directory (`cube/coordinates-v2.gob`); `CUBE_CACHE_DIR` overrides
-the location. The expanded tables took **1.83 seconds** to generate in native Go.
-One-time loading/generation is separate from Kociemba's search budget, including
-in browser workers; `--optimal` still includes setup in its time limit.
-Search's four-edge tables take about **0.49 seconds** to generate in memory.
-No generated tables are committed; a missing or invalid cache is rebuilt.
+The engine-owned **3,337,787-byte** compressed compact asset ships inside the
+native and WASM executables. First use copies it to
+`cube/coordinates-v5.bin.gz` in the user's cache; `CUBE_CACHE_DIR` overrides the
+directory. A missing or corrupt cache uses the embedded asset without generating
+large tables. `make generate-tables` rebuilds the asset from this engine's moves and exhaustively compares every
+symmetry-reduced pair distance with unquotiented BFS. Checksums, dimensions and
+move fingerprints guard the cache. The committed generated file is under 5 MB.
+
+The previous large-table solver measured **19.932 mean / 20 max turns, 100% at
+≤20**, **5.68 ms warm mean / 57.22 ms p99 / 187.94 ms max**, with a **625.88 ms
+fresh cached Go subprocess**. Its CLI oracle measured **19.935 mean / 20 max
+turns**, **558.76 ms process mean / 890.13 ms max**. Its phase-one table had
+**295,004,160 states / 147,502,080 packed bytes**; generation measured **120.99 s**
+under background QoS with roughly **1.6 GiB** of temporary memory. A first-ever
+plain solve regressed to about **37 s on performance cores / 161 MB of cache**.
+That table is now optional: **`cube tables build --large`** explicitly builds it,
+and **`CUBE_LARGE_TABLES=1 cube solve ...`** explicitly selects it. Ordinary solves
+ignore it even if it already exists. `make test-phase1-tables` checks the optional
+table's admissibility, consistency and descending witnesses (maximum distance 12).
+For comparison, c862379 with CPU profiling measured **19.801 mean / 21 max turns,
+98.8% at ≤20**, **88.80 ms mean / 1000.08 ms p99 / 1000.52 ms max**.
+
+The pruning/search strategy is informed by
+[min2phase](https://github.com/cs0x7f/min2phase). A paired private reference run
+used [min2phaseCXX](https://github.com/lilborgo/min2phaseCXX), built with installed
+Clang (`-std=c++14 -O3`) inside ignored `.scratch/`, on the identical 1,000 fixtures
+and process policy. It returned **19.746 mean / 20 max turns, 100% at ≤20**, with
+**5.28 ms warm mean / 53.22 ms p99 / 316.64 ms max**, **991,712 cache bytes**,
+**156.14 ms generation** and **24.73 ms fresh cached process**. Every answer
+passed independent Python physical replay. Reference code and outputs are not
+committed. `make export-reference-fixtures` writes the same 1,000 two-phase and
+ten optimal URFDLB inputs into `.scratch/` without fetching code or dependencies.
+Cube Explorer and nissy/vcube paired timings remain outstanding.
+
+Optimal search retains the small databases for states within ten turns. Deep
+`--optimal` states lazily build full-corner and two disjoint six-edge databases:
+**88,179,840 corner states** and **42,577,920 states per edge group**, packed into
+**44,089,920 + 21,288,960 + 21,288,960 bytes**. Factorized six-edge transitions
+use **47,900,160 bytes** rather than expanding all 64 orientation masks. The
+checksummed `optimal-v1.bin` is **134,568,064 bytes (128.33 MiB)**. Generation took
+**67.53 seconds**, with **665 MB peak RSS** in the measured table-oracle process.
+Loading the optimal cache took **393.25 ms** in a separate run. With both large
+caches and the small search tables loaded, allow about **300 MiB** of resident
+table data. An existing phase-one cache strengthens optimal search in all three
+axes; optimal search does not generate that additional cache when it is absent.
+A one-time stderr message states the size and expected build time before
+generating the optimal cache. Optimal setup is included in `--time-limit`, and
+interrupted builds never publish partial tables. `make test-optimal` checks distances against the exact IDA* finder
+and independently replays short states and superflip in every grip.
+
+The uniform-state benchmark (seed `2026100714`, ten states, one search thread,
+background QoS, CPU profiling enabled) returned **0/10 proven solutions** and
+**10/10 timeouts at 180 seconds**; observed return times were **180.002–180.209 s**.
+All ten observations are censored above three minutes, so no uncensored mean,
+median or p99 is claimed. **The few-minute random-state optimal target is not
+met.** `make bench-optimal` reproduces the same ten states and three-minute
+budgets without profiling. The two fixed 12-turn finder cross-checks solved in
+**6.96 / 8.07 ms** with the larger tables; these are short-scramble results,
+separate from the uniform-state distribution. Larger or more effective optimal
+pruning remains necessary before comparing performance with nissy/vcube.
+
+Superflip is recognized by exact cubie coordinates and uses
+[Reid's published 20-turn lower bound](https://www.math.rwth-aachen.de/~Martin.Schoenert/Cube-Lovers/michael_reid__superflip_requires_20_face_turns.html)
+plus a replayed 20-turn witness. General states exhaust every shorter IDA* depth
+before an answer is returned; a timeout remains an explicit error.
 
 NxN reduction measurements on the same Mac under background QoS (2026-10-07):
 `make test-nxn` independently replayed **1,000 solutions**, with **100 uniform

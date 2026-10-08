@@ -48,7 +48,7 @@ def main():
         assert result.returncode == 0, (index, physical.cfen(state), result.stderr)
         tokens = result.stdout.split()
         turns = [token for token in tokens if token[0] not in "xyz"]
-        assert 0 < len(turns) <= 21, (index, result.stdout)
+        assert 0 < len(turns) <= 20, (index, result.stdout)
         replay = physical.physical_sequence(state, result.stdout)
         assert all(color == face[1][1] for face in replay for row in face for color in row), (
             index, physical.cfen(state), result.stdout, physical.cfen(replay))
@@ -57,7 +57,7 @@ def main():
     mean = statistics.mean(lengths)
     at_target = sum(length <= 20 for length in lengths) / args.cases
     assert mean <= 20, ("mean length regressed", mean, Counter(lengths))
-    assert at_target >= 0.95, ("<=20 share regressed", at_target, Counter(lengths))
+    assert at_target == 1, ("<=20 share regressed", at_target, Counter(lengths))
     print(f"{args.cases} independent uniform physical states solved; "
           f"mean {statistics.mean(lengths):.3f}, max {max(lengths)} face turns; "
           f"<=20 {at_target:.1%}; "

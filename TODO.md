@@ -26,19 +26,45 @@ recoverable playback. The white-layer sublesson remains explicit via `--goal fir
 - Tests: active full-solver contract, Go tests, binary E2E cases, and independent
   physical-cubie/checkpoint/interaction oracles for full and partial goals.
 
-**Measured 2026-10-07, Mac background QoS:** earlier depth 8/9/10 CLI searches
-0.72/0.46/0.52 s; loaded-table means across ten targets each 0.29/1.58/9.40 ms.
-200 independently constructed Python physical states: Kociemba improved from
-**21.730 mean / 22 max / 2.5% at ≤20 turns** to **19.775 / 21 / 98.5%**.
-Fresh CLI process mean/max changed from **68.51 / 256.60 ms** to
-**162.53 / 1069.96 ms**. The 200-uniform-state Go sample improved from
-**21.675 / 22** turns at **18.47 / 267.90 ms** mean/max to **19.790 / 21**
-at **89.47 / 1000.19 ms** with loaded tables. Expanded table generation: **1.83 s**.
-Kociemba stops at `--target-length 20` or returns its best verified solution at
-`--time-limit 1s`; setup is separate, and no incumbent means an explicit timeout.
-Three axes and their inverses share the budget, with a tightening total bound
-and all three orientation/slice pair-pruning tables. These are samples, not
-worst-case guarantees. Search's four-edge tables take 0.49 s to generate.
+**Default cold-start work:** compact four-bit pair tables now use 16-way phase-one
+symmetry (168 twist / 45 slice classes), 2,768 phase-two permutation classes and
+both directions of corner/edge combination correlation. A 7,646-entry
+symmetry-reduced exact phase-one frontier rejects shallow dead ends. The reproducible embedded
+asset is **3,337,787 bytes**, below the 5 MB committed-file limit. Default solves
+load it and never generate the 147.5 MB optional phase-one table. Large tables
+require `cube tables build --large` and explicit `CUBE_LARGE_TABLES=1` selection.
+`make test-kociemba` includes the 1,000-state warm gate, a fresh-process empty-cache
+plain solve with **1 s / 10 MB** budgets, and independent physical replay.
+
+The compact default measured **19.889 mean / 20 max turns, 100% at ≤20** over
+1,000 uniform states (seed `2026100709`), **12.29 ms mean / 106.08 ms p99 /
+475.02 ms max**, under Mac background QoS. A first-ever plain solve in an empty
+cache took **214.45 ms / 3,337,787 cache bytes**; a fresh cached Go subprocess
+including a uniform solve took **156.81 ms**. The independent 200-state CLI oracle
+also reached **100% at ≤20**, with **192.92 ms process mean / 821.07 ms max**.
+
+The previous large-table measurement on native Mac background QoS was **19.932
+mean / 20 max turns, 100% at ≤20**, **5.68 ms mean / 57.22 ms p99 / 187.94 ms max**;
+a fresh cached subprocess took **625.88 ms**. Its **147,502,080-byte** phase-one
+database took **120.99 s** to generate under that policy; the coordinator measured
+about **37 s / 161 MB** for a plain empty-cache solve on performance cores.
+
+Optimal search adds full-corner and two six-edge databases: **44,089,920 +
+21,288,960 + 21,288,960 bytes**, with **47,900,160 bytes** of factorized transitions.
+Generation took **67.53 s**, measured peak RSS **665 MB**; cache **134,568,064 bytes**.
+Two 12-turn states were independently cross-checked with the IDA* finder and
+proved in **6.96 / 8.07 ms** using the larger tables. Superflip uses Reid's published
+20-turn lower bound and a physically replayed witness, including all 24 grips.
+The uniform-state benchmark (seed `2026100714`, one thread, CPU profiling enabled)
+returned **0/10 proved and 10/10 timeouts at 180 s**; return times **180.002–180.209 s**.
+The few-minute target remains **unmet**. `make bench-optimal` reproduces all ten
+states and three-minute budgets; timeouts stay in the reported distribution. The paired
+min2phaseCXX reference on the identical 1,000 states measured **5.28 ms mean /
+53.22 ms p99**, **19.746 mean / 20 max turns**, with every answer physically
+replayed. Its **991,712-byte cache / 24.73 ms cold cached process** beat the
+engine's prior large-cache/cold-start costs. The reference was run privately in
+`.scratch/`; its code and outputs are not committed. Cube Explorer and nissy/vcube
+paired timing remains outstanding.
 
 **Guardrails (do not let these go red):** `internal/cube/invariants_test.go`,
 `internal/cfen/cfen_test.go`, `internal/cli/commands_test.go`. The solver-contract test is the
@@ -244,7 +270,7 @@ No look-ahead, extended cross, or color neutrality is claimed.
 
 ### 6.2 Kociemba Two-Phase
 - [x] Phase 1: Reduce to &lt;U,D,R2,L2,F2,B2&gt; subgroup
-- [x] Phase 2: Search subgroup with exact-depth IDA* (combined result is not globally optimal)
+- [x] Phase 2: Search subgroup with bounded DFS and admissible pruning (combined result is not globally optimal)
 - [x] Generate deterministic lazy cached pruning tables and coordinate systems
 - [x] Keep `KociembaSolver.Solve` / `GetSolver` signatures and beginner lesson intact
 - [x] Default to Kociemba after measured paired length comparison
@@ -252,17 +278,33 @@ No look-ahead, extended cross, or color neutrality is claimed.
   Python physical-state replays; unchanged full-solver/CFEN/command guardrails
 - [x] Continue after the first solution; tighten total length while increasing phase-one depth
 - [x] Three reduction axes and inverse search, with resumable DFS sharing one budget
-- [x] Combined twist/slice, flip/slice and twist/flip admissible pruning; version-2 cache
+- [x] Combined twist/slice, flip/slice and twist/flip admissible pruning with conjugate checks; compact version-5 cache
 - [x] CLI `--target-length` (20) and shared `--time-limit` (1s); best incumbent on expiry
-- [x] Oracle gates: mean ≤20, maximum 21 and ≥95% of sampled solutions at ≤20 turns
+- [x] Oracle gates: all sampled solutions at ≤20 turns; 1,000-state warm mean <50 ms and p99 <250 ms
 - [x] WASM uses the same default budget; cold-worker completion and responsive UI regression
-- [ ] Reach 100% at ≤20 turns within one second (measured 98.5% on the Python sample)
+- [x] Optional large phase-one pruning (291 twist classes × flip/slice)
+- [x] Stabilizer closure and reverse-fill generation, checksummed four-bit native cache
+- [x] Up to three pre-moves, shared quarter-turn/inverse paths, phase-two inverse pruning
+- [x] Compact default: 1,000/1,000 at ≤20 turns, 12.29 ms mean and 106.08 ms p99
+- [x] Full-corner and disjoint six-edge optimal databases, lazy cache generation
+- [x] Optimal distance oracle: short/deep finder cross-checks and superflip = 20
+- [ ] Reach the few-minute proven-optimal target: measured 0/10 at 180 s, with all ten observations censored
+- [x] Paired min2phaseCXX comparison on the exact 1,000 fixtures, with physical replay and source hashes
+- [x] Export seeded URFDLB reference datasets with `make export-reference-fixtures`
+- [x] Replace implicit 147.5 MB generation with a reproducible compact embedded asset
+- [x] Gate first-ever solve time and default cache size in `make test-kociemba`
+- [ ] Run paired native reference benchmarks against Cube Explorer and nissy/vcube
 
-Final validation on 2026-10-07: `go test -p 2 ./...`, `go vet -p 2 ./...`,
-133 CLI E2E cases, both 200-state independent oracles and the WASM API passed.
-`make test-web-smoke` hit a sandbox loopback-bind denial; the requested
-`node web/test/smoke.mjs --in-memory` fallback passed all browser assertions,
-including hard-state worker completion and UI animation during the solve.
+Compact-default validation on 2026-10-07 completed by 22:40 local:
+`go test -p 2 ./...`, `go vet -p 2 ./...`, `make build`, **133/133 CLI E2E cases**,
+`make test-kociemba` (fresh empty cache, 1,000 warm states and 200 independent
+physical states), `make test-cfop`, `make test-beginner`, `make test-first-layer`,
+`make test-web` and `make test-optimal` all passed. Compact table generation also
+passed exhaustive pair-distance comparisons and roundtrip checks. The three
+load-bearing test files remain unchanged; every new solver answer is checked
+against the full-cube contract. The earlier paired min2phaseCXX run passed 1,000
+independent physical replays. The earlier ten-state optimal benchmark remains
+0/10 proved at 180 seconds; optimal performance was not revisited in this run.
 
 ### 6.3 Big Cube Support
 - [x] 4x4 reduction method (centers, edges, OLL/PLL parity)
