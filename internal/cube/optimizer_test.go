@@ -27,20 +27,63 @@ func TestOptimizePreservesFullNotation(t *testing.T) {
 		if size%2 == 1 {
 			tokens = append(tokens, "M", "E", "S")
 		}
-		for trial := 0; trial < 300; trial++ {
-			var moves []Move
-			for i := 0; i < 80; i++ {
-				token := tokens[rng.Intn(len(tokens))] + []string{"", "'", "2"}[rng.Intn(3)]
-				move, err := ParseMove(token)
-				if err != nil {
-					t.Fatal(err)
+		for _, rotationHeavy := range []bool{false, true} {
+			t.Run(fmt.Sprintf("size=%d/rotation-heavy=%t", size, rotationHeavy), func(t *testing.T) {
+				for trial := 0; trial < 300; trial++ {
+					var moves []Move
+					for i := 0; i < 80; i++ {
+						token := tokens[rng.Intn(len(tokens))]
+						if rotationHeavy && rng.Intn(4) != 0 {
+							token = []string{"x", "y", "z"}[rng.Intn(3)]
+						}
+						move, err := ParseMove(token + []string{"", "'", "2"}[rng.Intn(3)])
+						if err != nil {
+							t.Fatal(err)
+						}
+						moves = append(moves, move)
+						if rng.Intn(3) == 0 {
+							moves = append(moves, move)
+						}
+						if rotationHeavy && move.Rotation != NoRotation {
+							// Mix directions and half turns in runs on the same axis.
+							for run := rng.Intn(4); run > 0; run-- {
+								move.Clockwise = rng.Intn(2) == 0
+								move.Double = rng.Intn(3) == 0
+								moves = append(moves, move)
+							}
+						}
+					}
+					assertOptimizationPreservesState(t, size, FormatMoves(moves))
 				}
-				moves = append(moves, move)
-				if rng.Intn(3) == 0 {
-					moves = append(moves, move)
-				}
+			})
+		}
+	}
+}
+
+func TestOptimizeRotationPairs(t *testing.T) {
+	for _, axis := range []string{"x", "y", "z"} {
+		suffixes := []string{"", "'", "2"}
+		expected := [3][3]string{
+			{axis + "2", "", axis + "'"},
+			{"", axis + "2", axis},
+			{axis + "'", axis, ""},
+		}
+		for i, first := range suffixes {
+			for j, second := range suffixes {
+				input := axis + first + " " + axis + second
+				t.Run(input, func(t *testing.T) {
+					result, err := OptimizeScramble(input)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if result != expected[i][j] {
+						t.Fatalf("OptimizeScramble(%q) = %q, want %q", input, result, expected[i][j])
+					}
+					for _, size := range []int{3, 4, 5} {
+						assertOptimizationPreservesState(t, size, input)
+					}
+				})
 			}
-			assertOptimizationPreservesState(t, size, FormatMoves(moves))
 		}
 	}
 }
@@ -153,6 +196,86 @@ func TestOptimizeMoves(t *testing.T) {
 			name:     "Layer moves",
 			input:    "2R 2R 2R",
 			expected: "2R'",
+		},
+		{
+			name:     "Rotation doubling",
+			input:    "x x",
+			expected: "x2",
+		},
+		{
+			name:     "Rotation cancellation",
+			input:    "x x'",
+			expected: "",
+		},
+		{
+			name:     "Y rotation cancellation",
+			input:    "y y'",
+			expected: "",
+		},
+		{
+			name:     "Double rotation plus single",
+			input:    "x2 x",
+			expected: "x'",
+		},
+		{
+			name:     "Four rotations cancel",
+			input:    "z z z z",
+			expected: "",
+		},
+		{
+			name:     "Documented rotation and wide turns",
+			input:    "x x 3Rw 3Rw",
+			expected: "x2 3Rw2",
+		},
+		{
+			name:     "Rotations inside face turns",
+			input:    "R x x R'",
+			expected: "R x2 R'",
+		},
+		{
+			name:     "Face turns exposed by canceled rotations",
+			input:    "F x x' F'",
+			expected: "",
+		},
+		{
+			name:     "Rotations exposed by canceled face turns",
+			input:    "x F F' x",
+			expected: "x2",
+		},
+		{
+			name:     "Nested cancellations",
+			input:    "F x y R R' y' x' F'",
+			expected: "",
+		},
+		{
+			name:     "Different axes preserve order",
+			input:    "x y x'",
+			expected: "x y x'",
+		},
+		{
+			name:     "Noncommuting face preserves rotation order",
+			input:    "x F x'",
+			expected: "x F x'",
+		},
+		{
+			name:     "Rotation separates face turns",
+			input:    "F x F'",
+			expected: "F x F'",
+		},
+		{
+			name:     "Wide turn separates rotations",
+			input:    "x Uw x'",
+			expected: "x Uw x'",
+		},
+		{
+			name:     "Layer turn separates rotations",
+			input:    "x 2U x'",
+			expected: "x 2U x'",
+		},
+		{
+			name:     "Slice separates rotations",
+			input:    "x E x'",
+			expected: "x E x'",
 		},
 		{
 			name:     "Empty sequence",

@@ -5,7 +5,7 @@ import (
 )
 
 // OptimizeMoves takes a sequence of moves and optimizes it by:
-// - Combining consecutive moves on same face: R R -> R2, R R R -> R'
+// - Combining consecutive turns of the same layer or rotation axis: R R -> R2, x x -> x2
 // - Removing canceling moves: R R' -> (nothing), R2 R2 -> (nothing)
 // - Simplifying double moves: R2 R2 -> (nothing), R2 R -> R', R2 R' -> R
 func OptimizeMoves(moves []Move) []Move {
@@ -18,25 +18,22 @@ func OptimizeMoves(moves []Move) []Move {
 	for i := 0; i < len(moves); i++ {
 		currentMove := moves[i]
 
-		// Preserve rotations: subsequent turns are expressed in the rotated frame.
-		if currentMove.Rotation != NoRotation {
-			optimized = append(optimized, currentMove)
-			continue
-		}
-
-		// Try to combine with previous move if it's the same face
+		// Only combine adjacent moves; rotations change the frame of later turns.
 		if len(optimized) > 0 {
 			lastMove := &optimized[len(optimized)-1]
 
-			// Same face moves can be combined
-			if lastMove.Face == currentMove.Face &&
+			sameRotation := currentMove.Rotation != NoRotation &&
+				lastMove.Rotation == currentMove.Rotation
+			sameFaceTurn := lastMove.Face == currentMove.Face &&
 				lastMove.Rotation == NoRotation &&
+				currentMove.Rotation == NoRotation &&
 				lastMove.Wide == currentMove.Wide &&
 				lastMove.WideDepth == currentMove.WideDepth &&
 				lastMove.Layer == currentMove.Layer &&
-				lastMove.Slice == NoSlice && currentMove.Slice == NoSlice {
+				lastMove.Slice == NoSlice && currentMove.Slice == NoSlice
 
-				combined := combineSameFaceMoves(*lastMove, currentMove)
+			if sameRotation || sameFaceTurn {
+				combined := combineAdjacentMoves(*lastMove, currentMove)
 				if combined == nil {
 					// Moves cancel out - remove the last move
 					optimized = optimized[:len(optimized)-1]
@@ -55,9 +52,9 @@ func OptimizeMoves(moves []Move) []Move {
 	return optimized
 }
 
-// combineSameFaceMoves combines two moves on the same face
+// combineAdjacentMoves combines two turns of the same layer or rotation axis.
 // Returns nil if the moves cancel out completely
-func combineSameFaceMoves(first, second Move) *Move {
+func combineAdjacentMoves(first, second Move) *Move {
 	// Convert moves to "quarter turn count" for easier math
 	firstCount := moveToQuarterTurns(first)
 	secondCount := moveToQuarterTurns(second)
