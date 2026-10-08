@@ -245,7 +245,7 @@ async function blackInterior(page) {
   "colored sticker backs do not show through the turning layer");
 }
 
-async function dragSticker(page, { face, index, dx, dy, move, screenshot, cancel = false, reverse = false, tiles = null }) {
+async function dragSticker(page, { face, index, dx, dy, move, screenshot, cancel = false, reverse = false, tiles = null, cubies = 9 }) {
   const before = await page.locator("#cfen").inputValue();
   const expected = await page.evaluate(({ cfen, moves }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves }))).data.state,
     { cfen: before, moves: move || "" });
@@ -256,7 +256,7 @@ async function dragSticker(page, { face, index, dx, dy, move, screenshot, cancel
   await page.mouse.move(point.x + dx / 2, point.y + dy / 2, { steps: 8 });
   assert.equal(await page.locator("#stage").getAttribute("data-dragging"), "turn");
   assert.equal(await page.locator("#reset").isDisabled(), true);
-  if (tiles === null) assert.equal(await page.locator("#cube .layer .cubie").count(), 9);
+  if (tiles === null) assert.equal(await page.locator("#cube .layer .cubie").count(), cubies);
   else assert.equal(await page.locator("#cube .svg-tile[data-turning]").count(), tiles);
   if (tiles === null) assert.notEqual(await page.locator("#cube .layer").evaluate(layer => getComputedStyle(layer).transform), "none");
   else assert.notEqual(await page.locator("#cube svg").getAttribute("data-turn-angle"), "0");
@@ -306,6 +306,204 @@ async function touchSticker(page, { face, index, dx, dy, move, screenshot, cance
   } finally { await session.detach(); }
 }
 
+async function playgroundRegressions(page, baseURL) {
+  const failures = [];
+  let navigation = 0;
+  const fresh = async size => {
+    await page.goto(`${baseURL}?interactions=${++navigation}#size=${size}`);
+    await idle(page);
+    await page.locator("#speed").selectOption("70", { force: true });
+  };
+  const orbit = async keys => {
+    await page.locator("#home-view").click();
+    await page.locator("#stage").focus();
+    for (const key of keys) await page.keyboard.press(key);
+    await page.locator("#stage").scrollIntoViewIfNeeded();
+  };
+  const camera = () => page.locator("#cube").evaluate(root => ({
+    transform: document.getElementById("camera").style.transform,
+    polygons: [...root.querySelectorAll("svg .sticker")].filter(sticker => sticker.closest(".svg-tile").style.display !== "none")
+      .map(sticker => [sticker.dataset.face, Number(sticker.dataset.index), sticker.getAttribute("points")])
+      .sort((a, b) => a[0].localeCompare(b[0]) || a[1] - b[1])
+  }));
+  const checks = [
+    ["rejected even-cube shortcuts preserve solution, history and state", async () => {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      for (const size of [2, 4, 6]) {
+        await fresh(size);
+        await runAlgorithm(page, "R U F");
+        const mixed = await page.locator("#cfen").inputValue();
+        assert.equal(await page.locator("#progress").textContent(), "3 / 3");
+        await page.locator("#solve").click();
+        await page.waitForFunction(() => document.getElementById("notice").textContent.startsWith("Solution ready") || document.getElementById("notice").classList.contains("error"), null, { timeout: 120000 });
+        assert.match(await page.locator("#notice").textContent(), /^Solution ready/, `${size}x${size} solution preparation`);
+        await idle(page);
+        const moves = await page.locator("#sequence-moves button").allTextContents();
+        const progress = await page.locator("#progress").textContent();
+        const url = page.url();
+        const stickers = await page.locator("#cube .sticker").evaluateAll(nodes => nodes.map(node => node.dataset.color));
+        assert.ok(moves.length > 0);
+        await page.locator("#stage").focus();
+        for (const key of ["m", "Shift+E", "s"]) {
+          await page.keyboard.press(key);
+          await idle(page);
+          assert.match(await page.locator("#notice").textContent(), /unsupported on an even.*use numbered layer turns/);
+          assert.equal(await page.locator("#notice").getAttribute("class"), "notice error");
+          assert.equal(await page.locator("#cfen").inputValue(), mixed);
+          assert.equal(page.url(), url, "rejection preserves the saved solution");
+          assert.equal(await page.locator("#playback").isVisible(), true);
+          assert.deepEqual(await page.locator("#sequence-moves button").allTextContents(), moves);
+          assert.equal(await page.locator("#progress").textContent(), progress);
+          assert.deepEqual(await page.locator("#cube .sticker").evaluateAll(nodes => nodes.map(node => node.dataset.color)), stickers);
+          assert.equal(await page.locator("#undo").isEnabled(), true);
+          assert.equal(await page.locator("#redo").isEnabled(), false);
+        }
+        await page.locator("#step").click();
+        await idle(page);
+        const first = await page.evaluate(({ cfen, moves }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves }))).data.state.cfen,
+          { cfen: mixed, moves: moves[0] });
+        assert.equal(await page.locator("#cfen").inputValue(), first, "the preserved solution still plays");
+        await page.locator("#back-step").click();
+        assert.equal(await page.locator("#cfen").inputValue(), mixed);
+        // Start again to check the original history without playback navigation.
+        await fresh(size);
+        await runAlgorithm(page, "R U F");
+        await page.locator("#undo").click();
+        const afterRU = await page.locator("#cfen").inputValue();
+        const historyURL = page.url();
+        await page.locator("#stage").focus();
+        await page.keyboard.press("m");
+        await idle(page);
+        assert.equal(page.url(), historyURL);
+        assert.equal(await page.locator("#cfen").inputValue(), afterRU);
+        assert.equal(await page.locator("#redo").isEnabled(), true, "rejection retains the redo branch");
+        await page.locator("#redo").click();
+        assert.equal(await page.locator("#cfen").inputValue(), mixed);
+        await page.locator("#undo").click();
+        assert.equal(await page.locator("#cfen").inputValue(), afterRU, "rejection adds no history entry");
+      }
+    }],
+    ["every face's visible stickers receive drags on sizes 2–7 and both viewports", async () => {
+      for (const [width, height] of [[1280, 800], [390, 844]]) {
+        await page.setViewportSize({ width, height });
+        for (const size of [2, 3, 4, 5, 6, 7]) {
+          await fresh(size);
+          for (const [face, keys, dx, dy] of [
+            ["F", [], 0, -110], ["R", [], 0, 110], ["U", [], -110, 0], ["L", Array(6).fill("ArrowRight"), 0, -110],
+            ["B", Array(12).fill("ArrowRight"), 0, -110], ["D", Array(4).fill("ArrowDown"), -110, 0]
+          ]) {
+            await orbit(keys);
+            const misses = await page.locator(`#cube .sticker[data-face="${face}"]`).evaluateAll(stickers => stickers.flatMap(sticker => {
+              const box = sticker.getBoundingClientRect();
+              const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+              return hit?.closest(".sticker") === sticker ? [] : [{ index: sticker.dataset.index, hit: hit?.getAttribute("class") }];
+            }));
+            assert.deepEqual(misses, [], `${size}x${size} ${width}px ${face} sticker hit surfaces`);
+            const point = await stickerPoint(page, face, 0);
+            const before = await page.locator("#cfen").inputValue();
+            const beforeCamera = await camera();
+            if (width === 390) {
+              const session = await page.context().newCDPSession(page);
+              try {
+                await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...point, id: 1 }] });
+                assert.equal(await page.locator("#stage").getAttribute("data-dragging"), "turn");
+                await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: point.x + dx, y: point.y + dy, id: 1 }] });
+                await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+              } finally { await session.detach(); }
+            } else {
+              await page.mouse.move(point.x, point.y);
+              await page.mouse.down();
+              assert.equal(await page.locator("#stage").getAttribute("data-dragging"), "turn");
+              await page.mouse.move(point.x + dx, point.y + dy, { steps: 8 });
+              await page.mouse.up();
+            }
+            await idle(page);
+            const after = await page.locator("#cfen").inputValue();
+            assert.notEqual(after, before, `${size}x${size} ${width}px ${face} visible sticker gesture turns the cube`);
+            assert.deepEqual(await camera(), beforeCamera, "sticker drags preserve the camera");
+            await page.locator("#undo").click();
+            assert.equal(await page.locator("#cfen").inputValue(), before);
+            await page.locator("#redo").click();
+            assert.equal(await page.locator("#cfen").inputValue(), after);
+          }
+          const box = await page.locator("#stage").boundingBox();
+          const point = { x: box.x + 10, y: box.y + 10 };
+          const before = await page.locator("#cfen").inputValue();
+          const beforeCamera = await camera();
+          await page.mouse.move(point.x, point.y);
+          await page.mouse.down();
+          assert.equal(await page.locator("#stage").getAttribute("data-dragging"), "orbit");
+          await page.mouse.move(point.x + 70, point.y + 25, { steps: 8 });
+          await page.mouse.up();
+          assert.equal(await page.locator("#cfen").inputValue(), before, "background drags only orbit");
+          assert.notDeepEqual(await camera(), beforeCamera);
+        }
+      }
+    }],
+    ["controls stay above the big-cube SVG after orbiting", async () => {
+      for (const [width, height] of [[1280, 800], [390, 844]]) {
+        await page.setViewportSize({ width, height });
+        for (const size of [4, 5, 6, 7]) {
+          await fresh(size);
+          await page.locator("#stage").scrollIntoViewIfNeeded();
+          const centered = await camera();
+          await orbit(Array(6).fill("ArrowRight"));
+          assert.notDeepEqual(await camera(), centered);
+          for (const control of await page.locator(".cube-card button, .cube-card select").all()) {
+            if (!await control.isVisible()) continue;
+            await control.scrollIntoViewIfNeeded();
+            assert.equal(await control.evaluate(node => {
+              const box = node.getBoundingClientRect();
+              const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+              return hit === node || node.contains(hit);
+            }), true, `${size}x${size} ${width}px ${await control.getAttribute("id")} is clickable`);
+          }
+          await page.locator("#home-view").click();
+          await page.locator("#stage").scrollIntoViewIfNeeded();
+          assert.deepEqual(await camera(), centered, "Center view actually resets the orbit");
+          await page.locator("#view-net").click();
+          assert.equal(await page.locator("#net").isVisible(), true);
+          await page.locator("#view-3d").click();
+          assert.equal(await page.locator("#stage").isVisible(), true);
+        }
+      }
+    }],
+    ["Single and Wide sticker previews and moves follow the layer picker", async () => {
+      for (const [width, height] of [[1280, 800], [390, 844]]) {
+        await page.setViewportSize({ width, height });
+        for (const size of [2, 3, 4, 5, 6, 7]) {
+          await fresh(size);
+          await runAlgorithm(page, "R U F");
+          for (const depth of [...new Set([Math.min(3, size), 1, 2, size])]) for (const wide of [true, false]) {
+            await page.locator("#turn-layer").selectOption(String(depth));
+            await page.locator("#turn-width").selectOption(wide ? "wide" : "single");
+            await page.locator("#stage").scrollIntoViewIfNeeded();
+            const layers = wide ? depth : 1;
+            const tiles = size <= 3 ? null : 4 * size * layers + size * size * (wide ? depth === size ? 2 : 1 : depth === 1 || depth === size ? 1 : 0);
+            const index = Math.floor((size - 1) / 2) * size + size - 1;
+            const token = (depth === 1 ? "" : depth) + "R" + (wide && depth > 1 ? "w" : "");
+            await dragSticker(page, { face: "F", index, dx: 0, dy: -110, move: token, tiles, cubies: size * size * layers });
+            assert.match(await page.locator("#view-hint").textContent(), new RegExp(`Drags use Layer ${depth} · ${wide ? "Wide" : "Single"}`));
+            // An inner sticker follows the same picker, rather than silently
+            // substituting the depth of the touched cubie.
+            if (depth === 2 && size >= 4) {
+              await dragSticker(page, { face: "F", index: index - 1, dx: 0, dy: -110, move: token, tiles, cubies: size * size * layers });
+            }
+          }
+        }
+      }
+    }]
+  ];
+  for (const [name, check] of checks) {
+    try { await check(); console.log(`PASS browser: ${name}`); }
+    catch (error) { failures.push(new Error(name, { cause: error })); console.error(`FAIL browser: ${name}: ${error.message}`); }
+  }
+  if (failures.length) throw new AggregateError(failures, "Playground interaction regressions failed");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(baseURL);
+  await idle(page);
+}
+
 async function nxnRegressions(page) {
   const metrics = [];
   for (const size of [2, 3, 4, 5, 6, 7]) {
@@ -343,7 +541,9 @@ async function nxnRegressions(page) {
     await page.locator("#turn-layer").selectOption("1");
     await page.locator("#reset").click();
     if (size === 5) {
+      await page.locator("#turn-layer").selectOption("2");
       await dragSticker(page, { face: "F", index: 13, dx: 0, dy: -110, move: "2R", tiles: 20, screenshot: "5x5-inner-drag-1280x800.png" });
+      await page.locator("#turn-layer").selectOption("1");
       await page.locator("#reset").click();
     }
     await page.locator("#scramble").click();
@@ -451,10 +651,12 @@ async function nxnRegressions(page) {
         await dragSticker(page, { face: "F", index: 27, dx: 0, dy: -110, move: "R", tiles: 77,
           screenshot: `7x7-mid-turn-${width}x${height}.png` });
         await page.locator("#reset").click();
+        await page.locator("#turn-layer").selectOption("3");
         await dragSticker(page, { face: "F", index: 25, dx: 0, dy: -110, move: "3R", tiles: 28 });
         await page.locator("#reset").click();
         await dragSticker(page, { face: "F", index: 25, dx: 0, dy: -110, tiles: 28, cancel: true });
         await page.locator("#reset").click();
+        await page.locator("#turn-layer").selectOption("1");
       }
       await runAlgorithm(page, "2R U 2F' Rw D2 L B'");
       const cancelStart = await page.locator("#cfen").inputValue();
@@ -601,6 +803,9 @@ try {
     await profilePhone(page);
     assert.deepEqual(errors, []);
     process.exitCode = 0;
+  } else if (process.argv.includes("--interactions-only")) {
+    await playgroundRegressions(page, `http://127.0.0.1:${port}/web/`);
+    assert.deepEqual(errors, []);
   } else {
   const solved = await page.locator("#cfen").inputValue();
   assert.equal(await page.locator("#cube").getAttribute("data-solved"), "true");
@@ -609,6 +814,7 @@ try {
   await page.screenshot({ path: path.join(screens, "cube-1280x800.png") });
 
   await savedStateRegressions(page, `http://127.0.0.1:${port}/web/`, solved);
+  await playgroundRegressions(page, `http://127.0.0.1:${port}/web/`);
 
   await page.locator("#help-toggle").click();
   assert.equal(await page.locator("#keyboard-help").evaluate(help => help.matches(":popover-open")), true);
@@ -627,15 +833,16 @@ try {
     { face: "F", index: 3, dx: 0, dy: 110, move: "L" },
     { face: "F", index: 7, dx: 110, dy: 0, move: "D" },
     { face: "R", index: 5, dx: 0, dy: -110, move: "B" },
-    { face: "F", index: 4, dx: 0, dy: 110, move: "M" },
-    { face: "F", index: 4, dx: 110, dy: 0, move: "E" },
-    { face: "R", index: 4, dx: 0, dy: 110, move: "S" },
+    { face: "F", index: 4, dx: 0, dy: 110, move: "2R'", depth: "2" },
+    { face: "F", index: 4, dx: 110, dy: 0, move: "2U'", depth: "2" },
+    { face: "R", index: 4, dx: 0, dy: 110, move: "2F", depth: "2" },
     { face: "F", index: 5, dx: 0, dy: -18 },
     { face: "F", index: 5, dx: 0, dy: -110, cancel: true },
     { face: "F", index: 5, dx: 0, dy: -110, reverse: true }
   ]) {
     await page.locator("#reset").click();
     await page.locator("#home-view").click();
+    await page.locator("#turn-layer").selectOption(drag.depth || "1");
     await dragSticker(page, drag);
     if (!drag.move) assert.equal(await page.locator("#undo").isDisabled(), true, "cancellation adds no history");
   }

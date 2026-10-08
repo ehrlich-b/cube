@@ -104,8 +104,11 @@ export class CubeView {
     return [0, 1, 2].filter(axis => !normal[axis]).map(axis => {
       const h = (this.size - 1) / 2, sign = position[axis] < 0 ? -1 : 1;
       const depth = h - Math.abs(position[axis]) + 1;
-      const token = this.size === 3 ? layerMoves[axis][position[axis] + 1] :
-        (depth === 1 ? "" : depth) + [["L", "R"], ["D", "U"], ["B", "F"]][axis][sign === 1 ? 1 : 0];
+      const faceToken = [["L", "R"], ["D", "U"], ["B", "F"]][axis][sign === 1 ? 1 : 0];
+      // Resolve the picker once at pointerdown so preview and committed move
+      // share exactly the same layer selection as buttons and keyboard turns.
+      const token = this.selectMove ? this.selectMove(faceToken) : this.size === 3 ? layerMoves[axis][position[axis] + 1] :
+        (depth === 1 ? "" : depth) + faceToken;
       const geometry = turnGeometry(token, this.size);
       const step = Math.sign(geometry.angle);
       const end = project(new DOMMatrix().rotate(axis === 0 ? step : 0, axis === 1 ? step : 0, axis === 2 ? step : 0));

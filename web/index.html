@@ -27,7 +27,7 @@
           <div class="card-top"><span id="state-label" class="state-badge">Loading engine…</span><div class="view-toggle" aria-label="Cube view"><button id="view-3d" aria-pressed="true">3D cube</button><button id="view-net" aria-pressed="false">2D net</button></div></div>
           <div id="stage" class="stage" aria-label="3D cube; drag stickers to turn layers, or the background to orbit" aria-describedby="view-hint" tabindex="0"><div class="cube-shadow"></div><div id="camera" class="camera"><div id="cube" class="cube"></div></div></div>
           <div id="net" class="net" hidden aria-label="Unfolded cube net"></div>
-          <div class="viewer-foot"><span id="view-hint">Drag stickers to turn · background to orbit</span><button id="home-view" class="text-button">Center view ↺</button></div>
+          <div class="viewer-foot"><span id="view-hint">Drags use Layer / Wide; background orbits</span><button id="home-view" class="text-button">Center view ↺</button></div>
           <div class="main-actions"><button id="scramble" class="secondary" disabled>↝ &nbsp; Scramble</button><div class="solve-actions"><label class="sr-only" for="solve-method">Solve method</label><select id="solve-method" disabled><option value="kociemba" selected>Kociemba</option><option value="beginner">Beginner</option><option value="cfop">CFOP</option><option value="reduction" hidden disabled>Reduction</option></select><button id="solve" class="primary" disabled>Solve this cube <span>→</span></button></div></div>
           <button id="cancel-task" class="text-button" hidden>Cancel computation</button>
           <div class="history-bar"><div><button id="undo" aria-label="Undo last move" disabled>↶ Undo</button><button id="redo" aria-label="Redo last move" disabled>↷ Redo</button></div><button id="reset" disabled>Reset cube</button></div>
@@ -81,7 +81,7 @@
       <dt><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd></dt><dd>Orbit while the cube has focus</dd>
       <dt><kbd>?</kbd> / <kbd>Esc</kbd></dt><dd>Toggle help / close or cancel a drag</dd>
     </dl>
-    <p>Drag a sticker along its face to twist a layer. Drag farther for a half turn, or back to the start to cancel. Drag the background to look around.</p>
+    <p>Drag a sticker along its face to turn using the Layer and Wide settings, just like move keys and buttons. Drag farther for a half turn, or back to the start to cancel. Drag the background to look around.</p>
   </div>
   <noscript>This playground needs JavaScript and WebAssembly. The Go CLI works without a browser.</noscript>
   <script type="module" src="./app.js"></script>

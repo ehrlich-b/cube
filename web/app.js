@@ -85,6 +85,12 @@ function updateMoveLabels() {
     button.textContent = token.replace("'", "′");
     button.setAttribute("aria-label", `Turn ${token}`);
   }
+  updateViewHint();
+}
+
+function updateViewHint() {
+  $("view-hint").textContent = $("stage").hidden ? "U above · L F R B across · D below" :
+    `Drags use Layer ${$("turn-layer").value} · ${$("turn-width").value === "wide" ? "Wide" : "Single"}; background orbits`;
 }
 
 function record(next) {
@@ -124,8 +130,10 @@ async function manualTurn(token, settle = null) {
   updateControls();
   try {
     if (token) {
+      // Validate before discarding playback or changing undoable state.
+      const next = engine({ op: "twist", cfen: state.cfen, moves: token }).state;
       clearSequence();
-      await turn(token, Number($("speed").value), settle);
+      await turn(token, Number($("speed").value), settle, next);
       notice(`Turned ${token}.`);
     } else { await settle(); view.render(state); }
   }
@@ -133,6 +141,7 @@ async function manualTurn(token, settle = null) {
   finally { busy = false; updateControls(); }
 }
 
+view.selectMove = selectedMove;
 view.onTurnStart = () => {
   if (!engine || busy || job || running) return false;
   busy = true;
@@ -568,7 +577,7 @@ for (const mode of ["3d", "net"]) $(`view-${mode}`).addEventListener("click", ()
   if (mode === "3d") view.orient();
   $("view-3d").setAttribute("aria-pressed", String(mode === "3d"));
   $("view-net").setAttribute("aria-pressed", String(mode === "net"));
-  $("view-hint").textContent = mode === "3d" ? "Drag stickers to turn · background to orbit" : "U above · L F R B across · D below";
+  updateViewHint();
 });
 $("import").addEventListener("click", () => safe(() => {
   const cfen = $("cfen").value.trim();
