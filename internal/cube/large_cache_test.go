@@ -80,6 +80,51 @@ func TestSaturatedPatternCacheIntegrity(t *testing.T) {
 	}
 }
 
+func TestChunkedPatternCacheCompatibility(t *testing.T) {
+	t.Setenv("CUBE_CACHE_DIR", t.TempDir())
+	const filename = "pattern-chunks.bin"
+	// Cross a backing-array boundary, including a partial final block, while
+	// retaining the byte-for-byte format of the existing contiguous cache.
+	want := bytes.Repeat([]byte{0xff}, patternByteChunkSize+7)
+	want[0], want[patternByteChunkSize-1], want[patternByteChunkSize] = 0xfc, 0x39, 0xe4
+	if err := savePackedPattern(filename, want); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(tableCachePath(filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := patternByteChunks(loadPatternData(filename, len(want), patternByteChunkSize, time.Time{}))
+	if d.size() != len(want) {
+		t.Fatal("chunked cache size", d.size())
+	}
+	for i, value := range want {
+		if d.at(uint32(i)) != value {
+			t.Fatal("chunked cache differs from contiguous bytes", i)
+		}
+	}
+	if err := savePatternPartsLimit(filename, d, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(tableCachePath(filename))
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("chunked persistence changed the cache format", err)
+	}
+	*d.byte(patternByteChunkSize) ^= 1
+	if d.at(patternByteChunkSize) != want[patternByteChunkSize]^1 || d.at(patternByteChunkSize-1) != want[patternByteChunkSize-1] {
+		t.Fatal("write across chunk boundary changed the wrong byte")
+	}
+	filled := filledPatternByteChunks(len(want), 255, time.Time{})
+	if filled.size() != len(want) {
+		t.Fatal("fresh pruning storage size", filled.size())
+	}
+	for _, chunk := range filled {
+		if !bytes.Equal(chunk, bytes.Repeat([]byte{255}, len(chunk))) {
+			t.Fatal("fresh pruning storage contains a visited entry")
+		}
+	}
+}
+
 func TestLargeCacheSizeAndDeadlineGuards(t *testing.T) {
 	t.Setenv("CUBE_CACHE_DIR", t.TempDir())
 	f, err := os.Create(optimalCachePath())
@@ -109,5 +154,44 @@ func TestLargeCacheSizeAndDeadlineGuards(t *testing.T) {
 	}
 	if packDistances([]uint8{0, 1}, time.Now().Add(-time.Second)) != nil {
 		t.Fatal("expired packing")
+	}
+}
+
+func TestLargePatternCacheLoadDeadline(t *testing.T) {
+	t.Setenv("CUBE_CACHE_DIR", t.TempDir())
+	const filename = "pattern-deadline.bin"
+	const size = 168 * optimalFlipSliceStates / 4
+	f, err := os.Create(tableCachePath(filename))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A sparse cache with a valid move fingerprint reaches payload allocation,
+	// reads and hashing without generating another gigabyte-scale database.
+	var header [64]byte
+	fingerprint := edgeMoveFingerprint()
+	copy(header[32:], fingerprint[:])
+	_, writeErr := f.Write(header[:])
+	truncateErr := f.Truncate(size + 64)
+	closeErr := f.Close()
+	if writeErr != nil || truncateErr != nil || closeErr != nil {
+		t.Fatalf("prepare sparse cache: %v, %v, %v", writeErr, truncateErr, closeErr)
+	}
+	const limit = 200 * time.Millisecond
+	started := time.Now()
+	if loadPatternData(filename, size, patternByteChunkSize, started.Add(limit)) != nil {
+		t.Fatal("interrupted payload load returned a table")
+	}
+	elapsed := time.Since(started)
+	t.Logf("200ms limit while loading a large pattern cache: %v", elapsed)
+	if elapsed < limit || elapsed > limit+100*time.Millisecond {
+		t.Fatalf("large cache load did not stop promptly at its deadline: %v", elapsed)
+	}
+	// Cancellation of a large load must leave a subsequent valid load usable.
+	want := []byte{0xfc, 0xff, 0x39, 0xe4}
+	if err := savePackedPattern(filename, want); err != nil {
+		t.Fatal(err)
+	}
+	if got := loadPatternBytes(filename, len(want), time.Now().Add(time.Second)); !bytes.Equal(got, want) {
+		t.Fatal("cache load retry after cancellation", got)
 	}
 }

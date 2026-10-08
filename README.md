@@ -175,6 +175,17 @@ Generation took **23m08.27s**, with **2,822,651,904 bytes peak RSS** and
 executable under Mac background QoS. A fresh cached setup took **1.75 s**;
 a profiled warm search peaked at **1.20 GB RSS**.
 
+Sorted-table allocation uses separate **1 MiB backing arrays**, with deadline
+checks every **64 KiB** during filling, cache reads and hashing. This also bounds
+the heap clearing on retries while preserving the existing cache bytes and
+optimal bounds. With the smaller databases ready and the sorted cache missing,
+a **200 ms** solver budget previously took **1.285 s**; it now returns the
+explicit time-limit error in **200.04–200.12 ms** across three interrupted
+attempts. A large cache load stopped in **200.03 ms**. Regression tests check
+that cancellation publishes no partial table or cache, that a later cache
+load still works, and that storage block boundaries preserve the cache format.
+The four depth-16 fixtures retained identical search node counts.
+
 Search takes the maximum of the corner, six-edge and three oriented sorted
 phase-one bounds. Three equal positive phase-one bounds imply one additional
 turn. Forward and inverse root bounds select the search direction. Within

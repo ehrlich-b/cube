@@ -252,7 +252,17 @@ func loadPackedPatternLimit(filename string, size int, deadline time.Time) []uin
 }
 
 func loadPatternBytes(filename string, size int, deadline time.Time) []uint8 {
-	if tableDeadlineExceeded(deadline) {
+	d := loadPatternData(filename, size, size, deadline)
+	if d == nil {
+		return nil
+	}
+	return d[0]
+}
+
+// Both layouts use the same cache format and integrity checks. The sorted
+// optimal table uses bounded allocations; smaller tables retain one slice.
+func loadPatternData(filename string, size, chunkSize int, deadline time.Time) [][]uint8 {
+	if size <= 0 || chunkSize <= 0 || tableDeadlineExceeded(deadline) {
 		return nil
 	}
 	f, _, err := openTableCache(tableCachePath(filename), int64(size+64), int64(size+64), deadline)
@@ -269,20 +279,27 @@ func loadPatternBytes(filename string, size int, deadline time.Time) []uint8 {
 	if !bytes.Equal(header[32:], fingerprint[:]) || tableDeadlineExceeded(deadline) {
 		return nil
 	}
-	d := make([]uint8, size)
+	d := make([][]uint8, (size+chunkSize-1)/chunkSize)
 	hash := sha256.New()
 	hash.Write(header[32:])
-	for offset := 0; offset < len(d); {
+	for i := range d {
 		if tableDeadlineExceeded(deadline) {
 			return nil
 		}
-		n := min(1<<20, len(d)-offset)
-		chunk := d[offset : offset+n]
-		if _, err := io.ReadFull(reader, chunk); err != nil {
-			return nil
+		chunk := make([]uint8, min(chunkSize, size-i*chunkSize))
+		for offset := 0; offset < len(chunk); {
+			if tableDeadlineExceeded(deadline) {
+				return nil
+			}
+			n := min(64<<10, len(chunk)-offset)
+			part := chunk[offset : offset+n]
+			if _, err := io.ReadFull(reader, part); err != nil {
+				return nil
+			}
+			hash.Write(part)
+			offset += n
 		}
-		hash.Write(chunk)
-		offset += n
+		d[i] = chunk
 	}
 	var extra [1]byte
 	if n, err := reader.Read(extra[:]); n != 0 || err != io.EOF {
@@ -317,6 +334,10 @@ func savePackedPattern(filename string, data []uint8) error {
 }
 
 func savePackedPatternLimit(filename string, data []uint8, deadline time.Time) error {
+	return savePatternPartsLimit(filename, [][]uint8{data}, deadline)
+}
+
+func savePatternPartsLimit(filename string, data [][]uint8, deadline time.Time) error {
 	return writeTableCache(tableCachePath(filename), "pattern-*.bin", deadline, func(f *os.File) error {
 		fileWriter := tableDeadlineWriter{f, deadline}
 		if _, err := fileWriter.Write(make([]byte, 32)); err != nil {
@@ -327,7 +348,10 @@ func savePackedPatternLimit(filename string, data []uint8, deadline time.Time) e
 		// Chunk both the file transfer and checksum so a gigabyte-scale table
 		// cannot spend the remaining search budget in an unchecked hash call.
 		writer := tableDeadlineWriter{io.MultiWriter(f, hash), deadline}
-		for _, part := range [][]byte{fingerprint[:], data} {
+		if _, err := writer.Write(fingerprint[:]); err != nil {
+			return err
+		}
+		for _, part := range data {
 			if _, err := writer.Write(part); err != nil {
 				return err
 			}
