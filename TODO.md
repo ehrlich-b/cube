@@ -265,8 +265,11 @@ Final validation on 2026-10-07: `go test -p 2 ./...`, `go vet -p 2 ./...`,
 including hard-state worker completion and UI animation during the solve.
 
 ### 6.3 Big Cube Support
-- [ ] 4x4 reduction method (centers, edges, parity)
-- [ ] 5x5+ support with generalized algorithms
+- [x] 4x4 reduction method (centers, edges, OLL/PLL parity)
+- [x] Generalized 5x5-7x7 reduction, including odd fixed-center orientation
+- [x] 2x2 corners through the public 3x3 solver
+- [x] Independent fresh-process oracle: 100 uniform states and 100 scrambles per size
+- [ ] Shorter reduction solutions and support above dimension 7
 
 ---
 

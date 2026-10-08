@@ -164,10 +164,18 @@ The 200-state Go oracle measures 57.405 mean and 73 maximum turns; see README
 for stage lengths and measured timings.
 
 CFOP color neutrality, extended cross and F2L look-ahead remain future work.
-The engine supports larger cubes, but full solving and lessons support 3×3 only.
+Full CLI solving supports 2×2 through 7×7: the 2×2 follows a 3×3 corners path,
+and 4–7 solve centers and pair wings before calling the public Kociemba solver.
+Reduction corrects odd wing permutations before restoring centers and chooses
+a reduced edge state whose permutation parity matches the corners. This handles
+OLL/PLL parity, while odd fixed centers define the orientation. Pure center and
+wing three-cycles preserve completed pieces. The returned sequence is replayed
+to check every sticker against the solved center frame. See
+[NxN examples and measurements](../examples/solving.md#solve-other-sizes).
+Beginner, CFOP, optimal search and lessons still support 3×3 only.
 `solving_db.go` remains an unwired historical experiment. All 131 database
 entries carry inverse-to-solved verification patterns; 15 raw rows are quarantined.
-Generic NxN solving, stronger deep optimal search and human usability work remain
+Shorter big-cube solutions, dimensions above 7, stronger deep optimal search and human usability work remain
 future milestones.
 
 ## Verification

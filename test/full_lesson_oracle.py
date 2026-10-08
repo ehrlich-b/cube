@@ -232,7 +232,7 @@ def check_invalid_full_inputs(binary):
     wrong_centers = physical.fresh()
     wrong_centers[0], wrong_centers[3] = wrong_centers[3], wrong_centers[0]
     invalid = [
-        ["solve", "R3", "--headless"], ["solve", "R", "--dimension", "4"],
+        ["solve", "R3", "--headless"], ["solve", "R", "--dimension", "8"],
         ["solve", "R", "--algorithm", "missing"], ["solve", "R", "--method", "invalid"],
         ["solve", "R", "--goal", "typo"], ["learn", "R", "--goal", "typo"],
         ["solve", "--start", "YB|Y999999999/R9/B9/W9/O9/G9", "--cfen"],
@@ -247,7 +247,7 @@ def check_invalid_full_inputs(binary):
         result = run(binary, args)
         assert result.returncode != 0 and not result.stdout, (args, result.stdout)
         assert result.stderr.count("Error:") == 1, result.stderr
-    result = run(binary, ["solve", "R", "--dimension", "4"])
+    result = run(binary, ["solve", "R", "--dimension", "8"])
     assert "first-layer" not in result.stderr, result.stderr
     return len(invalid)
 

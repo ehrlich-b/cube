@@ -107,9 +107,15 @@ run_test "Solve with CFOP algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm 
 run_test "Solve with Kociemba algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm kociemba" "Using algorithm: kociemba"
 run_test "Solve with Kociemba method" "$CUBE_BIN solve \"R U R' U'\" --method kociemba" "Using algorithm: kociemba"
 run_test "Solve with optimal search" "$CUBE_BIN solve 'R U F2' --optimal --time-limit 5s" "Using algorithm: optimal"
-run_test "Solve 2x2 cube" "$CUBE_BIN solve \"R U R' U'\" --dimension 2" "" true
-run_test "Solve 4x4 cube" "$CUBE_BIN solve \"Rw Uw Fw\" --dimension 4" "" true
-run_test "Solve 5x5 cube" "$CUBE_BIN solve \"2R 3L\" --dimension 5" "" true
+# These three former unsupported-size failures now require a real verified solve.
+run_test "Solve 2x2 cube" "$CUBE_BIN solve \"R U R' U'\" --dimension 2 --cfen" "YB|Y4/R4/B4/W4/O4/G4"
+run_test "Solve 4x4 cube" "$CUBE_BIN solve \"Rw Uw Fw\" --dimension 4 --cfen" "YB|Y16/R16/B16/W16/O16/G16"
+run_test "Solve 5x5 cube" "$CUBE_BIN solve \"2R 3L\" --dimension 5 --cfen" "YB|Y25/R25/B25/W25/O25/G25"
+run_test "Solve 6x6 cube" "$CUBE_BIN solve \"2R 3U Fw\" --dimension 6 --cfen" "YB|Y36/R36/B36/W36/O36/G36"
+run_test "Solve 7x7 fixed-center orientation" "$CUBE_BIN solve \"M E S x Rw\" --dimension 7 --cfen" "YB|Y49/R49/B49/W49/O49/G49"
+run_test "Solve 4x4 OLL parity" "$CUBE_BIN solve \"2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2\" --dimension 4 --cfen" "YB|Y16/R16/B16/W16/O16/G16"
+run_test "Solve 4x4 PLL parity" "$CUBE_BIN solve \"2R2 U2 2R2 Uw2 2R2 Uw2\" --dimension 4 --cfen" "YB|Y16/R16/B16/W16/O16/G16"
+run_test "Unsupported solve dimension" "$CUBE_BIN solve R --dimension 8" "" true
 run_test "Empty scramble" "$CUBE_BIN solve ''" "Solving 3x3x3 cube"
 run_test "Invalid algorithm" "$CUBE_BIN solve 'R U' --algorithm invalid" "Error getting solver" true
 

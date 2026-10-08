@@ -1,4 +1,4 @@
-.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop import-algorithms web web-pages test-web test-web-smoke test-docs
+.PHONY: build clean test run install dev fmt vet lint e2e-test test-all build-tools test-first-layer test-beginner test-kociemba test-cfop test-nxn import-algorithms web web-pages test-web test-web-smoke test-docs
 
 # Build the binary
 build:
@@ -8,8 +8,8 @@ build:
 # Build database tools
 build-tools:
 	mkdir -p dist/tools
-	go build -o dist/tools/verify-algorithm ./tools/verify-algorithm
-	go build -o dist/tools/verify-database ./tools/verify-database
+	go build -p 2 -o dist/tools/verify-algorithm ./tools/verify-algorithm
+	go build -p 2 -o dist/tools/verify-database ./tools/verify-database
 
 # Build everything (main binary + tools)
 build-all-local: build build-tools
@@ -115,3 +115,7 @@ import-algorithms:
 # Independent physical-state and CFOP checkpoint replay oracle.
 test-cfop: build
 	python3 test/cfop_oracle.py
+
+# Fresh-process, independent geometry replay of uniform NxN states and scrambles.
+test-nxn: build
+	python3 test/nxn_oracle.py

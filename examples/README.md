@@ -14,7 +14,8 @@ For move exploration, use `cube twist`; for algorithm lookup, use `cube lookup`.
 The [advanced examples](./advanced.md) and [algorithm guide](./algorithms.md)
 cover verification, bounded search and stored case IDs. The
 [solving guide](./solving.md) covers Kociemba (the default), Beginner and CFOP.
-All full solvers and lessons support 3×3 only; use `twist` for other sizes.
+The default full solver supports 2×2 through 7×7. Beginner, CFOP, optimal search
+and lessons support 3×3 only; the move engine also supports larger sizes.
 
 `make test-docs` checks CLI examples here and in the root README against
 `dist/cube`. Shell fences (`sh` / `bash`) mark runnable CLI commands. The check

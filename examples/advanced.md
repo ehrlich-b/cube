@@ -1,7 +1,7 @@
 # Moves, verification and search
 
-Run these examples from the repository root after `make build`. Solving is
-3×3 only; use `twist` to inspect moves on other dimensions.
+Run these examples from the repository root after `make build`. Full solving
+supports dimensions 2–7; use `twist` to inspect moves on other dimensions.
 
 ## Explore notation
 

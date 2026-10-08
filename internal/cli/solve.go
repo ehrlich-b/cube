@@ -14,8 +14,10 @@ var solveCmd = newSolveCommand()
 func newSolveCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "solve [scramble]",
-		Short: "Solve a 3x3 cube with Kociemba, beginner or CFOP",
-		Long: `Solve a physical 3x3 using Kociemba's two-phase method (default).
+		Short: "Solve a 2x2 through 7x7 cube (3x3 also offers beginner or CFOP)",
+		Long: `Solve a physical cube using Kociemba's two-phase method (default).
+Dimensions 4-7 use center/edge reduction with parity correction, then Kociemba.
+Dimension 2 uses the 3x3 corners path; these solutions are not optimal.
 Select --method beginner for the complete beginner layer-by-layer method.
 Select --method cfop for verified Cross, F2L 1-4, OLL and PLL stages with case names.
 Kociemba searches for --target-length (default 20) within --time-limit (default 1s),
@@ -63,13 +65,19 @@ Use --headless for space-separated solution moves, or --cfen for final state.`,
 			if !optimal && algorithm != "kociemba" && (cmd.Flags().Changed("target-length") || cmd.Flags().Changed("time-limit")) {
 				return fmt.Errorf("--target-length and --time-limit require Kociemba or --optimal solving")
 			}
-			c, err := firstLayerInput(cmd, args)
+			c, err := fullSolveInput(cmd, args)
 			if err != nil {
 				return err
 			}
+			if c.Size != 3 && (optimal || algorithm != "kociemba") {
+				return fmt.Errorf("dimensions other than 3 require Kociemba reduction; --optimal, beginner and CFOP support 3x3 only")
+			}
 			started := time.Now()
 			var result *cube.SolverResult
-			if optimal {
+			if c.Size != 3 {
+				result, err = cube.SolveNxN(c, cube.KociembaOptions{TargetLength: targetLength, TimeLimit: limit})
+				algorithm = "reduction + kociemba"
+			} else if optimal {
 				result, err = cube.SolveOptimal(c, limit)
 				algorithm = "optimal"
 			} else if algorithm == "kociemba" {
@@ -102,7 +110,7 @@ Use --headless for space-separated solution moves, or --cfen for final state.`,
 				if len(args) > 0 {
 					scramble = args[0]
 				}
-				fmt.Fprintln(out, "Solving 3x3x3 cube with scramble:", scramble)
+				fmt.Fprintf(out, "Solving %dx%dx%d cube with scramble: %s\n", c.Size, c.Size, c.Size, scramble)
 				fmt.Fprintln(out, "Using algorithm:", algorithm)
 				fmt.Fprintln(out, "Solution:", cube.FormatMoves(result.Solution))
 				for _, stage := range result.Stages {
@@ -113,7 +121,9 @@ Use --headless for space-separated solution moves, or --cfen for final state.`,
 				color, _ := cmd.Flags().GetBool("color")
 				letters, _ := cmd.Flags().GetBool("letters")
 				printLessonState(out, c, color, color && !letters, "full")
-				fmt.Fprintln(out, "Use cube learn with the same input for the complete beginner lesson.")
+				if c.Size == 3 {
+					fmt.Fprintln(out, "Use cube learn with the same input for the complete beginner lesson.")
+				}
 			}
 			return nil
 		},
@@ -124,7 +134,7 @@ Use --headless for space-separated solution moves, or --cfen for final state.`,
 	cmd.Flags().Bool("optimal", false, "Prove a shortest 3x3 solution with IDA* (errors if the time limit expires)")
 	cmd.Flags().Duration("time-limit", time.Second, "Kociemba search budget; --optimal includes table initialization and errors on timeout")
 	cmd.Flags().Int("target-length", 20, "Kociemba face-turn stopping goal (1-30); returns best found if the budget expires")
-	cmd.Flags().IntP("dimension", "d", 3, "Cube dimension (full solving supports 3 only)")
+	cmd.Flags().IntP("dimension", "d", 3, "Cube dimension (full solving supports 2-7)")
 	cmd.Flags().BoolP("color", "c", false, "Use colored output (Unicode blocks by default)")
 	cmd.Flags().Bool("letters", false, "Use letters instead of Unicode blocks with --color")
 	cmd.Flags().Bool("headless", false, "Output only solution moves")

@@ -7,7 +7,8 @@ and shortest-sequence pattern search.
 > **Honest status:** the move engine, verification, optimization, and search all work
 > and are covered by tests. **Kociemba solves a complete 3×3 by default.** The
 > complete beginner solver and [lesson](./examples/beginner.md) remain available.
-> CFOP now solves a complete 3×3 with named stage playback. Larger-cube solving remains future work.
+> CFOP solves a complete 3×3 with named stage playback. **Dimensions 2–7 now solve
+> completely:** 4–7 use center/edge reduction with parity correction, then Kociemba.
 
 ## Status
 
@@ -17,6 +18,8 @@ and shortest-sequence pattern search.
 - `cube solve` — fast complete 3×3 Kociemba solution; `--method beginner` retains
   the beginner solver; `--method cfop` solves Cross, F2L, OLL and PLL with case names.
   `--algorithm` remains a supported alias
+- `cube solve --dimension N` — complete 2×2 through 7×7 solutions; 2×2 uses the
+  3×3 corners path, 4–7 reduce centers and edges, including both even-cube parities
 - `cube solve --optimal --time-limit 1s` — shortest face-turn solution if proved
   before the deadline; an explicit error if the search times out
 - `--goal first-layer` retains the explicit white-layer sublesson
@@ -33,7 +36,8 @@ and shortest-sequence pattern search.
 
 **Not implemented yet**
 - CFOP color neutrality, extended cross and F2L look-ahead remain future work.
-- Solving supports 3×3 only; other dimensions are rejected, not reported as solved.
+- Full solving above dimension 7 is unsupported. Big-cube solutions prioritize
+  correctness and currently use hundreds or thousands of slice turns.
 - The dump contains incorrect descriptions and missing cases; quarantined rows need
   curation, and some OLL/PLL cases use multiple verified database algorithms.
 - Optimal search is exponential on deep states; wildcard heuristics are weaker
@@ -67,6 +71,29 @@ One-time loading/generation is separate from Kociemba's search budget, including
 in browser workers; `--optimal` still includes setup in its time limit.
 Search's four-edge tables take about **0.49 seconds** to generate in memory.
 No generated tables are committed; a missing or invalid cache is rebuilt.
+
+NxN reduction measurements on the same Mac under background QoS (2026-10-07):
+`make test-nxn` independently replayed **1,000 solutions**, with **100 uniform
+legal states and 100 uniformly sampled single-layer scrambles per size**. States
+are generated with independent integer 3D geometry; scrambles use 40×N turns.
+The oracle covers all 24 grips, isolated and combined 4×4 OLL/PLL parity,
+printed step counts and final CFEN. Every solve runs in a fresh CLI process.
+
+| Size | Mean / max moves | Fresh CLI mean / max |
+|---|---:|---:|
+| 2×2 | 19.50 / 20 | 85.24 / 231.06 ms |
+| 4×4 | 371.87 / 444 | 95.79 / 235.50 ms |
+| 5×5 | 532.82 / 611 | 182.99 / 1131.25 ms |
+| 6×6 | 1058.29 / 1169 | 145.78 / 713.70 ms |
+| 7×7 | 1378.36 / 1510 | 261.22 / 1189.32 ms |
+
+Each numbered layer turn, half turn or grip rotation counts as one move. Times
+include process startup, 3×3 cache loading and fresh reduction setup tables;
+the 3×3 disk cache was already populated. These are sample measurements, not
+worst-case bounds. Reduction and the 2×2 corners path prioritize correctness,
+not optimal move count. `--time-limit` applies to the final Kociemba search.
+See [the solving guide](./examples/solving.md#solve-other-sizes) for the reduction
+method, parity examples and saved-state usage.
 
 ## Algorithm database and CFOP
 
@@ -270,7 +297,7 @@ are intentionally not performed by this implementation task.
 | `identify` / `show-alg` | Pattern identify / algorithm display | partial |
 | `learn` | Teach a complete beginner solve, with recovery and checkpoints | works (3×3) |
 | `solve --goal first-layer` | Solve the white first layer | works (3×3 beginner) |
-| `solve` / `solve --goal full` | Kociemba by default; beginner/CFOP selectable | works (3×3) |
+| `solve` / `solve --goal full` | Kociemba; reduction for 4–7, corners for 2; beginner/CFOP on 3 | works (2×2–7×7) |
 | `solve --optimal` | Prove a shortest face-turn solution within a time limit | works (deep states may time out) |
 
 Note: `verify` takes a single positional argument — the algorithm — plus `--start`/`--target` flags.
@@ -328,6 +355,7 @@ internal/cube/                   # Core engine
   ring_generators.go / permutations.go  # the permutation engine
   algorithms.go                  # algorithm database
   solver.go / kociemba.go / cfop.go # full beginner, Kociemba and CFOP solvers
+  nxn.go / nxn_tables.go          # 2x2 corners and 4x4-7x7 center/edge reduction
   coordinates.go / coordinate_tables.go  # cubie moves and deterministic pruning tables
   pattern_search.go / optimal_search.go  # shortest wildcard/exact search + BFS fallback
   first_layer.go / full_lesson.go / lesson_session.go  # beginner checkpoints and recovery
@@ -374,7 +402,7 @@ The complete beginner path now finishes all six faces. The unchanged full-solver
 contract actively checks it. Partial first-layer results retain a separate result
 type and explicit goal. Next improvements should follow a human physical-cube
 trial. Database CFOP now complements Kociemba and bounded optimal search;
-color neutrality, look-ahead and larger-cube solving remain future work.
+color neutrality, look-ahead, shorter big-cube solutions and dimensions above 7 remain future work.
 See [TODO.md](./TODO.md) and [docs/solvers.md](./docs/solvers.md).
 
 ## License
