@@ -32,6 +32,7 @@ export async function exportPages(assets, destination) {
     }
     await writeFile(path.join(destination, names.get(name)), body);
   }
+  await writeFile(path.join(destination, "version.json"), JSON.stringify({ version }) + "\n");
   await writeFile(path.join(destination, ".nojekyll"), "");
   return version;
 }

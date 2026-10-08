@@ -1,6 +1,10 @@
 import "./wasm_exec.js";
 import { solverAssets } from "./solver-assets.js";
 
+function assetError(message) {
+  return Object.assign(new Error(message), { code: "asset-load" });
+}
+
 export async function loadEngine({ module, worker = false } = {}) {
   const go = new globalThis.Go();
   if (worker) {
@@ -11,8 +15,10 @@ export async function loadEngine({ module, worker = false } = {}) {
   }
   let instance;
   if (!module) {
-    const response = await fetch(new URL("./cube.wasm", import.meta.url));
-    if (!response.ok) throw new Error("Cube engine missing. Build the site with make web.");
+    let response;
+    try { response = await fetch(new URL("./cube.wasm", import.meta.url)); }
+    catch { throw assetError("The cube engine could not be downloaded. Check your connection and try again."); }
+    if (!response.ok) throw assetError("Cube engine missing. Build the site with make web.");
     ({ instance, module } = await WebAssembly.instantiate(await response.arrayBuffer(), go.importObject));
   } else instance = await WebAssembly.instantiate(module, go.importObject);
   go.run(instance).catch(error => console.error("Cube engine stopped", error));
@@ -38,8 +44,8 @@ export async function loadEngine({ module, worker = false } = {}) {
         const loading = (async () => {
           let response;
           try { response = await fetch(asset.url, { integrity: asset.integrity }); }
-          catch { throw new Error(`Solver data could not be verified (${key}). Please reload and try again.`); }
-          if (!response.ok) throw new Error(`Solver data missing (${key}). Please reload and try again.`);
+          catch { throw assetError(`Solver data could not be verified (${key}). Check your connection and try again.`); }
+          if (!response.ok) throw assetError(`Solver data missing (${key}). Please reload and try again.`);
           const bytes = new Uint8Array(await response.arrayBuffer());
           if (bytes.length !== asset.bytes) throw new Error(`Solver data length mismatch (${key}).`);
           const error = globalThis.cubeLoadSolverAsset(key, bytes, asset.digest);

@@ -9,6 +9,7 @@ let restoring = true;
 let size = 3, saved3x3Method = "kociemba", scrambledCache;
 let computeWorker;
 const pendingHash = location.hash.slice(1);
+const buildVersion = new URL(import.meta.url).pathname.match(/\/app\.([a-f0-9]{16})\.js$/)?.[1];
 const primaryControls = ["scramble", "solve", "solve-method", "size", "turn-layer", "turn-width", "reset", "run-algorithm", "start-lesson", "find", "import", "export"];
 
 function notice(message, error = false) {
@@ -30,6 +31,7 @@ function updateControls() {
   $("sequence-moves").inert = locked;
   $("play").textContent = running ? "Pause" : "Play";
   $("cancel-task").hidden = !job;
+  $("reload").disabled = busy || !!job || (restoring && !!state);
   if (engine && state && !busy && !job && !restoring) persistHash();
 }
 
@@ -267,6 +269,7 @@ async function playSequence() {
 
 function compute(request, label) {
   if (job) throw new Error("Another task is already running.");
+  running = false;
   const retainWorker = size !== 3;
   const worker = retainWorker ? (computeWorker ??= new Worker(new URL("./worker.js", import.meta.url), { type: "module" })) :
     new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
@@ -310,9 +313,12 @@ function compute(request, label) {
         completed = data.completed || 0; total = data.total || 0;
         if (data.frames) frames.push(...data.frames);
         progress();
-      } else finish(data.ok ? null : new Error(data.error), data.data);
+      } else finish(data.ok ? null : Object.assign(new Error(data.error), { code: data.code }), data.data);
     };
-    worker.onerror = event => finish(new Error(event.message || "The cube worker could not start."));
+    worker.onerror = event => {
+      event.preventDefault();
+      finish(Object.assign(new Error(event.message || "The cube worker could not start. Check your connection and try again."), { code: "asset-load" }));
+    };
     worker.postMessage({ request, module: engine.module });
   });
 }
@@ -327,10 +333,23 @@ function setMode(mode) {
   }
 }
 
+async function computeSequence(request, label) {
+  try {
+    const result = await compute(request, label);
+    clearSequence();
+    updateControls();
+    return result;
+  } catch (error) {
+    // Deployment failures retain playback for a safe reload; cancellation and
+    // other computation failures keep the existing behavior of clearing it.
+    if (error.code !== "asset-load") { clearSequence(); updateControls(); }
+    throw error;
+  }
+}
+
 async function solve() {
-  clearSequence();
   const started = performance.now();
-  const result = await compute({ op: "solve", cfen: state.cfen, method: $("solve-method").value, prepareFrames: size !== 3, profile: $("cube").hasAttribute("data-profile-solve") }, "Finding a verified solution…");
+  const result = await computeSequence({ op: "solve", cfen: state.cfen, method: $("solve-method").value, prepareFrames: size !== 3, profile: $("cube").hasAttribute("data-profile-solve") }, "Finding a verified solution…");
   $("cube").dataset.solveMs = result.solveMs;
   $("cube").dataset.solveWallMs = result.computedWallMs ?? performance.now() - started;
   if (result.runtime) $("cube").dataset.solveRuntime = JSON.stringify(result.runtime);
@@ -339,8 +358,7 @@ async function solve() {
 }
 
 async function hint() {
-  clearSequence();
-  const result = await compute({ op: "learn", cfen: state.cfen }, "Planning your next beginner checkpoint…");
+  const result = await computeSequence({ op: "learn", cfen: state.cfen }, "Planning your next beginner checkpoint…");
   const step = result.steps[0];
   if (!step) { $("lesson-content").textContent = "All six faces are solved. You’ve reached the final checkpoint."; notice("Lesson complete."); return; }
   showLesson(step);
@@ -374,12 +392,11 @@ function showLesson(step) {
 }
 
 async function find() {
-  clearSequence();
   const startCFEN = state.cfen;
   const target = $("target").value.trim();
   const maxDepth = Number($("depth").value);
   if (!Number.isInteger(maxDepth) || maxDepth < 0 || maxDepth > 10) throw new Error("Choose a whole-number depth from 0 to 10.");
-  const pending = compute({ op: "find", cfen: startCFEN, target, maxDepth }, "Searching from your current cube… You can cancel anytime.");
+  const pending = computeSequence({ op: "find", cfen: startCFEN, target, maxDepth }, "Searching from your current cube… You can cancel anytime.");
   $("find").hidden = true;
   $("cancel-search").hidden = false;
   const result = await pending;
@@ -521,7 +538,19 @@ async function copy(text, message) {
 
 async function safe(action) {
   try { await action(); }
-  catch (error) { notice(error.message, true); }
+  catch (error) {
+    notice(error.message, true);
+    if (error.code !== "asset-load" || !buildVersion) return;
+    try {
+      const response = await fetch(new URL("./version.json", import.meta.url), { cache: "no-store", signal: AbortSignal.timeout(5000) });
+      if (!response.ok) return;
+      const { version } = await response.json();
+      if (/^[a-f0-9]{16}$/.test(version) && version !== buildVersion) {
+        $("update-notice").hidden = false;
+        if ($("notice").textContent === error.message) notice("Your cube and playback will be kept when you reload.");
+      }
+    } catch { /* An unavailable version check leaves the original network error visible. */ }
+  }
 }
 
 for (const prime of [false, true]) for (const face of ["U", "D", "L", "R", "F", "B"]) {
@@ -593,6 +622,11 @@ $("share").addEventListener("click", () => safe(async () => {
   await copy(location.href, "Link copied. It includes the current cube, algorithm draft, sequence and playback position.");
 }));
 function historyReplace(hash) { window.history.replaceState(null, "", hash || location.pathname); }
+$("reload").addEventListener("click", () => safe(() => {
+  if (busy || job || (restoring && state)) return;
+  if (engine && state) persistHash();
+  location.reload();
+}));
 window.addEventListener("hashchange", () => { if (engine && !busy && !job) safe(() => restoreHash(location.hash.slice(1))); });
 window.addEventListener("keydown", event => {
   if (event.ctrlKey || event.metaKey || event.altKey || event.repeat || event.target.closest("input,textarea,select,[contenteditable]")) return;

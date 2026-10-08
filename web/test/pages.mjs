@@ -14,7 +14,7 @@ await mkdir(scratch, { recursive: true });
 process.env.TMPDIR = process.env.TMP = process.env.TEMP = scratch;
 const temporary = await mkdtemp(path.join(scratch, "pages-test-"));
 const site = "https://ehrlich-b.github.io/cube/";
-const mime = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".wasm": "application/wasm", ".svg": "image/svg+xml", ".gz": "application/octet-stream" };
+const mime = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".json": "application/json", ".wasm": "application/wasm", ".svg": "image/svg+xml", ".gz": "application/octet-stream" };
 
 async function executable() {
   if (process.platform !== "darwin" && existsSync(chromium.executablePath())) return chromium.executablePath();
@@ -57,6 +57,9 @@ function checkPaths(files) {
     assert.doesNotMatch(text, /SharedArrayBuffer|crossOriginIsolated|Atomics\./, `${name} has no shared-memory/isolation dependency`);
   }
   assert.deepEqual([...files.keys()].sort(), [...references].sort(), "Export contains exactly the linked runtime graph and .nojekyll");
+  const { version } = JSON.parse(files.get("version.json"));
+  assert.match(version, /^[a-f0-9]{16}$/, "Deployment metadata contains the runtime fingerprint");
+  assert.ok(files.has(`app.${version}.js`), "Deployment metadata matches the running app");
 }
 
 function sizes(files, optimized) {
@@ -129,7 +132,7 @@ try {
   checkPaths(files);
   const originalFiles = files;
   const requests = [], failures = [], errors = [], responseTypes = new Map();
-  let assetFault;
+  let assetFault, workerFault, versionFault;
   context = await chromium.launchPersistentContext(path.join(temporary, "profile"), { executablePath: await executable(), headless: true, viewport: { width: 390, height: 844 }, args: ["--disable-gpu"], serviceWorkers: "block" });
   await context.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText: async text => { globalThis.copiedText = text; } } });
@@ -161,8 +164,11 @@ try {
     }
     const contentType = mime[path.extname(asset)];
     responseTypes.set(asset, contentType);
+    if (workerFault && /^worker\./.test(asset)) return route.abort("internetdisconnected");
+    if (versionFault && asset === "version.json") return route.abort("internetdisconnected");
     if (assetFault && /^coordinates-web-v1\.bin\./.test(asset)) {
       if (assetFault === "missing") return route.fulfill({ status: 503, contentType: "text/plain", body: "Unavailable" });
+      if (assetFault === "offline") return route.abort("internetdisconnected");
       const corrupt = Buffer.from(files.get(asset));
       corrupt[corrupt.length - 1] ^= 1;
       return route.fulfill({ status: 200, contentType, body: corrupt });
@@ -300,33 +306,41 @@ try {
   const recoveryPage = await context.newPage();
   const recoveryErrors = [];
   recoveryPage.on("pageerror", error => recoveryErrors.push(error.message));
-  for (const fault of ["missing", "corrupt"]) {
+  for (const fault of ["missing", "corrupt", "offline", "worker-offline"]) {
     await recoveryPage.goto(site);
     await idle(recoveryPage);
     await recoveryPage.locator("#stage").focus();
     await recoveryPage.keyboard.press("r");
     await idle(recoveryPage);
     const mixed = await recoveryPage.locator("#cfen").inputValue();
-    assetFault = fault;
+    assetFault = fault === "worker-offline" ? null : fault;
+    workerFault = fault === "worker-offline";
+    versionFault = fault === "offline";
     await recoveryPage.locator("#solve").click();
     await recoveryPage.locator("#notice.error").waitFor();
     await idle(recoveryPage);
-    assert.match(await recoveryPage.locator("#notice").textContent(), /Solver data.*(?:missing|verified)/);
+    assert.match(await recoveryPage.locator("#notice").textContent(), fault === "worker-offline" ? /worker could not start/ : /Solver data.*(?:missing|verified)/);
+    // Wait for the failure-only version check before asserting no update prompt.
+    await recoveryPage.waitForFunction(() => performance.getEntriesByType("resource").some(entry => entry.name.endsWith("/version.json")));
+    assert.equal(await recoveryPage.locator("#update-notice").isVisible(), false, `${fault} on the current release remains a loading/network error`);
     assert.equal(await recoveryPage.locator("#cfen").inputValue(), mixed, `${fault} solver data preserves the input`);
     assert.equal(await recoveryPage.locator("#cancel-task").isVisible(), false, "Failed loading releases the worker and controls");
     assetFault = null;
+    workerFault = false;
+    versionFault = false;
     await recoveryPage.locator("#solve").click();
     await idle(recoveryPage);
     assert.equal(await recoveryPage.locator("#sequence-title").textContent(), "Your path to solved · kociemba", `${fault} data recovers on retry`);
   }
   assert.deepEqual(recoveryErrors, [], "Asset failure recovery has no uncaught exceptions");
   await recoveryPage.close();
-  console.log("PASS Pages: missing/corrupt lazy data fails safely, preserves the cube and recovers on retry");
+  console.log("PASS Pages: missing/corrupt/offline lazy data and offline worker preserve the cube, keep their own errors and recover on retry");
 
   // Change WASM alone, then JS alone: the entire graph must get new URLs.
   // Seed the old URL namespace with poisoned binaries to simulate a stale cache.
   assert.ok(files.has(".nojekyll"), "Jekyll processing is disabled in the export");
-  for (const name of files.keys()) if (!["index.html", ".nojekyll"].includes(name)) assert.match(name, /\.[a-f0-9]{16}\./, `Fingerprint ${name}`);
+  const stableFiles = ["index.html", ".nojekyll", "version.json"];
+  for (const name of files.keys()) if (!stableFiles.includes(name)) assert.match(name, /\.[a-f0-9]{16}\./, `Fingerprint ${name}`);
   const source = await readRuntimeAssets(path.join(root, "web"));
   const baseline = path.join(temporary, "baseline");
   await exportPages(source, baseline);
@@ -338,7 +352,7 @@ try {
   await exportPages(changedWasm, wasmRelease);
   files = await artifact(wasmRelease);
   checkPaths(files);
-  for (const name of oldFiles.keys()) if (!["index.html", ".nojekyll"].includes(name)) {
+  for (const name of oldFiles.keys()) if (!stableFiles.includes(name)) {
     assert.equal(files.has(name), false, `WASM change invalidates ${name}`);
     files.set(name, Buffer.from("stale cached asset must never be requested"));
   }
@@ -350,19 +364,112 @@ try {
   await idle(page);
   await page.locator("#solve").click();
   await idle(page);
-  for (const request of requests.slice(beforeRedeploy)) if (request.asset !== "index.html") assert.equal(oldFiles.has(request.asset), false, `Redeploy avoids cached ${request.asset}`);
+  for (const request of requests.slice(beforeRedeploy)) if (!stableFiles.includes(request.asset)) assert.equal(oldFiles.has(request.asset), false, `Redeploy avoids cached ${request.asset}`);
   const changedJS = new Map(changedWasm);
   changedJS.set("app.js", Buffer.concat([source.get("app.js"), Buffer.from("\n// next release\n")]));
   const jsRelease = path.join(temporary, "js-release");
   await exportPages(changedJS, jsRelease);
   const nextFiles = await artifact(jsRelease);
-  for (const name of nextFiles.keys()) if (!["index.html", ".nojekyll"].includes(name)) assert.equal(files.has(name), false, `JS change invalidates ${name}`);
+  for (const name of nextFiles.keys()) if (!stableFiles.includes(name)) assert.equal(files.has(name), false, `JS change invalidates ${name}`);
   files = nextFiles;
   await page.goto(site);
   await idle(page);
   assert.deepEqual(errors, [], "Redeploy never pairs stale WASM/runtime with fresh JS");
   assert.deepEqual(failures, [], "Redeploy references only available runtime files");
   console.log("PASS Pages: WASM-only and JS-only redeploys invalidate the whole asset graph; poisoned old assets are unused");
+
+  // Replace the same served root while A is open. Exercise both an unloaded
+  // worker and an already running worker whose 7x7 tables are still lazy.
+  const staleErrors = [];
+  for (const cubeSize of [3, 7]) {
+    files = oldFiles;
+    const stalePage = await context.newPage();
+    stalePage.on("pageerror", error => staleErrors.push(error.message));
+    await stalePage.goto(`${site}#${new URLSearchParams({ size: String(cubeSize) })}`);
+    await idle(stalePage, cubeSize);
+    if (cubeSize === 7) {
+      const beforeWarmup = requests.length;
+      const workerAsset = [...oldFiles.keys()].find(name => /^worker\./.test(name));
+      await stalePage.evaluate(async asset => {
+        const NativeWorker = Worker, url = new URL(asset, location.href);
+        const worker = new NativeWorker(url, { type: "module" });
+        // Load A's real engine using its ordinary state operation, which needs
+        // no solver data. Give this live worker to the app's first computation.
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => { worker.terminate(); reject(new Error("Worker warmup timed out")); }, 30000);
+          worker.onerror = event => { clearTimeout(timer); reject(new Error(event.message || "Worker warmup failed")); };
+          worker.onmessage = ({ data }) => {
+            if (data.ok === undefined) return;
+            clearTimeout(timer);
+            if (!data.ok) reject(new Error(data.error));
+            else resolve();
+          };
+          worker.postMessage({ request: { op: "state", size: 7 } });
+        });
+        worker.onmessage = worker.onerror = null;
+        globalThis.Worker = function (requestedURL, options) {
+          globalThis.Worker = NativeWorker;
+          if (String(requestedURL) !== url.href || options.type !== "module") throw new Error("Unexpected warmed worker URL");
+          return worker;
+        };
+      }, workerAsset);
+      assert.ok(requests.slice(beforeWarmup).some(request => /^worker\./.test(request.asset)), "Warm a retained 7x7 worker on A");
+      assert.equal(requests.slice(beforeWarmup).some(request => request.asset.endsWith(".gz")), false, "State-only worker warmup leaves all tables lazy");
+    }
+    const params = new URLSearchParams({ size: String(cubeSize), scramble: cubeSize === 7 ? "2R U 2F'" : "R U", alg: "F R' U2", index: "1", draft: "R U unfinished" });
+    await stalePage.evaluate(hash => { location.hash = hash; }, `#${params}`);
+    await stalePage.waitForFunction(() => document.getElementById("scrubber").value === "1" && document.getElementById("algorithm").value === "R U unfinished");
+    await idle(stalePage, cubeSize);
+    const mixed = await stalePage.locator("#cfen").inputValue();
+    const savedHash = await stalePage.evaluate(() => location.hash);
+    const moves = await stalePage.locator("#sequence-moves button").allTextContents();
+    files = nextFiles;
+    const failedBefore = failures.length, requestsBefore = requests.length;
+    await stalePage.locator("#solve").click();
+    await stalePage.locator("#update-notice").waitFor();
+    await idle(stalePage, cubeSize);
+    assert.equal(await stalePage.locator("#update-notice span").textContent(), "A new version of the cube is available, reload to continue.");
+    assert.equal(await stalePage.locator("#cfen").inputValue(), mixed, "Stale solve preserves every sticker");
+    assert.equal(await stalePage.evaluate(() => location.hash), savedHash, "Failed solve keeps the entire saved sequence and playhead");
+    assert.deepEqual(await stalePage.locator("#sequence-moves button").allTextContents(), moves);
+    assert.equal(await stalePage.locator("#scrubber").inputValue(), "1");
+    assert.equal(await stalePage.locator("#cancel-task").isVisible(), false);
+    assert.equal(await stalePage.locator("#reload").isEnabled(), true);
+    const failedAssets = [...oldFiles.keys()].filter(name => cubeSize === 3 ? /^worker\./.test(name) : /^(coordinates-web|nxn-7)-v1\.bin\./.test(name));
+    assert.deepEqual(failures.slice(failedBefore).sort(), failedAssets.map(name => new URL(name, site).href).sort(), "Only A's deleted worker or lazy tables fail");
+    assert.ok(requests.slice(requestsBefore).some(request => request.asset === "version.json"), "Load failure checks the current deployment version");
+    if (cubeSize === 7) assert.equal(requests.slice(requestsBefore).some(request => /^worker\./.test(request.asset)), false, "The lazy-asset repro uses the existing worker");
+    assert.deepEqual((await accessibility(stalePage)).failures, [], "The update prompt and Reload button are accessible");
+    const prompt = await stalePage.locator("#update-notice").boundingBox();
+    assert.ok(prompt && prompt.y >= 0 && prompt.y + prompt.height <= stalePage.viewportSize().height, "The update prompt stays visible at the scrolled solve controls");
+    if (cubeSize === 7) await stalePage.screenshot({ path: path.join(scratch, "pages-update-390x844.png") });
+
+    // The prompt stays available while normal playback and editing continue.
+    await stalePage.locator("#step").click();
+    await idle(stalePage, cubeSize);
+    await stalePage.locator("#algorithm").fill("U R edited after the update");
+    assert.equal(await stalePage.locator("#update-notice").isVisible(), true);
+    const latest = await stalePage.locator("#cfen").inputValue();
+    const latestHash = await stalePage.evaluate(() => location.hash);
+    await Promise.all([stalePage.waitForEvent("load"), stalePage.locator("#reload").click()]);
+    await stalePage.waitForFunction(() => document.getElementById("scrubber").value === "2");
+    await idle(stalePage, cubeSize);
+    assert.equal(await stalePage.locator("#cfen").inputValue(), latest, "Reload restores the latest cube, including edits after the prompt");
+    assert.equal(await stalePage.evaluate(() => location.hash), latestHash);
+    assert.equal(await stalePage.locator("#size").inputValue(), String(cubeSize));
+    assert.equal(await stalePage.locator("#algorithm").inputValue(), "U R edited after the update");
+    assert.deepEqual(await stalePage.locator("#sequence-moves button").allTextContents(), moves);
+    assert.equal(await stalePage.locator("#update-notice").isVisible(), false);
+    await stalePage.locator("#solve").click();
+    await stalePage.waitForFunction(() => document.getElementById("notice").textContent.startsWith("Solution ready"), null, { timeout: 120000 });
+    await idle(stalePage, cubeSize);
+    const solution = await stalePage.locator("#sequence-moves button").allTextContents();
+    assert.equal(await stalePage.evaluate(({ cfen, moves }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves }))).data.state.solved, { cfen: latest, moves: solution.join(" ") }), true, "B solves the restored cube to completion");
+    assert.deepEqual(failures.slice(failedBefore).sort(), failedAssets.map(name => new URL(name, site).href).sort(), "Recovery requests only B's available assets");
+    await stalePage.close();
+  }
+  assert.deepEqual(staleErrors, [], "Stale-tab recovery has no uncaught exceptions");
+  console.log("PASS Pages: old worker and lazy 7x7 asset failures detect B, offer a nonblocking reload, preserve cube/sequence/playhead/size/draft and solve after recovery");
   const report = { browser: context.browser().version(), viewport: "390x844", cpuThrottle: 4, network: "in-memory, unthrottled", ...load, firstLoadRaw, first3x3Ms, first7x7, accessibility: await accessibility(page) };
   await page.screenshot({ path: path.join(scratch, "pages-390x844.png"), fullPage: true });
   await context.close();
