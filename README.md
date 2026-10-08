@@ -112,6 +112,7 @@ The cache files and their complete on-disk sizes are:
 | File | Bytes | Used by |
 |---|---:|---|
 | `coordinates-v5.bin.gz` | 3,337,787 | Embedded compact tables for ordinary Kociemba and coordinate search |
+| `coordinates-2x2-v1.bin` | 5,538,536 | Optional native 2×2 cache of the same tables with stored gzip blocks, generated on first 2×2 use |
 | `edges-v1.bin` | 14,256,064 | Four-edge databases for CFOP and exact-state search, generated on first use |
 | `phase1-sym8-v1.bin` | 147,502,144 | Optional large phase-one table, explicitly built with `cube tables build --large` |
 | `optimal-v1.bin` | 134,568,064 | Full-corner and two six-edge databases, generated lazily for deep `--optimal` search |
@@ -229,20 +230,37 @@ Mean/max and times cover all 200 cases; the uniform column isolates the
 
 | Size | Mean / max moves | Uniform mean / max | Fresh CLI mean / max |
 |---|---:|---:|---:|
-| 2×2 | 18.79 / 20 | 18.66 / 20 | 177.60 / 587.11 ms |
-| 4×4 | 92.72 / 128 | 92.16 / 115 | 183.91 / 452.92 ms |
-| 5×5 | 192.65 / 253 | 193.19 / 253 | 185.61 / 734.83 ms |
-| 6×6 | 457.31 / 522 | 452.05 / 508 | 215.58 / 790.62 ms |
-| 7×7 | 638.53 / 712 | 640.83 / 712 | 182.37 / 401.88 ms |
+| 2×2 | 18.79 / 20 | 18.66 / 20 | 56.63 / 119.07 ms |
+| 4×4 | 92.72 / 128 | 92.16 / 115 | 138.46 / 286.04 ms |
+| 5×5 | 192.65 / 253 | 193.19 / 253 | 178.48 / 691.74 ms |
+| 6×6 | 457.31 / 522 | 452.05 / 508 | 172.16 / 462.87 ms |
+| 7×7 | 638.53 / 712 | 640.83 / 712 | 162.76 / 369.73 ms |
 
 Outer, numbered-slice, wide and half turns, and grip rotations each count
-once. Times include process startup, 3×3 cache loading and decoding embedded
-reduction tables; the 3×3 disk cache was already populated. Native solves load
-that cache alongside reduction. These are sample
+once. Times include process startup, coordinate cache loading and decoding embedded
+reduction tables; the coordinate disk caches were already populated. Native 4–7
+solves load the 3×3 cache alongside reduction. These are sample
 measurements, not worst-case bounds. The oracle fails if either combined
 or uniform mean moves exceeds the documented value by more than 5%, or
-if this table disagrees with the solving guide. The former per-piece
+if this table disagrees with the solving guide. The 2×2 fresh-process mean must
+also stay within **max(120 ms, 75% of the same-run compact 3×3 reference mean)**.
+The oracle interleaves 20 fresh 3×3 solves of a short fixed scramble to allow
+headroom for busy machines; isolated maxima do not gate this mean budget.
+The former per-piece
 reduction averaged 371.87, 532.82, 1058.29 and 1378.36 moves on sizes 4–7.
+
+Profiling 100 cold 2×2 loads found 89% of sampled CPU in coordinate decoding,
+including 68% in gzip inflation and 17% in gob decoding. The native 2×2 now
+persists an optional 5.54 MB cache using stored gzip blocks, bound to the exact
+embedded asset and checked by the same checksum, fingerprint and dimension
+validation. This preserves every table and the search order; all 1,000 seeded
+answers matched the previous executable move for move. Fresh 2×2 processes
+measured **147.37 / 363.01 ms** before and **56.63 / 119.07 ms** after.
+The first 2×2 use creates this cache; unavailable or corrupt caches fall back
+to the compact asset. An empty-cache first solve took **247.44 ms**, with
+**8,876,323 total cache bytes**. Interleaved old/new runs found no material
+change on sizes 4–7 (6×6/7×7 differed by less than 2%). WASM retains its
+existing loading path and embedded size.
 
 Reduction uses center block searches on 4×4/5×5, batched bar commutators on
 6×6/7×7, and slice-based edge pairing with short parity corrections.

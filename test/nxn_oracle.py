@@ -26,6 +26,10 @@ COLORS = "BGORYW"
 CFEN_ORDER = (4, 3, 0, 5, 2, 1)
 OLL = "2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2"
 PLL = "2R2 U2 2R2 Uw2 2R2 Uw2"
+# Allow substantial headroom above the cached 2x2 mean. A same-run compact-table
+# reference raises the budget when background scheduling slows this machine.
+TWO_BY_TWO_MEAN_BUDGET_MS = 120.0
+TWO_BY_TWO_REFERENCE_RATIO = 0.75
 
 
 def parse_documented_metrics(text, name):
@@ -52,6 +56,17 @@ def check_move_mean(n, batch, lengths, documented):
     assert mean <= documented * 1.05 + 1e-9, (
         f"{n}x{n} {batch} mean moves regressed: {mean:.2f} exceeds "
         f"documented {documented:.2f} by more than 5%")
+
+
+def check_two_by_two_latency(durations, reference_durations):
+    mean = statistics.mean(durations)
+    reference = statistics.mean(reference_durations)
+    budget = max(TWO_BY_TWO_MEAN_BUDGET_MS,
+                 TWO_BY_TWO_REFERENCE_RATIO * reference)
+    assert mean <= budget, (
+        f"2x2 fresh-process mean regressed: {mean:.2f} ms exceeds "
+        f"budget {budget:.2f} ms (compact 3x3 reference {reference:.2f} ms)")
+    return budget, reference
 
 
 def quarter(vector, axis):
@@ -309,6 +324,10 @@ def main():
         orientations = g.orientations()
         rng = random.Random(20261007 + n)
         lengths, durations = [], []
+        reference_durations = []
+        if n == 2:
+            reference_geometry = Geometry(3)
+            reference_state = reference_geometry.replay(reference_geometry.home, "R U R' U'")
         for batch in ("uniform", "scramble"):
             batch_lengths, batch_durations = [], []
             for index in range(args.cases):
@@ -330,6 +349,16 @@ def main():
                 durations.append(duration)
                 batch_lengths.append(len(sequence.split()))
                 batch_durations.append(duration)
+                if n == 2 and index % 10 == 0:
+                    # Interleave a tiny 3x3 search whose fresh-process cost is
+                    # predominantly the unchanged compact-table decoder. This
+                    # scales the guard under contention without altering 2x2
+                    # measurements or accepting equally slow compact loads.
+                    reference_sequence, reference_duration = run(
+                        binary, reference_geometry, reference_state)
+                    assert reference_geometry.solved(reference_geometry.replay(
+                        reference_state, reference_sequence))
+                    reference_durations.append(reference_duration)
             print(f"{n}x{n} {batch}: {args.cases} fresh-process solutions replayed; "
                   f"moves mean {statistics.mean(batch_lengths):.2f}, max {max(batch_lengths)}; "
                   f"process ms mean {statistics.mean(batch_durations):.2f}, "
@@ -350,6 +379,10 @@ def main():
               f"max {max(lengths)}; process ms mean {statistics.mean(durations):.2f}, "
               f"max {max(durations):.2f}", flush=True)
         check_move_mean(n, "combined", lengths, documented[n][0])
+        if n == 2:
+            budget, reference = check_two_by_two_latency(durations, reference_durations)
+            print(f"2x2 latency guard: mean budget {budget:.2f} ms; "
+                  f"compact 3x3 reference mean {reference:.2f} ms", flush=True)
 
 
 if __name__ == "__main__":

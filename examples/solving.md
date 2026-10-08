@@ -121,19 +121,29 @@ per size, were (the uniform column covers just the 100 uniform states):
 
 | Size | Mean / max moves | Uniform mean / max | Fresh process mean / max |
 |---|---:|---:|---:|
-| 2×2 | 18.79 / 20 | 18.66 / 20 | 177.60 / 587.11 ms |
-| 4×4 | 92.72 / 128 | 92.16 / 115 | 183.91 / 452.92 ms |
-| 5×5 | 192.65 / 253 | 193.19 / 253 | 185.61 / 734.83 ms |
-| 6×6 | 457.31 / 522 | 452.05 / 508 | 215.58 / 790.62 ms |
-| 7×7 | 638.53 / 712 | 640.83 / 712 | 182.37 / 401.88 ms |
+| 2×2 | 18.79 / 20 | 18.66 / 20 | 56.63 / 119.07 ms |
+| 4×4 | 92.72 / 128 | 92.16 / 115 | 138.46 / 286.04 ms |
+| 5×5 | 192.65 / 253 | 193.19 / 253 | 178.48 / 691.74 ms |
+| 6×6 | 457.31 / 522 | 452.05 / 508 | 172.16 / 462.87 ms |
+| 7×7 | 638.53 / 712 | 640.83 / 712 | 162.76 / 369.73 ms |
 
 Outer, numbered-slice, wide and half turns, and grip rotations each count once. Times
-include startup, decoding embedded reduction tables and loading an already
-populated 3×3 disk cache alongside reduction. These are sample results, not
+include startup, decoding embedded reduction tables and loading already
+populated coordinate disk caches. Native 4–7 solves load the 3×3 cache alongside
+reduction; native 2×2 uses an optional 5.54 MB cache of the same tables with
+stored gzip blocks to avoid repeated inflation. Its first use creates the
+cache, and unavailable or corrupt caches fall back to the compact asset.
+The search order and answers are unchanged. These are sample results, not
 worst-case guarantees. The oracle
 fails if the combined or uniform mean moves for any size exceeds its
 documented value by more than 5%, and requires both documentation tables
-to agree.
+to agree. The 2×2 fresh-process mean also has a budget of
+**max(120 ms, 75% of the same-run compact 3×3 reference mean)**. Twenty short
+3×3 solves are interleaved to scale the budget on busy machines; isolated
+maxima do not gate the mean. Profiling put 68% of cold 2×2 CPU in gzip
+inflation; before/after process mean/max was **147.37 / 363.01 ms** versus
+**56.63 / 119.07 ms**, with every seeded move sequence preserved. An empty-cache
+first solve took **247.44 ms**, with **8,876,323 total cache bytes**.
 
 See [advanced examples](./advanced.md) for CFEN verification and bounded search,
 and [algorithm lookup](./algorithms.md) for stored case IDs.

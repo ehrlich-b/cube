@@ -96,6 +96,9 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 	if preloadDone != nil {
 		<-preloadDone
 	}
+	if c.Size == 2 && !reduced.IsSolved() {
+		nxnTwoByTwoTables()
+	}
 	finish, err := SolveKociemba(reduced, options)
 	if err != nil {
 		return nil, fmt.Errorf("reduced 3x3 solve: %w", err)

@@ -1,6 +1,6 @@
 import unittest
 
-from nxn_oracle import check_move_mean, parse_documented_metrics
+from nxn_oracle import check_move_mean, check_two_by_two_latency, parse_documented_metrics
 
 
 class MoveRegressionContract(unittest.TestCase):
@@ -22,3 +22,20 @@ class MoveRegressionContract(unittest.TestCase):
         for broken in (rows[:-1], rows[:-1] + [rows[0]]):
             with self.assertRaises(AssertionError):
                 parse_documented_metrics("\n".join(broken), "fixture")
+
+
+class TwoByTwoLatencyContract(unittest.TestCase):
+    def test_budget_allows_exact_boundary(self):
+        self.assertEqual(check_two_by_two_latency([100, 140], [150]), (120, 150))
+
+    def test_mean_regression_fails(self):
+        with self.assertRaisesRegex(AssertionError, "fresh-process mean regressed"):
+            check_two_by_two_latency([100, 142], [150])
+
+    def test_busy_machine_scales_budget_from_reference(self):
+        self.assertEqual(check_two_by_two_latency([250, 350], [400]), (300, 400))
+        with self.assertRaises(AssertionError):
+            check_two_by_two_latency([400], [400])
+
+    def test_isolated_slow_process_does_not_gate_maximum(self):
+        check_two_by_two_latency([20, 20, 300], [150])
