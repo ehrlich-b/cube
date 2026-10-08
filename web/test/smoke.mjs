@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { randomInt } from "node:crypto";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,7 +43,7 @@ server?.stderr.on("data", chunk => { serverLog += chunk; });
 
 async function idle(page) {
   await page.locator("#reset").waitFor({ state: "visible" });
-  await page.waitForFunction(() => !document.getElementById("reset").disabled);
+  await page.waitForFunction(() => !document.getElementById("reset").disabled, null, { timeout: 120000 });
 }
 
 async function runAlgorithm(page, moves) {
@@ -111,6 +111,7 @@ async function savedStateRegressions(page, baseURL, solved) {
         assert.equal(await page.locator("#algorithm").inputValue(), draft, "a shared link restores the draft too");
         assert.equal(await page.locator("#cfen").inputValue(), mixed);
       }
+      await page.locator("#cube").evaluate(root => root.removeAttribute("data-measure-frames"));
       await page.locator("#speed").selectOption("70");
       await runAlgorithm(page, "F");
       const afterF = await page.evaluate(cfen => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves: "F" }))).data.state.cfen, mixed);
@@ -195,6 +196,7 @@ async function savedStateRegressions(page, baseURL, solved) {
       await page.locator("#lesson").evaluate(node => node.scrollIntoView({ block: "start" }));
       await page.screenshot({ path: path.join(screens, "lesson-restored-390x844.png") });
       await page.setViewportSize({ width: 1280, height: 800 });
+      await page.locator("#cube").evaluate(root => root.removeAttribute("data-measure-frames"));
       await page.locator("#speed").selectOption("70");
       await page.locator("#play").click();
       await idle(page);
@@ -243,7 +245,7 @@ async function blackInterior(page) {
   "colored sticker backs do not show through the turning layer");
 }
 
-async function dragSticker(page, { face, index, dx, dy, move, screenshot, cancel = false, reverse = false }) {
+async function dragSticker(page, { face, index, dx, dy, move, screenshot, cancel = false, reverse = false, tiles = null }) {
   const before = await page.locator("#cfen").inputValue();
   const expected = await page.evaluate(({ cfen, moves }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves }))).data.state,
     { cfen: before, moves: move || "" });
@@ -254,8 +256,10 @@ async function dragSticker(page, { face, index, dx, dy, move, screenshot, cancel
   await page.mouse.move(point.x + dx / 2, point.y + dy / 2, { steps: 8 });
   assert.equal(await page.locator("#stage").getAttribute("data-dragging"), "turn");
   assert.equal(await page.locator("#reset").isDisabled(), true);
-  assert.equal(await page.locator("#cube .layer .cubie").count(), 9);
-  assert.notEqual(await page.locator("#cube .layer").evaluate(layer => getComputedStyle(layer).transform), "none");
+  if (tiles === null) assert.equal(await page.locator("#cube .layer .cubie").count(), 9);
+  else assert.equal(await page.locator("#cube .svg-tile[data-turning]").count(), tiles);
+  if (tiles === null) assert.notEqual(await page.locator("#cube .layer").evaluate(layer => getComputedStyle(layer).transform), "none");
+  else assert.notEqual(await page.locator("#cube svg").getAttribute("data-turn-angle"), "0");
   await blackInterior(page);
   assert.equal(await page.locator("#cfen").inputValue(), before, "preview does not mutate the engine");
   if (screenshot) await page.screenshot({ path: path.join(screens, screenshot) });
@@ -270,6 +274,7 @@ async function dragSticker(page, { face, index, dx, dy, move, screenshot, cancel
       stickers.sort((a, b) => Number(a.dataset.index) - Number(b.dataset.index)).map(sticker => sticker.dataset.color)), colors, `${move || "cancel"} ${face} stickers`);
   }
   assert.equal(await page.locator("#cube .layer").count(), 0, "temporary layer is cleaned up");
+  assert.equal(await page.locator("#cube [data-turning]").count(), 0, "turn preview is cleaned up");
   assert.equal(await page.locator("#camera").getAttribute("style"), camera, "sticker turns preserve the view");
   if (move) {
     assert.equal(await page.locator("#notice").textContent(), `Turned ${move}.`);
@@ -299,6 +304,165 @@ async function touchSticker(page, { face, index, dx, dy, move, screenshot, cance
     assert.equal(await page.locator("#cfen").inputValue(), expected, `${move || "cancelled touch"} state`);
     assert.equal(await page.locator("#cube .layer").count(), 0);
   } finally { await session.detach(); }
+}
+
+async function nxnRegressions(page) {
+  const metrics = [];
+  for (const size of [2, 3, 4, 5, 6, 7]) {
+    if (size === 7) await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator("#size").selectOption(String(size));
+    await idle(page);
+    const home = await page.locator("#cfen").inputValue();
+    assert.equal(await page.locator("#cube").getAttribute("data-size"), String(size));
+    assert.equal(await page.locator("#cube .sticker").count(), 6 * size * size);
+    await page.locator("#stage").evaluate(node => node.scrollIntoView({ block: "center" }));
+    await stickerPoint(page, "U", Math.floor((size - 1) / 2) * size + Math.floor((size - 1) / 2));
+    await page.locator("#view-net").click();
+    assert.equal(await page.locator("#net span").count(), 6 * size * size);
+    assert.equal(await page.locator(".net-face.F").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length), size);
+    await page.locator("#view-3d").click();
+    assert.equal(await page.locator("#tab-lesson").isDisabled(), size !== 3);
+    assert.equal(await page.locator("#tab-search").isDisabled(), size !== 3);
+    assert.equal(await page.locator("#size-note").isVisible(), size !== 3);
+    assert.equal(await page.locator('[data-move="M"]').isDisabled(), size % 2 === 0);
+    await page.locator("#stage").focus();
+    await page.keyboard.press("2");
+    await page.keyboard.press("r");
+    await idle(page);
+    const afterInner = await page.evaluate(({ cfen }) => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves: "2R" }))).data.state.cfen, { cfen: home });
+    assert.equal(await page.locator("#cfen").inputValue(), afterInner, `${size}x${size} numbered keyboard turn`);
+    await page.keyboard.press("Shift+R");
+    await idle(page);
+    assert.equal(await page.locator("#cfen").inputValue(), home);
+    await page.locator("#turn-width").selectOption("wide");
+    await page.locator('[data-move="F"]').click();
+    await idle(page);
+    const afterWide = await page.evaluate(cfen => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves: "2Fw" }))).data.state.cfen, home);
+    assert.equal(await page.locator("#cfen").inputValue(), afterWide, `${size}x${size} wide button turn`);
+    await page.locator("#turn-width").selectOption("single");
+    await page.locator("#turn-layer").selectOption("1");
+    await page.locator("#reset").click();
+    if (size === 5) {
+      await dragSticker(page, { face: "F", index: 13, dx: 0, dy: -110, move: "2R", tiles: 20, screenshot: "5x5-inner-drag-1280x800.png" });
+      await page.locator("#reset").click();
+    }
+    await page.locator("#scramble").click();
+    await idle(page);
+    assert.equal(await page.locator("#cube").getAttribute("data-solved"), "false");
+    const scrambled = await page.locator("#cfen").inputValue();
+    if (size === 3) await page.locator("#solve-method").selectOption("kociemba");
+    await page.evaluate(() => {
+      globalThis.nxnSolveFrames = 0;
+      globalThis.nxnSolveCounting = true;
+      const tick = () => { globalThis.nxnSolveFrames++; if (globalThis.nxnSolveCounting) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    });
+    const started = Date.now();
+    await page.locator("#solve").click();
+    await idle(page);
+    const frames = await page.evaluate(() => { globalThis.nxnSolveCounting = false; return globalThis.nxnSolveFrames; });
+    const count = Number(await page.locator("#scrubber").getAttribute("max"));
+    assert.ok(frames >= 5, `${size}x${size} UI keeps updating during solve`);
+    assert.ok(count > 0);
+    assert.match(await page.locator("#sequence-title").textContent(), size === 3 ? /kociemba$/ : /reduction$/);
+    metrics.push({ size, viewport: page.viewportSize(), moves: count, wasmSolveMs: Number(await page.locator("#cube").getAttribute("data-solve-ms")), coldWorkerMs: Number(await page.locator("#cube").getAttribute("data-solve-wall-ms")), readyMs: Date.now() - started, responsiveFrames: frames });
+    await page.locator("#speed").selectOption("70");
+    await page.locator("#step").click();
+    await idle(page);
+    assert.equal(await page.locator("#scrubber").inputValue(), "1");
+    await page.locator("#back-step").click();
+    assert.equal(await page.locator("#cfen").inputValue(), scrambled, "back-step restores the solution's starting cube");
+    await page.locator("#scrubber").fill(String(Math.floor(count / 2)));
+    await page.locator("#view-net").click();
+    await page.locator("#scrubber").fill(String(Math.floor(count / 2) + 1));
+    await page.locator("#view-3d").click();
+    await page.locator("#stage").evaluate(node => node.scrollIntoView({ block: "center" }));
+    await stickerPoint(page, "U", Math.floor((size - 1) / 2) * size + Math.floor((size - 1) / 2));
+    if (size === 5 || size === 7) {
+      for (const [width, height] of [[1280, 800], [390, 844]]) {
+        await page.setViewportSize({ width, height });
+        await page.locator(".size-picker").evaluate(node => node.scrollIntoView({ block: "start" }));
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${size}x${size} ${width}px layout`);
+        await page.screenshot({ path: path.join(screens, `${size}x${size}-mid-solve-${width}x${height}.png`) });
+      }
+      await page.setViewportSize({ width: 1280, height: 800 });
+    }
+    if (size === 7) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.locator("#speed").selectOption("460");
+      await page.locator("#stage").evaluate(node => node.scrollIntoView({ block: "center" }));
+      const baseline = await page.evaluate(() => new Promise(resolve => {
+        const times = []; let last;
+        const tick = now => { if (last) times.push(now - last); last = now; if (times.length < 20) requestAnimationFrame(tick); else resolve(times); };
+        requestAnimationFrame(tick);
+      }));
+      metrics.at(-1).staticFrameMs = baseline.reduce((a, b) => a + b) / baseline.length;
+      await page.locator("#cube").evaluate(root => root.dataset.measureFrames = "true");
+      const intervals = [], renderTimes = [];
+      // Sample several turns; a background-priority headless process can skip
+      // compositor ticks even on a static cube. Keep that pacing separate from
+      // the actual projection and SVG layout cost, and report both.
+      for (let turn = 0; turn < 5; turn++) {
+        await page.locator("#step").evaluate(button => button.click());
+        await idle(page);
+        const samples = await page.locator("#cube svg").evaluate(svg => ({
+          render: JSON.parse(svg.dataset.frameTimes), intervals: JSON.parse(svg.dataset.frameIntervals)
+        }));
+        renderTimes.push(...samples.render);
+        intervals.push(...samples.intervals);
+      }
+      const summary = times => {
+        const sorted = [...times].sort((a, b) => a - b);
+        return { samples: times.length, meanMs: times.reduce((a, b) => a + b) / times.length,
+          p95Ms: sorted[Math.floor(sorted.length * .95)], maxMs: sorted.at(-1) };
+      };
+      assert.ok(intervals.length >= 10, "7x7 animation continues across phone-width turns");
+      metrics.at(-1).phoneFrameInterval = summary(intervals);
+      metrics.at(-1).phoneRenderTime = summary(renderTimes);
+      assert.ok(metrics.at(-1).phoneRenderTime.meanMs < 40, `7x7 frame work averaged ${metrics.at(-1).phoneRenderTime.meanMs.toFixed(1)} ms`);
+      await page.locator("#cube").evaluate(root => root.removeAttribute("data-measure-frames"));
+      await page.locator("#speed").selectOption("70");
+      await page.setViewportSize({ width: 1280, height: 800 });
+    }
+    await page.locator("#scrubber").fill(String(count - Math.min(3, count)));
+    await page.locator("#play").click();
+    await page.waitForFunction(() => document.getElementById("cube").dataset.solved === "true" && !document.getElementById("reset").disabled);
+    assert.equal(await page.locator("#scrubber").inputValue(), String(count));
+    assert.equal(await page.locator("#cube .sticker").evaluateAll(nodes => new Set(nodes.filter(node => node.dataset.face === "F").map(node => node.dataset.color)).size), 1);
+    console.log(`PASS browser ${size}x${size}: picker, net, keyboard/layer/wide, scramble, solve, step/back/scrub/play (${count} moves)`);
+  }
+
+  await page.locator("#size").selectOption("4");
+  await page.locator("#speed").selectOption("460", { force: true });
+  const moves = "2R U 2F Lw D B 2U Rw F2 L 2B D2";
+  await page.locator("#algorithm").fill(moves);
+  await page.locator("#run-algorithm").click();
+  await page.waitForFunction(() => document.getElementById("progress").textContent === "2 / 12");
+  const snapshot = await page.evaluate(() => ({ cfen: document.getElementById("cfen").value, url: location.href,
+    stickers: [...document.querySelectorAll("#cube .sticker")].map(node => `${node.dataset.face}:${node.dataset.index}:${node.dataset.color}`).sort() }));
+  await page.reload();
+  await idle(page);
+  assert.equal(await page.locator("#size").inputValue(), "4");
+  assert.equal(await page.locator("#cfen").inputValue(), snapshot.cfen);
+  assert.equal(await page.locator("#progress").textContent(), "2 / 12");
+  assert.equal(await page.locator("#play").textContent(), "Play");
+  assert.deepEqual(await page.locator("#cube .sticker").evaluateAll(nodes => nodes.map(node => `${node.dataset.face}:${node.dataset.index}:${node.dataset.color}`).sort()), snapshot.stickers);
+  await page.locator("#share").click();
+  assert.equal(await page.evaluate(() => globalThis.copiedText), snapshot.url);
+  await page.locator("#size").selectOption("2");
+  await page.goto(snapshot.url);
+  await idle(page);
+  assert.equal(await page.locator("#size").inputValue(), "4");
+  assert.equal(await page.locator("#cfen").inputValue(), snapshot.cfen);
+  assert.deepEqual(await page.locator("#sequence-moves button").allTextContents(), moves.split(" "));
+  assert.equal(await page.locator("#scrubber").inputValue(), "2");
+  await page.locator("#step").click();
+  await idle(page);
+  const third = await page.evaluate(cfen => JSON.parse(globalThis.cubeAPI(JSON.stringify({ op: "twist", cfen, moves: "2F" }))).data.state.cfen, snapshot.cfen);
+  assert.equal(await page.locator("#cfen").inputValue(), third);
+  console.log("PASS browser 4x4: active-playback share/reload restores size, stickers, sequence, playhead and continuation");
+  console.log(`NxN performance: ${JSON.stringify(metrics)}`);
+  await writeFile(path.join(scratch, "nxn-browser-metrics.json"), JSON.stringify(metrics, null, 2) + "\n");
 }
 
 try {
@@ -694,6 +858,9 @@ try {
   assert.equal(await page.locator("#cube").getAttribute("data-solved"), "false");
   assert.deepEqual(errors, []);
   console.log("PASS browser: 390px phone layout, native touch turn/cancellation and no browser errors");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await nxnRegressions(page);
+  assert.deepEqual(errors, []);
   console.log(`Screenshots: ${path.relative(root, screens)}/{cube,drag,search,cfop,lesson-restored}-{1280x800,390x844}.png, touch-390x844.png`);
 } finally {
   if (context) await context.close();
