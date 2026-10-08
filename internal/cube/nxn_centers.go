@@ -103,6 +103,54 @@ type centerSearchNode struct {
 	score  int
 }
 
+// Exact open addressing for beam coordinates. Small fingerprints keep most
+// probes in a compact byte array; collisions still compare every coordinate.
+type centerKeySet struct {
+	keys [][2]uint64
+	tags []uint8
+}
+
+func newCenterKeySet(max int) centerKeySet {
+	size := 1
+	for size < max*2 {
+		size *= 2
+	}
+	return centerKeySet{make([][2]uint64, size), make([]uint8, size)}
+}
+
+func centerPackedKey(key [8]uint16) ([2]uint64, uint64) {
+	a := uint64(key[0]) | uint64(key[1])<<14 | uint64(key[2])<<28 | uint64(key[3])<<42
+	b := uint64(key[4]) | uint64(key[5])<<14 | uint64(key[6])<<28 | uint64(key[7])<<42
+	h := (a ^ b*0x9e3779b97f4a7c15) * 0xbf58476d1ce4e5b9
+	h = (h ^ h>>32) * 0x94d049bb133111eb
+	return [2]uint64{a, b}, h ^ h>>32
+}
+
+func (s *centerKeySet) slot(key [2]uint64, hash uint64) int {
+	tag := uint8(hash>>56) | 1
+	at := int(hash) & (len(s.keys) - 1)
+	for s.tags[at] != 0 {
+		if s.tags[at] == tag && s.keys[at] == key {
+			return at
+		}
+		at = (at + 1) & (len(s.keys) - 1)
+	}
+	return at
+}
+
+func (s *centerKeySet) contains(key [2]uint64, hash uint64) bool {
+	return s.tags[s.slot(key, hash)] != 0
+}
+
+func (s *centerKeySet) add(key [2]uint64, hash uint64) bool {
+	at := s.slot(key, hash)
+	if s.tags[at] != 0 {
+		return false
+	}
+	s.keys[at], s.tags[at] = key, uint8(hash>>56)|1
+	return true
+}
+
 func nxnCenterBlocks(c *Cube, t *reductionTables) ([]Move, error) {
 	if c.Size >= 6 {
 		return nxnBulkCenters(c, t)
@@ -171,50 +219,86 @@ func nxnSearchCenters(c *Cube, t *reductionTables, dbs []*centerPatterns, faces 
 			dists[len(faces)*orbit+k] = dbs[orbit].distances(face, allowed)
 		}
 	}
-	score := func(key [8]uint16) int {
-		h, wrong := 0, 0
-		for i, dist := range dists {
-			h += int(dist[key[i]])
-			db := dbs[i/len(faces)]
-			wrong += 4 - bits.OnesCount32(db.masks[key[i]]&db.goal[faces[i%len(faces)]])
+	scores := make([][]uint16, len(dists))
+	for i, dist := range dists {
+		db := dbs[i/len(faces)]
+		scores[i] = make([]uint16, nxnCenterCoordinates)
+		for key, d := range dist {
+			wrong := 4 - bits.OnesCount32(db.masks[key]&db.goal[faces[i%len(faces)]])
+			scores[i][key] = uint16(d)*16 + uint16(wrong)
 		}
-		return h*16 + wrong
 	}
-	nodes := []centerSearchNode{{key: start, parent: -1, move: -1, score: score(start)}}
+	score := func(key [8]uint16) int {
+		h := 0
+		for i := range scores {
+			h += int(scores[i][key[i]])
+		}
+		return h
+	}
+	transitions := make([][8][]uint16, len(allowed))
+	for g, move := range allowed {
+		for i := range dists {
+			transitions[g][i] = dbs[i/len(faces)].next[move]
+		}
+	}
+	const width = 512
+	nodes := make([]centerSearchNode, 1, 1+width*36)
+	nodes[0] = centerSearchNode{key: start, parent: -1, move: -1, score: score(start)}
 	if nodes[0].score == 0 {
 		return nil
 	}
-	beam, best := []int{0}, 0
-	seen := map[[8]uint16]bool{start: true}
-	width := 512
+	beam, best := make([]int, 1, width), 0
+	seen, levelSeen := newCenterKeySet(1+width*36), newCenterKeySet(width*len(allowed))
+	startKey, startHash := centerPackedKey(start)
+	seen.add(startKey, startHash)
+	candidateBuffer := make([]centerSearchNode, 0, width*len(allowed))
+	selected := make([]centerSearchNode, width)
+	// Eight patterns, each at most 255*16 + 4.
+	offsets := make([]int, 8*(255*16+4)+1)
 	for depth := 0; depth < 36 && nodes[best].score != 0; depth++ {
-		candidates := make([]centerSearchNode, 0, width*len(allowed))
-		levelSeen := make(map[[8]uint16]bool, width*len(allowed))
+		candidates := candidateBuffer[:0]
+		clear(levelSeen.tags)
+		clear(offsets)
+		threshold, retained := len(offsets)-1, 0
 		for _, parent := range beam {
 			prev := nodes[parent]
-			for _, g := range allowed {
+			for moveIndex, g := range allowed {
 				if prev.move >= 0 && g/3 == prev.move/3 {
 					continue
 				}
 				next := centerSearchNode{parent: parent, move: g}
+				step := &transitions[moveIndex]
 				for i := range dists {
-					next.key[i] = dbs[i/len(faces)].next[g][prev.key[i]]
+					next.key[i] = step[i][prev.key[i]]
+					next.score += int(scores[i][next.key[i]])
 				}
-				if seen[next.key] || levelSeen[next.key] {
+				// A coordinate's score is independent of its path. Once a
+				// stable top-width prefix exists, later equal/worse scores
+				// cannot enter it, so they need neither hashing nor storage.
+				if retained >= width && next.score >= threshold {
 					continue
 				}
-				levelSeen[next.key] = true
-				next.score = score(next.key)
+				key, hash := centerPackedKey(next.key)
+				if seen.contains(key, hash) || !levelSeen.add(key, hash) {
+					continue
+				}
 				candidates = append(candidates, next)
+				offsets[next.score]++
+				retained++
+				for retained-offsets[threshold] >= width {
+					retained -= offsets[threshold]
+					threshold--
+				}
 			}
 		}
 		if len(candidates) == 0 {
 			break
 		}
-		candidates = nxnCenterBeam(candidates, width)
+		candidates = nxnCenterBeamInto(candidates, selected, offsets)
 		beam = beam[:0]
 		for _, next := range candidates {
-			seen[next.key] = true
+			key, hash := centerPackedKey(next.key)
+			seen.add(key, hash)
 			id := len(nodes)
 			nodes = append(nodes, next)
 			beam = append(beam, id)
@@ -245,7 +329,11 @@ func nxnCenterBeam(candidates []centerSearchNode, width int) []centerSearchNode 
 			maxScore = node.score
 		}
 	}
-	offsets := make([]int, maxScore+1)
+	return nxnCenterBeamInto(candidates, make([]centerSearchNode, width), make([]int, maxScore+1))
+}
+
+func nxnCenterBeamInto(candidates, selected []centerSearchNode, offsets []int) []centerSearchNode {
+	clear(offsets)
 	for _, node := range candidates {
 		offsets[node.score]++
 	}
@@ -254,14 +342,13 @@ func nxnCenterBeam(candidates []centerSearchNode, width int) []centerSearchNode 
 		offsets[score] = total
 		total += count
 	}
-	if len(candidates) < width {
-		width = len(candidates)
+	if len(candidates) < len(selected) {
+		selected = selected[:len(candidates)]
 	}
-	selected := make([]centerSearchNode, width)
 	for _, node := range candidates {
 		at := offsets[node.score]
 		offsets[node.score]++
-		if at < width {
+		if at < len(selected) {
 			selected[at] = node
 		}
 	}
@@ -295,7 +382,7 @@ func nxnColorCycles(c *Cube, t *reductionTables, o *reductionOrbit, faces []Face
 			return moves, nil
 		}
 		bestGain := 0
-		var best []Move
+		bestCost := 0
 		var chosen [3]int
 		for a := 0; a < 24; a++ {
 			for b := a + 1; b < 24; b++ {
@@ -322,17 +409,18 @@ func nxnColorCycles(c *Cube, t *reductionTables, o *reductionOrbit, faces []Face
 					if !valid || gain <= 0 {
 						continue
 					}
-					part := o.cycleMoves(t, a, b, d)
-					if best == nil || gain*len(best) > bestGain*len(part) {
-						best, bestGain, chosen = part, gain, [3]int{a, b, d}
+					cost := o.cycleCost(t, a, b, d)
+					if bestCost == 0 || gain*bestCost > bestGain*cost {
+						bestCost, bestGain, chosen = cost, gain, [3]int{a, b, d}
 					}
 				}
 			}
 		}
-		if best == nil {
+		if bestCost == 0 {
 			return nil, fmt.Errorf("center color cycles stalled")
 		}
 		a, b, d := chosen[0], chosen[1], chosen[2]
+		best := o.cycleMoves(t, a, b, d)
 		colors[b], colors[d], colors[a] = colors[a], colors[b], colors[d]
 		if err := c.ApplyMoves(best); err != nil {
 			return nil, err

@@ -3,6 +3,7 @@ package cube
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 // Each movable center orbit has 24 positions. A wing has two sticker orbits
@@ -11,25 +12,28 @@ import (
 type reductionOrbit struct {
 	positions   []int
 	partners    []int // wings only, indexed like positions
-	layer       int   // a slice whose quarter turn changes this wing orbit's parity
+	mate        [24]uint8
+	layer       int // a slice whose quarter turn changes this wing orbit's parity
 	cycle       []Move
 	parent      []int16
 	via         []uint8
 	inverseRoot []bool
+	cycleCosts  []atomic.Uint32 // optimized length + 1; zero means not computed
 	actionsOnce sync.Once
 	actions     []wingAction
 }
 
 type reductionTables struct {
-	size         int
-	centers      []*reductionOrbit
-	wings        []*reductionOrbit
-	moves        []Move
-	perms        []Permutation
-	patternsOnce sync.Once
-	patterns     []*centerPatterns
-	blocksOnce   sync.Once
-	blocks       []centerBlockAction
+	size            int
+	centers         []*reductionOrbit
+	wings           []*reductionOrbit
+	moves           []Move
+	perms           []Permutation
+	patternsOnce    sync.Once
+	patterns        []*centerPatterns
+	blocksOnce      sync.Once
+	blocks          []centerBlockAction
+	blockInfluences [144][6][]uint32
 }
 
 var reductionCache struct {
@@ -62,9 +66,25 @@ func nxnInverse(moves []Move) []Move {
 }
 
 func nxnCommutator(a, b []Move) []Move {
-	result := append(append([]Move{}, a...), b...)
-	result = append(result, nxnInverse(a)...)
-	return append(result, nxnInverse(b)...)
+	return nxnCommutatorInto(make([]Move, 0, 2*(len(a)+len(b))), a, b)
+}
+
+func nxnAppendInverse(result, moves []Move) []Move {
+	for i := len(moves) - 1; i >= 0; i-- {
+		m := moves[i]
+		if !m.Double {
+			m.Clockwise = !m.Clockwise
+		}
+		result = append(result, m)
+	}
+	return result
+}
+
+func nxnCommutatorInto(result, a, b []Move) []Move {
+	result = append(result, a...)
+	result = append(result, b...)
+	result = nxnAppendInverse(result, a)
+	return nxnAppendInverse(result, b)
 }
 
 func nxnPermutation(n int, moves []Move) Permutation {
@@ -200,6 +220,7 @@ func buildReductionTables(n int) (*reductionTables, error) {
 				return nil, fmt.Errorf("dimension %d: wing commutator crosses orbits", n)
 			}
 		}
+		o.mate = nxnWingMates(n, o)
 		t.wings = append(t.wings, o)
 	}
 	for _, orbits := range [][]*reductionOrbit{t.centers, t.wings} {
@@ -257,27 +278,29 @@ func (o *reductionOrbit) buildSetups(n int, t *reductionTables) error {
 		o.parent[i] = -1
 	}
 	o.inverseRoot = make([]bool, len(o.parent))
-	queue := make([]int, 0, 24*23*22)
+	o.cycleCosts = make([]atomic.Uint32, len(o.parent))
+	queue := make([]uint16, 0, 24*23*22)
 	for i, triple := range [][3]int{{x, y, z}, {y, z, x}, {z, x, y}, {x, z, y}, {z, y, x}, {y, x, z}} {
 		root := tripleKey(triple[0], triple[1], triple[2])
 		o.parent[root] = int16(root)
 		o.inverseRoot[root] = i >= 3
-		queue = append(queue, root)
+		queue = append(queue, uint16(root))
 	}
-	transitions := make([][24]int, len(t.perms))
+	transitions := make([][24]uint8, len(t.perms))
 	for g, perm := range t.perms {
 		for i, pos := range o.positions {
-			transitions[g][i] = local[perm[pos]]
+			transitions[g][i] = uint8(local[perm[pos]])
 		}
 	}
 	for head := 0; head < len(queue); head++ {
-		key := queue[head]
+		key := int(queue[head])
 		a, b, c := key/(24*24), key/24%24, key%24
-		for g, trans := range transitions {
-			next := tripleKey(trans[a], trans[b], trans[c])
+		for g := range transitions {
+			trans := &transitions[g]
+			next := tripleKey(int(trans[a]), int(trans[b]), int(trans[c]))
 			if o.parent[next] < 0 {
 				o.parent[next], o.via[next] = int16(key), uint8(g)
-				queue = append(queue, next)
+				queue = append(queue, uint16(next))
 			}
 		}
 	}
@@ -288,19 +311,48 @@ func (o *reductionOrbit) buildSetups(n int, t *reductionTables) error {
 }
 
 func (o *reductionOrbit) cycleMoves(t *reductionTables, a, b, c int) []Move {
-	var reversed []Move
+	var buffer [64]Move
+	return o.cycleInto(t, a, b, c, make([]Move, 0, len(buffer)))
+}
+
+func (o *reductionOrbit) cycleCost(t *reductionTables, a, b, c int) int {
+	key := tripleKey(a, b, c)
+	if cost := o.cycleCosts[key].Load(); cost != 0 {
+		return int(cost - 1)
+	}
+	var buffer [64]Move
+	cost := len(o.cycleInto(t, a, b, c, buffer[:0]))
+	o.cycleCosts[key].Store(uint32(cost + 1))
+	return cost
+}
+
+func (o *reductionOrbit) cycleInto(t *reductionTables, a, b, c int, result []Move) []Move {
+	var reversedBuffer [24]Move
+	reversed := reversedBuffer[:0]
 	key := tripleKey(a, b, c)
 	for ; int(o.parent[key]) != key; key = int(o.parent[key]) {
 		reversed = append(reversed, t.moves[o.via[key]])
 	}
-	setup := make([]Move, len(reversed))
-	for i, m := range reversed {
-		setup[len(setup)-1-i] = m
+	var movesBuffer [64]Move
+	moves := movesBuffer[:0]
+	invert := func(m Move) Move {
+		if !m.Double {
+			m.Clockwise = !m.Clockwise
+		}
+		return m
 	}
-	cycle := o.cycle
+	for _, m := range reversed {
+		moves = append(moves, invert(m))
+	}
 	if o.inverseRoot[key] {
-		cycle = nxnInverse(cycle)
+		for i := len(o.cycle) - 1; i >= 0; i-- {
+			moves = append(moves, invert(o.cycle[i]))
+		}
+	} else {
+		moves = append(moves, o.cycle...)
 	}
-	moves := append(nxnInverse(setup), cycle...)
-	return nxnOptimizeMoves(append(moves, setup...), t.size)
+	for i := len(reversed) - 1; i >= 0; i-- {
+		moves = append(moves, reversed[i])
+	}
+	return nxnOptimizeInto(result, moves, t.size)
 }

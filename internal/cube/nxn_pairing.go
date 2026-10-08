@@ -1,11 +1,17 @@
 package cube
 
-import "fmt"
+import (
+	"encoding/binary"
+	"fmt"
+	"math/bits"
+)
 
 type wingAction struct {
 	moves []Move
 	full  [24]uint8
 	outer [24]uint8
+	want  [3]uint64
+	pairs [12][2]uint8
 }
 
 func nxnOuterMoves(moves []Move) []Move {
@@ -19,16 +25,59 @@ func nxnOuterMoves(moves []Move) []Move {
 }
 
 func nxnWingAction(n int, o *reductionOrbit, moves []Move) wingAction {
+	p, q := nxnPermutation(n, moves), nxnPermutation(n, nxnOuterMoves(moves))
+	return nxnWingActionFromPerm(o, moves, p, q)
+}
+
+func nxnWingActionFromPerm(o *reductionOrbit, moves []Move, p, q Permutation) wingAction {
 	a := wingAction{moves: moves}
-	local := make(map[int]uint8, 24)
+	var local [6 * 7 * 7]uint8
 	for i, pos := range o.positions {
 		local[pos] = uint8(i)
 	}
-	p, q := nxnPermutation(n, moves), nxnPermutation(n, nxnOuterMoves(moves))
 	for i, pos := range o.positions {
 		a.full[i], a.outer[i] = local[p[pos]], local[q[pos]]
 	}
+	var inverseOuter, inverseFull, want [24]uint8
+	for i := range a.full {
+		inverseOuter[a.outer[i]], inverseFull[a.full[i]] = uint8(i), uint8(i)
+	}
+	pair := 0
+	for i, dst := range a.full {
+		want[i] = inverseOuter[dst]
+		other := inverseFull[o.mate[dst]]
+		if i < int(other) {
+			a.pairs[pair] = [2]uint8{uint8(i), other}
+			pair++
+		}
+	}
+	a.want = nxnPackWings(want)
 	return a
+}
+
+func nxnPackWings(p [24]uint8) [3]uint64 {
+	return [3]uint64{binary.LittleEndian.Uint64(p[:8]), binary.LittleEndian.Uint64(p[8:16]), binary.LittleEndian.Uint64(p[16:])}
+}
+
+func (a *wingAction) fixedScore(p [3]uint64) int {
+	matched := 0
+	for i, target := range a.want {
+		x := p[i] ^ target
+		// Exact zero-byte count, without the cross-byte borrow of x-0x0101...
+		zeros := ^(((x & 0x7f7f7f7f7f7f7f7f) + 0x7f7f7f7f7f7f7f7f) | x | 0x7f7f7f7f7f7f7f7f)
+		matched += bits.OnesCount64(zeros)
+	}
+	return matched
+}
+
+func (a *wingAction) pairedScore(p, mates [24]uint8) int {
+	matched := 0
+	for _, pair := range a.pairs {
+		if p[pair[0]] == mates[pair[1]] {
+			matched += 2
+		}
+	}
+	return matched
 }
 
 func nxnPreservesCenterColors(n int, p Permutation) bool {
@@ -45,10 +94,11 @@ func nxnPairingActions(n int, o *reductionOrbit) []wingAction {
 	var actions []wingAction
 	seen := map[[48]uint8]bool{}
 	add := func(moves []Move) {
-		if !nxnPreservesCenterColors(n, nxnPermutation(n, moves)) {
+		p := nxnPermutation(n, moves)
+		if !nxnPreservesCenterColors(n, p) {
 			return
 		}
-		a := nxnWingAction(n, o, moves)
+		a := nxnWingActionFromPerm(o, moves, p, nxnPermutation(n, nxnOuterMoves(moves)))
 		var key [48]uint8
 		copy(key[:24], a.full[:])
 		copy(key[24:], a.outer[:])
@@ -237,11 +287,24 @@ func nxnPairWings(c *Cube, t *reductionTables) ([]Move, *Cube, error) {
 			var best []Move
 			var bestState [24]uint8
 			consider := func(pre [24]uint8, setup []Move) {
-				for _, a := range actions {
-					next := nxnWingAfter(pre, a)
-					gain, cost := score(next)-before, len(a.moves)+len(setup)
+				packed := nxnPackWings(pre)
+				var mates [24]uint8
+				if natural {
+					for i, id := range pre {
+						mates[i] = mate[id]
+					}
+				}
+				for i := range actions {
+					a := &actions[i]
+					matched := 0
+					if natural {
+						matched = a.pairedScore(pre, mates)
+					} else {
+						matched = a.fixedScore(packed)
+					}
+					gain, cost := matched-before, len(a.moves)+len(setup)
 					if gain > 0 && (best == nil || gain*bestCost > bestGain*cost) {
-						bestGain, bestCost, bestState = gain, cost, next
+						bestGain, bestCost, bestState = gain, cost, nxnWingAfter(pre, *a)
 						best = append(append([]Move{}, setup...), a.moves...)
 					}
 				}
@@ -270,9 +333,9 @@ func nxnPairWings(c *Cube, t *reductionTables) ([]Move, *Cube, error) {
 						if gain <= 0 {
 							continue
 						}
-						part := o.cycleMoves(t, a, b, d)
-						if best == nil || gain*bestCost > bestGain*len(part) {
-							best, bestGain, bestCost, bestState = part, gain, len(part), next
+						cost := o.cycleCost(t, a, b, d)
+						if best == nil || gain*bestCost > bestGain*cost {
+							best, bestGain, bestCost, bestState = o.cycleMoves(t, a, b, d), gain, cost, next
 						}
 					}
 				}
