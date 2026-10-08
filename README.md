@@ -53,6 +53,29 @@ bytes**), and independently constructs/replays 200 Python physical states,
 including all 24 grips. `make bench-kociemba` runs the warm sample alone;
 `make test-kociemba-cold` runs the cold gate alone.
 
+Default 3×3 solves keep searching until they find **≤20 face turns**, independent
+of wall-clock time. The search never relaxes that length bound at a deadline.
+If the fast reductions exhaust, a complete fallback enumerates phase-one depths
+0–20 with unrestricted phase-two suffixes; any ≤20-turn solution splits at its
+last non-subgroup turn. This guarantees finite coverage without imposing an
+empirical node cap. Whole-cube grip rotations are counted separately.
+
+Explicit CLI search flags select the timed API: `--time-limit` is a hard search
+deadline, with table setup separate. An expired search returns an explicit error
+unless it already has a solution within `max(20, --target-length)` face turns.
+A target below 20 remains a stopping goal; expiry may return a ≤20 incumbent.
+`KociembaSolver.Solve` provides the untimed default, while `SolveKociemba` honors
+the explicit options. Correctness tests inject clocks rather than relying on
+machine speed. The larger deterministic sample can be rerun with
+`CUBE_DETERMINISM=1 go test -p 2 ./internal/cube -run '^TestTwoPhaseDeterminism10000$' -count=1 -v`.
+
+A 10,000-state run after the deadline fix (same seed and policy) solved **100%
+at ≤20 turns**, with **15.71 ms warm mean / 122.69 ms p99 / 1,658.64 ms max**.
+The largest observed work was **17,504,500 DFS cursor operations**, at zero-based
+state 5466. This is a sampled maximum, not a universal work or latency bound;
+the default search has no node cap. Forced-clock regression case 198 used
+**6,705,422 operations** and returned 20 turns.
+
 The compact default measured **19.889 mean / 20 max turns, 100% at ≤20**, with
 **12.29 ms warm mean / 106.08 ms p99 / 475.02 ms max**. The first-ever plain solve
 of the cold-gate scramble took **214.45 ms**, including setup, and wrote

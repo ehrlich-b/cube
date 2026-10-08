@@ -41,6 +41,8 @@ def main():
         if index < 24:
             state = physical.physical_sequence(state, orientations[index])
         begun = time.perf_counter()
+        # No search flags: the default keeps the <=20 bound regardless of CPU
+        # scheduling. The subprocess timeout remains an external latency guard.
         result = subprocess.run([str(args.binary.resolve()), "solve", "--method", "kociemba",
                                  "--start", physical.cfen(state), "--headless"],
                                 text=True, capture_output=True, timeout=3, env=env)
