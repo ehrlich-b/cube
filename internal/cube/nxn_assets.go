@@ -122,7 +122,24 @@ func loadReductionTables(n int) (*reductionTables, error) {
 	if err != nil {
 		return nil, fmt.Errorf("dimension %d: reduction asset: %w", n, err)
 	}
-	data, err := io.ReadAll(io.LimitReader(z, 8<<20))
+	if len(z.Extra) != 4 {
+		z.Close()
+		return nil, fmt.Errorf("dimension %d: reduction asset length missing", n)
+	}
+	length := binary.LittleEndian.Uint32(z.Extra)
+	if length < 12 || length > 8<<20 {
+		z.Close()
+		return nil, fmt.Errorf("dimension %d: invalid reduction asset length", n)
+	}
+	data := make([]byte, length)
+	_, err = io.ReadFull(z, data)
+	if err == nil {
+		var tail [1]byte
+		written, readErr := z.Read(tail[:])
+		if written != 0 || readErr != io.EOF {
+			err = fmt.Errorf("dimension %d: reduction asset length mismatch", n)
+		}
+	}
 	closeErr := z.Close()
 	if err != nil {
 		return nil, err
@@ -153,7 +170,7 @@ func decodeReductionTables(t *reductionTables, data []byte) error {
 					return fmt.Errorf("invalid reduction asset setup parent")
 				}
 			}
-			o.via = r.take(coordinates)
+			o.via = append([]uint8(nil), r.take(coordinates)...)
 			inverse := r.take(coordinates / 8)
 			if r.err != nil {
 				return r.err
@@ -162,7 +179,7 @@ func decodeReductionTables(t *reductionTables, data []byte) error {
 			for i := range o.inverseRoot {
 				o.inverseRoot[i] = inverse[i/8]&(1<<(i%8)) != 0
 			}
-			o.costs = r.take(coordinates)
+			o.costs = append([]uint8(nil), r.take(coordinates)...)
 			if r.err != nil {
 				return r.err
 			}
@@ -213,6 +230,41 @@ func decodeReductionTables(t *reductionTables, data []byte) error {
 			a.prepare(o.mate)
 		}
 		o.actionsOnce.Do(func() {})
+	}
+	patterns := r.byte()
+	if patterns != 0 && (t.size != 5 || patterns != len(t.centers)) {
+		return fmt.Errorf("invalid reduction asset center patterns")
+	}
+	if patterns != 0 {
+		t.patterns = make([]*centerPatterns, patterns)
+		for orbit, o := range t.centers {
+			db := centerPatternShape(t.size, t, o)
+			for g := range db.next {
+				raw := r.take(2 * nxnCenterCoordinates)
+				if r.err != nil {
+					return r.err
+				}
+				row := make([]uint16, nxnCenterCoordinates)
+				previous := 0
+				for key := range row {
+					next := previous + int(int16(binary.LittleEndian.Uint16(raw[key*2:])))
+					if next < 0 || next >= nxnCenterCoordinates {
+						return fmt.Errorf("invalid reduction asset pattern transition")
+					}
+					row[key], previous = uint16(next), next
+				}
+				db.next[g] = row
+			}
+			db.distCache = make(map[string][]uint8, 12)
+			for _, locked := range []bool{false, true} {
+				allowed := nxnAllowedCenterMoves(t, locked)
+				for face := Front; face <= Down; face++ {
+					db.distCache[centerDistanceKey(face, allowed)] = append([]uint8(nil), r.take(nxnCenterCoordinates)...)
+				}
+			}
+			t.patterns[orbit] = db
+		}
+		t.patternsOnce.Do(func() {})
 	}
 	if r.err != nil {
 		return r.err

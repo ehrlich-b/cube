@@ -43,21 +43,10 @@ func centerRank(mask uint32) uint16 {
 }
 
 func centerPatternTable(n int, t *reductionTables, o *reductionOrbit) *centerPatterns {
-	db := &centerPatterns{masks: make([]uint32, nxnCenterCoordinates), next: make([][]uint16, len(t.moves))}
+	db := centerPatternShape(n, t, o)
 	local := make(map[int]int, 24)
 	for i, pos := range o.positions {
 		local[pos] = i
-		db.goal[pos/(n*n)] |= 1 << i
-	}
-	for a := 0; a < 24; a++ {
-		for b := a + 1; b < 24; b++ {
-			for c := b + 1; c < 24; c++ {
-				for d := c + 1; d < 24; d++ {
-					mask := uint32(1<<a | 1<<b | 1<<c | 1<<d)
-					db.masks[centerRank(mask)] = mask
-				}
-			}
-		}
 	}
 	for g, p := range t.perms {
 		var trans [24]uint32
@@ -77,15 +66,38 @@ func centerPatternTable(n int, t *reductionTables, o *reductionOrbit) *centerPat
 	return db
 }
 
-func (db *centerPatterns) distances(face Face, allowed []int) []uint8 {
+func centerPatternShape(n int, t *reductionTables, o *reductionOrbit) *centerPatterns {
+	db := &centerPatterns{masks: make([]uint32, nxnCenterCoordinates), next: make([][]uint16, len(t.moves))}
+	for i, pos := range o.positions {
+		db.goal[pos/(n*n)] |= 1 << i
+	}
+	for a := 0; a < 24; a++ {
+		for b := a + 1; b < 24; b++ {
+			for c := b + 1; c < 24; c++ {
+				for d := c + 1; d < 24; d++ {
+					mask := uint32(1<<a | 1<<b | 1<<c | 1<<d)
+					db.masks[centerRank(mask)] = mask
+				}
+			}
+		}
+	}
+	return db
+}
+
+func centerDistanceKey(face Face, allowed []int) string {
 	key := make([]byte, len(allowed)+1)
 	key[0] = byte(face)
 	for i, g := range allowed {
 		key[i+1] = byte(g)
 	}
+	return string(key)
+}
+
+func (db *centerPatterns) distances(face Face, allowed []int) []uint8 {
+	key := centerDistanceKey(face, allowed)
 	db.distMu.Lock()
 	defer db.distMu.Unlock()
-	if dist := db.distCache[string(key)]; dist != nil {
+	if dist := db.distCache[key]; dist != nil {
 		return dist
 	}
 	dist := make([]uint8, nxnCenterCoordinates)
@@ -109,15 +121,15 @@ func (db *centerPatterns) distances(face Face, allowed []int) []uint8 {
 	if db.distCache == nil {
 		db.distCache = make(map[string][]uint8)
 	}
-	db.distCache[string(key)] = dist
+	db.distCache[key] = dist
 	return dist
 }
 
 type centerSearchNode struct {
 	key    [8]uint16
-	parent int
-	move   int
-	score  int
+	parent int16 // at most 1 + 36*512 nodes
+	move   int16
+	score  uint16 // at most 8*(255*16 + 4)
 }
 
 type centerSearchBuffers struct {
@@ -212,15 +224,7 @@ func nxnCenterBlocks(c *Cube, t *reductionTables) ([]Move, error) {
 	locked := map[Face]bool{}
 	var buffers centerSearchBuffers
 	for _, faces := range [][]Face{{Up}, {Up, Down}, {Left}, {Left, Right}, {Left, Right, Front, Back}} {
-		var allowed []int
-		for g, m := range t.moves {
-			if c.Size%2 == 1 && m.Layer == c.Size/2 {
-				continue // Keep the fixed-center frame canonical.
-			}
-			if !locked[Down] || !m.Wide && (m.Layer == 0 || m.Layer == c.Size-1) || nxnAxis(m.Face) == nxnAxis(Up) {
-				allowed = append(allowed, g)
-			}
-		}
+		allowed := nxnAllowedCenterMoves(t, locked[Down])
 		part := nxnSearchCentersUsing(c, t, patterns, faces, allowed, &buffers)
 		if err := nxnApplyMoves(c, part); err != nil {
 			return nil, err
@@ -238,6 +242,19 @@ func nxnCenterBlocks(c *Cube, t *reductionTables) ([]Move, error) {
 		}
 	}
 	return moves, nil
+}
+
+func nxnAllowedCenterMoves(t *reductionTables, lockedUD bool) []int {
+	var allowed []int
+	for g, m := range t.moves {
+		if t.size%2 == 1 && m.Layer == t.size/2 {
+			continue // Keep the fixed-center frame canonical.
+		}
+		if !lockedUD || !m.Wide && (m.Layer == 0 || m.Layer == t.size-1) || nxnAxis(m.Face) == nxnAxis(Up) {
+			allowed = append(allowed, g)
+		}
+	}
+	return allowed
 }
 
 // A bounded beam supplies useful partial blocks on the one or two movable
@@ -264,7 +281,7 @@ func nxnSearchCentersUsing(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 			dists[len(faces)*orbit+k] = dbs[orbit].distances(face, allowed)
 		}
 	}
-	scores := make([][]uint16, len(dists))
+	var scores [8][]uint16
 	for i, dist := range dists {
 		db := dbs[i/len(faces)]
 		scores[i] = make([]uint16, nxnCenterCoordinates)
@@ -273,18 +290,12 @@ func nxnSearchCentersUsing(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 			scores[i][key] = uint16(d)*16 + uint16(wrong)
 		}
 	}
-	score := func(key [8]uint16) int {
-		h := 0
-		for i := range scores {
-			h += int(scores[i][key[i]])
+	score := func(key [8]uint16) uint16 {
+		h := uint16(0)
+		for i := range dists {
+			h += scores[i][key[i]]
 		}
 		return h
-	}
-	transitions := make([][8][]uint16, len(allowed))
-	for g, move := range allowed {
-		for i := range dists {
-			transitions[g][i] = dbs[i/len(faces)].next[move]
-		}
 	}
 	const width = 512
 	startScore := score(start)
@@ -292,6 +303,20 @@ func nxnSearchCentersUsing(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 		return nil
 	}
 	buffers.init(len(allowed))
+	transitions := make([][8][]uint16, len(allowed))
+	var allowedTurns [128]bool
+	for _, move := range allowed {
+		allowedTurns[move] = true
+	}
+	canBound := true
+	for g, move := range allowed {
+		if move%3 != 1 && !allowedTurns[move/3*3+2-move%3] {
+			canBound = false
+		}
+		for i := range dists {
+			transitions[g][i] = dbs[i/len(faces)].next[move]
+		}
+	}
 	nodes := buffers.nodes[:1]
 	nodes[0] = centerSearchNode{key: start, parent: -1, move: -1, score: startScore}
 	beam, best := buffers.beam[:1], 0
@@ -301,22 +326,84 @@ func nxnSearchCentersUsing(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 	startKey, startHash := centerPackedKey(start)
 	seen.add(startKey, startHash)
 	candidateBuffer, selected, offsets := buffers.candidates, buffers.selected, buffers.offsets
+	clear(offsets)
+	minWritten, maxWritten := uint16(len(offsets)-1), uint16(0)
 	for depth := 0; depth < 36 && nodes[best].score != 0; depth++ {
 		candidates := candidateBuffer[:0]
 		clear(levelSeen.tags)
-		clear(offsets)
-		threshold, retained := len(offsets)-1, 0
+		if minWritten <= maxWritten {
+			clear(offsets[minWritten : maxWritten+1])
+		}
+		minWritten, maxWritten = uint16(len(offsets)-1), 0
+		threshold, retained := uint16(len(offsets)-1), 0
 		for _, parent := range beam {
 			prev := nodes[parent]
+			// With inverse-closed generators, a coordinate's distance can
+			// fall by at most one turn. Bound the unread coordinates once
+			// per parent, then reject partial scores before more lookups.
+			var lower [4]uint16
+			if canBound {
+				sum := uint16(0)
+				for i := 0; i < len(dists)/2; i++ {
+					h := scores[i][prev.key[i]] >> 4
+					if h == 255 {
+						sum += 255 * 16 // An unreachable component stays unreachable.
+					} else if h > 0 {
+						sum += (h - 1) * 16
+					}
+					lower[i] = sum
+				}
+			}
 			for moveIndex, g := range allowed {
-				if prev.move >= 0 && g/3 == prev.move/3 {
+				if prev.move >= 0 && g/3 == int(prev.move)/3 {
 					continue
 				}
-				next := centerSearchNode{parent: parent, move: g}
+				next := centerSearchNode{parent: int16(parent), move: int16(g)}
 				step := &transitions[moveIndex]
-				for i := range dists {
-					next.key[i] = step[i][prev.key[i]]
-					next.score += int(scores[i][next.key[i]])
+				// The normal stages have 1, 2, 4 or 8 coordinates. Fixed
+				// indices avoid repeated slice/array bounds in this hot loop.
+				switch len(dists) {
+				case 8:
+					k4, k5 := step[4][prev.key[4]], step[5][prev.key[5]]
+					k6, k7 := step[6][prev.key[6]], step[7][prev.key[7]]
+					next.key[4], next.key[5], next.key[6], next.key[7] = k4, k5, k6, k7
+					next.score += scores[4][k4] + scores[5][k5] + scores[6][k6] + scores[7][k7]
+					if retained >= width && next.score+lower[3] >= threshold {
+						continue
+					}
+					fallthrough
+				case 4:
+					k2, k3 := step[2][prev.key[2]], step[3][prev.key[3]]
+					next.key[2], next.key[3] = k2, k3
+					next.score += scores[2][k2] + scores[3][k3]
+					if retained >= width && next.score+lower[1] >= threshold {
+						continue
+					}
+					fallthrough
+				case 2:
+					k1 := step[1][prev.key[1]]
+					next.key[1] = k1
+					next.score += scores[1][k1]
+					if retained >= width && next.score+lower[0] >= threshold {
+						continue
+					}
+					fallthrough
+				case 1:
+					k0 := step[0][prev.key[0]]
+					next.key[0] = k0
+					next.score += scores[0][k0]
+				default:
+					for i := range dists {
+						next.key[i] = step[i][prev.key[i]]
+						next.score += scores[i][next.key[i]]
+					}
+				}
+				// A zero score has one coordinate key. Its first generated
+				// path is also the first goal selected by stable beam ordering.
+				if next.score == 0 {
+					best = len(nodes)
+					nodes = append(nodes, next)
+					goto centerResult
 				}
 				// A coordinate's score is independent of its path. Once a
 				// stable top-width prefix exists, later equal/worse scores
@@ -329,8 +416,17 @@ func nxnSearchCentersUsing(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 					continue
 				}
 				candidates = append(candidates, next)
+				if next.score < minWritten {
+					minWritten = next.score
+				}
+				if next.score > maxWritten {
+					maxWritten = next.score
+				}
 				offsets[next.score]++
 				retained++
+				if len(candidates) == width {
+					threshold = maxWritten
+				}
 				for retained-offsets[threshold] >= width {
 					retained -= offsets[threshold]
 					threshold--
@@ -353,10 +449,11 @@ func nxnSearchCentersUsing(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 			}
 		}
 	}
+centerResult:
 	var reversed []Move
 	for best != 0 {
 		reversed = append(reversed, t.moves[nodes[best].move])
-		best = nodes[best].parent
+		best = int(nodes[best].parent)
 	}
 	part := make([]Move, len(reversed))
 	for i, m := range reversed {
@@ -369,21 +466,31 @@ func nxnSearchCentersUsing(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 // of thousands of nodes at every depth. Ties retain generator order, so this
 // chooses exactly the same beam as a stable comparison sort.
 func nxnCenterBeamInto(candidates, selected []centerSearchNode, offsets []int) []centerSearchNode {
-	clear(offsets)
+	lo, hi := candidates[0].score, candidates[0].score
 	for _, node := range candidates {
-		offsets[node.score]++
+		if node.score < lo {
+			lo = node.score
+		}
+		if node.score > hi {
+			hi = node.score
+		}
+	}
+	counts := offsets[lo : hi+1]
+	clear(counts)
+	for _, node := range candidates {
+		counts[node.score-lo]++
 	}
 	total := 0
-	for score, count := range offsets {
-		offsets[score] = total
+	for score, count := range counts {
+		counts[score] = total
 		total += count
 	}
 	if len(candidates) < len(selected) {
 		selected = selected[:len(candidates)]
 	}
 	for _, node := range candidates {
-		at := offsets[node.score]
-		offsets[node.score]++
+		at := counts[node.score-lo]
+		counts[node.score-lo]++
 		if at < len(selected) {
 			selected[at] = node
 		}

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -65,6 +66,29 @@ func encodeReductionTables(t *reductionTables) []byte {
 			data = append(data, a.outer[:]...)
 		}
 	}
+	patterns := 0
+	if t.size == 5 {
+		patterns = len(t.centers)
+	}
+	data = append(data, byte(patterns))
+	if patterns != 0 {
+		for _, o := range t.centers {
+			db := centerPatternTable(t.size, t, o)
+			for _, row := range db.next {
+				previous := 0
+				for _, next := range row {
+					word(int(uint16(int16(int(next) - previous))))
+					previous = int(next)
+				}
+			}
+			for _, locked := range []bool{false, true} {
+				allowed := nxnAllowedCenterMoves(t, locked)
+				for face := Front; face <= Down; face++ {
+					data = append(data, db.distances(face, allowed)...)
+				}
+			}
+		}
+	}
 	return data
 }
 
@@ -83,6 +107,8 @@ func TestNxNEmbeddedTables(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				z.Extra = make([]byte, 4)
+				binary.LittleEndian.PutUint32(z.Extra, uint32(len(want)))
 				if _, err := z.Write(want); err != nil {
 					t.Fatal(err)
 				}
@@ -114,6 +140,20 @@ func TestNxNEmbeddedTables(t *testing.T) {
 			}
 			if err := decodeReductionTables(loaded, got); err != nil {
 				t.Fatal(err)
+			}
+			for orbit, db := range loaded.patterns {
+				freshDB := centerPatternTable(n, fresh, fresh.centers[orbit])
+				if !reflect.DeepEqual(db.next, freshDB.next) || !reflect.DeepEqual(db.goal, freshDB.goal) {
+					t.Fatal("decoded pattern transitions differ from regeneration")
+				}
+				for _, locked := range []bool{false, true} {
+					allowed := nxnAllowedCenterMoves(fresh, locked)
+					for face := Front; face <= Down; face++ {
+						if !bytes.Equal(db.distances(face, allowed), freshDB.distances(face, allowed)) {
+							t.Fatal("decoded pattern distances differ from fresh BFS")
+						}
+					}
+				}
 			}
 			for _, broken := range [][]byte{got[:11], got[:len(got)-1], append(append([]byte(nil), got...), 0)} {
 				if err := decodeReductionTables(loaded, broken); err == nil {

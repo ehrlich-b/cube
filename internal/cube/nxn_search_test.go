@@ -91,6 +91,12 @@ func TestNxNWingScoresMatchFullPermutation(t *testing.T) {
 		}
 		for _, o := range tables.wings {
 			actions := o.actions
+			for _, action := range actions {
+				witness := nxnWingAction(n, o, action.moves)
+				if witness.full != action.full || witness.outer != action.outer {
+					t.Fatalf("%dx%d loaded wing action differs from its complete sticker permutation", n, n)
+				}
+			}
 			for trial := 0; trial < 20; trial++ {
 				var state, mates [24]uint8
 				for i, id := range rng.Perm(24) {
@@ -213,11 +219,14 @@ func TestNxNCenterBeamMatchesReference(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		for stage, faces := range [][]Face{{Up, Down}, {Left, Right, Front, Back}} {
+		for stage, faces := range [][]Face{{Up, Down}, {Left, Right, Front, Back}, {Up}} {
 			var allowed []int
 			for g, m := range tables.moves {
 				if n%2 == 1 && m.Layer == n/2 {
 					continue
+				}
+				if stage == 2 && g%3 != 0 {
+					continue // Also check the path without inverse-closed bounds.
 				}
 				if stage == 0 || !m.Wide && (m.Layer == 0 || m.Layer == n-1) || nxnAxis(m.Face) == nxnAxis(Up) {
 					allowed = append(allowed, g)
@@ -259,7 +268,7 @@ func referenceCenterSearch(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 		}
 		return h*16 + wrong
 	}
-	nodes := []centerSearchNode{{key: start, parent: -1, move: -1, score: score(start)}}
+	nodes := []centerSearchNode{{key: start, parent: -1, move: -1, score: uint16(score(start))}}
 	beam, best := []int{0}, 0
 	seen := map[[8]uint16]bool{start: true}
 	for depth := 0; depth < 36 && nodes[best].score != 0; depth++ {
@@ -268,10 +277,10 @@ func referenceCenterSearch(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 		for _, parent := range beam {
 			prev := nodes[parent]
 			for _, g := range allowed {
-				if prev.move >= 0 && g/3 == prev.move/3 {
+				if prev.move >= 0 && g/3 == int(prev.move)/3 {
 					continue
 				}
-				next := centerSearchNode{parent: parent, move: g}
+				next := centerSearchNode{parent: int16(parent), move: int16(g)}
 				for i := range dists {
 					next.key[i] = dbs[i/len(faces)].next[g][prev.key[i]]
 				}
@@ -279,7 +288,7 @@ func referenceCenterSearch(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 					continue
 				}
 				levelSeen[next.key] = true
-				next.score = score(next.key)
+				next.score = uint16(score(next.key))
 				candidates = append(candidates, next)
 			}
 		}
@@ -304,7 +313,7 @@ func referenceCenterSearch(c *Cube, t *reductionTables, dbs []*centerPatterns, f
 	var reversed []Move
 	for best != 0 {
 		reversed = append(reversed, t.moves[nodes[best].move])
-		best = nodes[best].parent
+		best = int(nodes[best].parent)
 	}
 	part := make([]Move, len(reversed))
 	for i, m := range reversed {

@@ -2,6 +2,7 @@ package cube
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 )
 
@@ -29,6 +30,7 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 	}
 	work := c.clone()
 	var moves []Move
+	var preloadDone <-chan struct{}
 	if c.Size%2 == 1 {
 		// Odd fixed centers define the frame even after slice/rotation moves.
 		frame := NewCube(3)
@@ -64,6 +66,17 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 		return nil, fmt.Errorf("reduced corners/central edges: %w", err)
 	}
 	if c.Size > 3 {
+		// Native cores can load the final 3x3 tables while reduction runs.
+		// Keep browser allocation peaks separate on its single execution thread.
+		if runtime.GOARCH != "wasm" && !work.IsSolved() {
+			done := make(chan struct{})
+			go func() {
+				solverTables()
+				close(done)
+			}()
+			defer func() { <-done }()
+			preloadDone = done
+		}
 		t, err := nxnTables(c.Size)
 		if err != nil {
 			return nil, err
@@ -79,6 +92,9 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 		}
 		moves = append(moves, part...)
 		reduced = paired
+	}
+	if preloadDone != nil {
+		<-preloadDone
 	}
 	finish, err := SolveKociemba(reduced, options)
 	if err != nil {
