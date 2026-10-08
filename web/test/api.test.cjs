@@ -46,6 +46,15 @@ function rejects(request, pattern) {
     assert.equal(home.size, size);
     assert.equal(home.solved, true);
     for (const face of Object.values(home.faces)) assert.equal(face.length, size * size);
+    const batchMoves = ["R", "2U", "F'", "Rw", "D2"];
+    const batch = call({ op: "sequence", cfen: home.cfen, moves: batchMoves.join(" ") }).frames;
+    assert.equal(batch.length, batchMoves.length);
+    for (const [index, frame] of batch.entries()) {
+      assert.deepEqual(frame, call({ op: "twist", cfen: home.cfen, moves: batchMoves.slice(0, index + 1).join(" ") }).state,
+        `${size}x${size} batched replay frame ${index}`);
+    }
+    assert.deepEqual(call({ op: "sequence", cfen: home.cfen }).frames, []);
+    rejects({ op: "sequence", cfen: home.cfen, moves: Array(33).fill("R").join(" ") }, /at most 32/);
     const tokens = ["R", "L", "U", "D", "F", "B", "x", "y", "z", "Rw", "Uw", "Fw"];
     for (let layer = 2; layer <= size; layer++) for (const face of "RLUDFB") tokens.push(`${layer}${face}`, `${layer}${face}w`);
     if (size % 2) tokens.push("M", "E", "S");
