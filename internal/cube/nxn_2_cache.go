@@ -1,3 +1,5 @@
+//go:build !wasm
+
 package cube
 
 import (
@@ -7,7 +9,6 @@ import (
 	"encoding/gob"
 	"io"
 	"os"
-	"runtime"
 	"time"
 )
 
@@ -16,9 +17,6 @@ import (
 // asset. An optional stored-block gzip cache trades disk space for loading
 // time without adding another embedded asset or changing other sizes' loads.
 func nxnTwoByTwoTables() {
-	if runtime.GOARCH == "wasm" {
-		return
-	}
 	tablesLock <- struct{}{}
 	if tables != nil {
 		<-tablesLock

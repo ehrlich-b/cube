@@ -96,3 +96,59 @@ Reproduce the measurements with `make test-pages` and inspect the generated
 `.scratch/pages-readiness.json`. For named attribution, build a measurement
 wasm without `-s`, then run `node tools/inspect-wasm.mjs <measurement.wasm>`.
 Run builds and scripts with the repository's required background priority.
+
+## Deterministic two-phase / native 2x2 merge
+
+The merged `73219d8` optimized wasm grew from `b67ddaa`'s 4,597,000 bytes
+to 4,734,489 bytes. The native 2x2 fast cache imported `encoding/gob` in
+the wasm build even though its entry point returned immediately on wasm.
+Go removed the unused cache functions but retained gob package initialization,
+its type registry and their dependencies. A named build contained 93 gob
+functions totaling 71,555 code bytes, including `init`, `newTypeObject`,
+`buildTypeInfo` and `registerBasics`.
+
+Build constraints now exclude the cache implementation and its filesystem
+tests on every wasm target; a wasm stub preserves the original no-op entry
+point. Native cache loading, validation, saving and fallback remain unchanged.
+No gob functions remain in the named browser build. This removes 133,523
+optimized bytes without changing the deterministic search or its complete
+fallback. The remaining 3,966 bytes above `b67ddaa` reflect the merged solver
+changes and binary layout.
+
+Section payload sizes from `tools/inspect-wasm.mjs` (optimized builds, bytes):
+
+| Section | Merged before | After native-cache exclusion |
+| --- | ---: | ---: |
+| Type | 273 | 253 |
+| Import | 659 | 659 |
+| Function | 2,982 | 2,863 |
+| Table | 5 | 5 |
+| Memory | 4 | 4 |
+| Global | 41 | 41 |
+| Export | 33 | 33 |
+| Element | 5,715 | 5,496 |
+| Data count | 3 | 3 |
+| Code | 2,955,663 | 2,881,606 |
+| Data | 1,768,883 | 1,709,775 |
+| Custom `go:buildid` | 114 | 114 |
+| Custom `producers` | 71 | 71 |
+
+The exact exported initial graph includes fingerprinted asset URLs. Compression
+uses the same per-file gzip level 9 / Brotli quality 11 estimates as above:
+
+| Artifact | Before raw / gzip / Brotli bytes | After raw / gzip / Brotli bytes |
+| --- | ---: | ---: |
+| Wasm | 4,734,489 / 1,391,823 / 1,054,156 | 4,600,966 / 1,356,326 / 1,027,188 |
+| Initial runtime graph | 4,838,208 / 1,423,066 / 1,081,056 | 4,704,685 / 1,387,564 / 1,054,086 |
+
+All existing optimized/portable raw, initial gzip (1.5 MB) and initial Brotli
+(1.15 MB) budgets remain unchanged.
+
+Both `make test-pages` and `WASM_OPT=off make test-pages` pass. The portable
+wasm is 4,949,300 bytes; its initial graph is 5,053,019 raw / 1,396,602 gzip /
+1,051,924 Brotli bytes.
+
+Final validation completed at 04:10 EDT on 2026-10-08: both Pages builds,
+`make test-web`, `node web/test/smoke.mjs --in-memory`, `go test -p 2 ./...`,
+CLI E2E 138/138, `make test-nxn` and `make test-kociemba` all passed.
+The CLI and all `./tools/...` executables were built into `dist/` before E2E.
