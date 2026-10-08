@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math/bits"
 	"os"
@@ -167,6 +168,7 @@ func optimalPatternTables(t *coordinateTables, deadline time.Time) *optimalPatte
 		optimalDB = cached
 		return cached
 	}
+	fmt.Fprintln(os.Stderr, "Building optimal pattern databases once: 128.33 MiB of cache, about one minute; initialization counts toward --time-limit.")
 	db := &optimalPatterns{}
 	db.corners = packDistances(pairPruning(t.Corner, t.Twist, 2187, false, deadline), deadline)
 	if db.corners == nil {

@@ -53,7 +53,7 @@ func TestTwoPhaseBenchmark1000(t *testing.T) {
 	}
 	start := time.Now()
 	solverTables()
-	phase1PatternTables(solverTables())
+
 	t.Logf("cold table setup: %v", time.Since(start))
 	executable, err := os.Executable()
 	if err != nil {
@@ -77,6 +77,7 @@ func TestTwoPhaseBenchmark1000(t *testing.T) {
 		result, err := SolveKociemba(c, KociembaOptions{TargetLength: 20, TimeLimit: time.Second})
 		durations[i] = time.Since(start)
 		total += durations[i]
+
 		if err != nil {
 			t.Fatalf("state %d: %v", i, err)
 		}

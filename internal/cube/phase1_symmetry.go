@@ -3,6 +3,7 @@ package cube
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -28,12 +29,16 @@ type phase1Patterns struct {
 	distance    []uint8
 }
 
+var useLargePhase1 = os.Getenv("CUBE_LARGE_TABLES") == "1"
+
 var phase1LargeLock sync.Mutex
 var phase1LargeDB atomic.Pointer[phase1Patterns]
 
 func (t *coordinateTables) twoPhaseBound(co, eo, sl int) int {
-	if db := phase1LargeDB.Load(); db != nil {
-		return db.bound(co, eo, sl)
+	if useLargePhase1 {
+		if db := phase1LargeDB.Load(); db != nil {
+			return db.bound(co, eo, sl)
+		}
 	}
 	return t.phase1Bound(co, eo, sl)
 }
@@ -323,4 +328,14 @@ func savePackedPattern(filename string, data []uint8) {
 	if f.Close() == nil {
 		_ = os.Rename(name, path)
 	}
+}
+
+// BuildLargePhase1Tables is an explicit opt-in to the optional 140.67 MiB
+// database. Ordinary two-phase solves never call this builder.
+func BuildLargePhase1Tables() (int, error) {
+	db := phase1PatternTables(solverTables())
+	if db == nil {
+		return 0, fmt.Errorf("large phase-one tables are unavailable on this platform")
+	}
+	return len(db.distance) + 64, nil
 }

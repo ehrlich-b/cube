@@ -14,7 +14,7 @@ func TestPhaseTwoCorrelatedPruning(t *testing.T) {
 		state := identityCubie()
 		for depth := 0; depth < 18; depth++ {
 			cp, ep, sp := permutationRank(state.cp[:]), permutationRank(state.ep[:8]), permutationRank(state.ep[8:])
-			old := max(int(tables.CornerSlice[cp*24+sp]), int(tables.EdgeSlice[ep*24+sp]))
+			old := max(tables.cornerSliceBound(cp, sp), tables.edgeSliceBound(ep, sp))
 			bound := tables.phase2Bound(cp, ep, sp)
 			if max(bound, tables.phase2InverseBound(cp, ep, sp)) > depth {
 				t.Fatalf("inadmissible phase-two bound at depth %d", depth)

@@ -26,14 +26,28 @@ recoverable playback. The white-layer sublesson remains explicit via `--goal fir
 - Tests: active full-solver contract, Go tests, binary E2E cases, and independent
   physical-cubie/checkpoint/interaction oracles for full and partial goals.
 
-**Measured 2026-10-07, native Mac background QoS:** 1,000 uniform legal states,
-seed `2026100709`, in one process with tables loaded: **19.932 mean / 20 max
-face turns, 100% at ≤20**, **5.68 ms warm mean / 57.22 ms p99 / 187.94 ms max**.
-Fresh cached subprocess including its first solve: **625.88 ms**. The native
-phase-one symmetry database has **295,004,160 states / 147,502,080 packed bytes**;
-generation took **120.99 s**. WASM retains the smaller pair databases and is
-outside these native latency measurements. `make bench-kociemba` reproduces and
-gates the 1,000-state length and warm latency targets.
+**Default cold-start work:** compact four-bit pair tables now use 16-way phase-one
+symmetry (168 twist / 45 slice classes), 2,768 phase-two permutation classes and
+both directions of corner/edge combination correlation. A 7,646-entry
+symmetry-reduced exact phase-one frontier rejects shallow dead ends. The reproducible embedded
+asset is **3,337,787 bytes**, below the 5 MB committed-file limit. Default solves
+load it and never generate the 147.5 MB optional phase-one table. Large tables
+require `cube tables build --large` and explicit `CUBE_LARGE_TABLES=1` selection.
+`make test-kociemba` includes the 1,000-state warm gate, a fresh-process empty-cache
+plain solve with **1 s / 10 MB** budgets, and independent physical replay.
+
+The compact default measured **19.889 mean / 20 max turns, 100% at ≤20** over
+1,000 uniform states (seed `2026100709`), **12.29 ms mean / 106.08 ms p99 /
+475.02 ms max**, under Mac background QoS. A first-ever plain solve in an empty
+cache took **214.45 ms / 3,337,787 cache bytes**; a fresh cached Go subprocess
+including a uniform solve took **156.81 ms**. The independent 200-state CLI oracle
+also reached **100% at ≤20**, with **192.92 ms process mean / 821.07 ms max**.
+
+The previous large-table measurement on native Mac background QoS was **19.932
+mean / 20 max turns, 100% at ≤20**, **5.68 ms mean / 57.22 ms p99 / 187.94 ms max**;
+a fresh cached subprocess took **625.88 ms**. Its **147,502,080-byte** phase-one
+database took **120.99 s** to generate under that policy; the coordinator measured
+about **37 s / 161 MB** for a plain empty-cache solve on performance cores.
 
 Optimal search adds full-corner and two six-edge databases: **44,089,920 +
 21,288,960 + 21,288,960 bytes**, with **47,900,160 bytes** of factorized transitions.
@@ -48,9 +62,9 @@ states and three-minute budgets; timeouts stay in the reported distribution. The
 min2phaseCXX reference on the identical 1,000 states measured **5.28 ms mean /
 53.22 ms p99**, **19.746 mean / 20 max turns**, with every answer physically
 replayed. Its **991,712-byte cache / 24.73 ms cold cached process** beat the
-engine's large-cache/cold-start costs. Source/data hashes and configurations are
-in [the receipt](./test/solver_benchmark_20261007.json). Cube Explorer and
-nissy/vcube paired timing remains outstanding.
+engine's prior large-cache/cold-start costs. The reference was run privately in
+`.scratch/`; its code and outputs are not committed. Cube Explorer and nissy/vcube
+paired timing remains outstanding.
 
 **Guardrails (do not let these go red):** `internal/cube/invariants_test.go`,
 `internal/cfen/cfen_test.go`, `internal/cli/commands_test.go`. The solver-contract test is the
@@ -264,31 +278,33 @@ No look-ahead, extended cross, or color neutrality is claimed.
   Python physical-state replays; unchanged full-solver/CFEN/command guardrails
 - [x] Continue after the first solution; tighten total length while increasing phase-one depth
 - [x] Three reduction axes and inverse search, with resumable DFS sharing one budget
-- [x] Combined twist/slice, flip/slice and twist/flip admissible pruning with conjugate checks; version-4 cache
+- [x] Combined twist/slice, flip/slice and twist/flip admissible pruning with conjugate checks; compact version-5 cache
 - [x] CLI `--target-length` (20) and shared `--time-limit` (1s); best incumbent on expiry
 - [x] Oracle gates: all sampled solutions at ≤20 turns; 1,000-state warm mean <50 ms and p99 <250 ms
 - [x] WASM uses the same default budget; cold-worker completion and responsive UI regression
-- [x] Exact symmetry-reduced phase-one pruning (291 twist classes × flip/slice)
+- [x] Optional large phase-one pruning (291 twist classes × flip/slice)
 - [x] Stabilizer closure and reverse-fill generation, checksummed four-bit native cache
-- [x] One pre-move, early phase-two pruning and inverse edge/corner-combination bounds
-- [x] Native 1,000-state sample: 100% at ≤20 turns, 5.68 ms mean and 57.22 ms p99
+- [x] Up to three pre-moves, shared quarter-turn/inverse paths, phase-two inverse pruning
+- [x] Compact default: 1,000/1,000 at ≤20 turns, 12.29 ms mean and 106.08 ms p99
 - [x] Full-corner and disjoint six-edge optimal databases, lazy cache generation
 - [x] Optimal distance oracle: short/deep finder cross-checks and superflip = 20
 - [ ] Reach the few-minute proven-optimal target: measured 0/10 at 180 s, with all ten observations censored
 - [x] Paired min2phaseCXX comparison on the exact 1,000 fixtures, with physical replay and source hashes
 - [x] Export seeded URFDLB reference datasets with `make export-reference-fixtures`
-- [ ] Reduce the 147.5 MB native phase-one cache and cold-start cost toward the compact reference
+- [x] Replace implicit 147.5 MB generation with a reproducible compact embedded asset
+- [x] Gate first-ever solve time and default cache size in `make test-kociemba`
 - [ ] Run paired native reference benchmarks against Cube Explorer and nissy/vcube
 
-Final validation on 2026-10-07 completed before 21:55 local: `go test -p 2 ./...`,
-`go vet -p 2 ./...`, **133/133 CLI E2E cases**, `make test-kociemba`,
-`make test-cfop`, `make test-beginner`, `make test-first-layer`, `make test-web`,
-`make test-phase1-tables`, `make test-optimal`, `make bench-kociemba` and
-`make export-reference-fixtures` passed. The full ten-state optimal benchmark
-completed with CPU profiling; all ten observations remained 180-second timeouts.
-The three load-bearing test files were left unchanged, and every new solver
-answer was checked against the full-cube contract. The paired min2phaseCXX
-run passed 1,000 independent physical replays and a cached-process replay.
+Compact-default validation on 2026-10-07 completed by 22:40 local:
+`go test -p 2 ./...`, `go vet -p 2 ./...`, `make build`, **133/133 CLI E2E cases**,
+`make test-kociemba` (fresh empty cache, 1,000 warm states and 200 independent
+physical states), `make test-cfop`, `make test-beginner`, `make test-first-layer`,
+`make test-web` and `make test-optimal` all passed. Compact table generation also
+passed exhaustive pair-distance comparisons and roundtrip checks. The three
+load-bearing test files remain unchanged; every new solver answer is checked
+against the full-cube contract. The earlier paired min2phaseCXX run passed 1,000
+independent physical replays. The earlier ten-state optimal benchmark remains
+0/10 proved at 180 seconds; optimal performance was not revisited in this run.
 
 ### 6.3 Big Cube Support
 - [ ] 4x4 reduction method (centers, edges, parity)
