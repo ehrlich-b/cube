@@ -253,7 +253,7 @@ def check_fixtures(binary, count):
 
 def check_invalid_arguments(binary):
     invalid = [
-        ["learn", "R3"], ["learn", "2R"], ["learn", "R", "--dimension", "4"],
+        ["learn", "R3"], ["learn", "4R"], ["learn", "R", "--dimension", "4"],
         ["learn", "--start", "YB|Y999999999/R9/B9/W9/O9/G9"],
         ["learn", "--start", "YB|Y9/R9/B9/W9/O9/?9"],
         ["learn", "--start", "YB|Y4/R4/B4/W4/O4/G4"],
@@ -266,6 +266,42 @@ def check_invalid_arguments(binary):
         assert result.returncode != 0 and not result.stdout, (args, result.stdout)
         assert result.stderr.count("Error:") == 1, result.stderr
     return len(invalid)
+
+
+def check_numbered_turns(binary):
+    equivalents = {"2R": "M'", "2L": "M", "2U": "E'",
+                   "2D": "E", "2F": "S", "2B": "S'"}
+    checked = 0
+    for numbered, equivalent in equivalents.items():
+        for suffix in ["", "'", "2"]:
+            turn = numbered + suffix
+            physical_turn = equivalent
+            if suffix == "'":
+                physical_turn = (equivalent[:-1] if equivalent.endswith("'")
+                                 else equivalent + "'")
+            elif suffix == "2":
+                physical_turn = equivalent.rstrip("'") + "2"
+            initial = physical_move(fresh(), physical_turn)
+            result = run(binary, ["twist", turn, "--cfen"])
+            assert result.returncode == 0, result.stderr
+            assert decode(result.stdout) == initial, turn
+            for goal in ["first-layer", "full"]:
+                result = run(binary, ["solve", turn, "--goal", goal, "--headless"])
+                assert result.returncode == 0, result.stderr
+                replay = physical_sequence(initial, result.stdout)
+                if goal == "first-layer":
+                    assert white_layer(replay), turn
+                else:
+                    assert all(value == face[1][1] for face in replay
+                               for row in face for value in row), turn
+            result = run(binary, ["learn", turn])
+            assert result.returncode == 0, result.stderr
+            moves = re.search(r"^First-layer moves: (.*)$", result.stdout, re.M)
+            assert moves, result.stdout
+            replay = physical_sequence(initial, moves.group(1))
+            assert white_layer(replay) and displayed_states(result.stdout) == [replay], turn
+            checked += 1
+    return checked
 
 
 def check_scripted_sessions(binary):
@@ -410,6 +446,7 @@ def main():
         parser.error("Cube binary missing; run make build or pass --binary")
     result = check_fixtures(binary, args.cases)
     result["invalid_argument_cases"] = check_invalid_arguments(binary)
+    result["numbered_turn_physical_replays"] = check_numbered_turns(binary)
     result["scripted_interactive_sessions"] = check_scripted_sessions(binary)
     result["live_session_checkpoint_counts"] = check_live_sessions(binary)
     result["rotated_instruction_check"] = check_rotated_wording(binary)
