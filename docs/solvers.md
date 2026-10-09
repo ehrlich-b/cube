@@ -84,7 +84,7 @@ including cache I/O and generation, counts toward `--time-limit`; timed compact/
 optional writes, and expired large-database writes never publish partial caches.
 
 Two Go oracles check 200 seeded scrambles and 200 uniformly generated legal
-cubie states, requiring mean length ≤20, maximum 21 and ≥95% at ≤20 turns.
+cubie states, requiring mean length ≤20, maximum 20 and 100% at ≤20 turns.
 The separate Python oracle constructs 200 uniform physical states and replays
 every returned move through independent geometry, including all 24 grips.
 It measured mean/max **19.775/21 turns**, **98.5% at ≤20**, and mean/max process
