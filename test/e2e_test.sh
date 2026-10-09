@@ -107,6 +107,12 @@ run_test "Solve with CFOP algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm 
 run_test "Solve with Kociemba algorithm" "$CUBE_BIN solve \"R U R' U'\" --algorithm kociemba" "Using algorithm: kociemba"
 run_test "Solve with Kociemba method" "$CUBE_BIN solve \"R U R' U'\" --method kociemba" "Using algorithm: kociemba"
 run_test "Solve with optimal search" "$CUBE_BIN solve 'R U F2' --optimal --time-limit 5s" "Using algorithm: optimal"
+for dimension in 3 5; do
+    for numbered_turn in "2R" "2R'" "2R2"; do
+        run_test "Numbered turn solve replay (${dimension}x${dimension}, $numbered_turn)" \
+            "solution=\$(\"$CUBE_BIN\" solve \"$numbered_turn\" --dimension $dimension --headless) && \"$CUBE_BIN\" twist \"$numbered_turn \$solution\" --dimension $dimension" "SOLVED!"
+    done
+done
 # These three former unsupported-size failures now require a real verified solve.
 run_test "Solve 2x2 cube" "$CUBE_BIN solve \"R U R' U'\" --dimension 2 --cfen" "YB|Y4/R4/B4/W4/O4/G4"
 run_test "Solve 4x4 cube" "$CUBE_BIN solve \"Rw Uw Fw\" --dimension 4 --cfen" "YB|Y16/R16/B16/W16/O16/G16"
@@ -814,6 +820,11 @@ run_test "Resume completed first layer" "$CUBE_BIN learn --goal first-layer --st
 
 # The default lesson now finishes all six faces; first-layer remains explicit.
 run_test "Default lesson fully solves" "$CUBE_BIN learn \"R U F2 L' B\"" "Cube complete:"
+for numbered_turn in "2R" "2R'" "2R2"; do
+    run_test "Numbered turn lesson replay ($numbered_turn)" \
+        "lesson=\$(\"$CUBE_BIN\" learn \"$numbered_turn\") && solution=\$(printf '%s\\n' \"\$lesson\" | sed -n 's/^Solution: //p') && \"$CUBE_BIN\" twist \"$numbered_turn \$solution\"" "SOLVED!"
+done
+run_test "Numbered notation in move error" "$CUBE_BIN solve Q 2>&1 || true" "numbered 2R.*wide Rw or 2Rw"
 run_test "Default lesson teaches middle edges" "$CUBE_BIN learn \"R U F2 L' B\"" "middle edge"
 run_test "Default lesson teaches atomic corner sweep" "$CUBE_BIN learn \"R U F2 L' B\"" "finish the entire four-corner sweep"
 run_test "Full solve saved-state result" "$CUBE_BIN solve --start '$full_start' --cfen --headless" 'YB|Y9/R9/B9/W9/O9/G9'

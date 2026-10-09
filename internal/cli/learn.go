@@ -13,21 +13,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var lessonMoveToken = regexp.MustCompile(`^(?:[URFDLB]w?|[MESxyz])(?:'|2)?$`)
 var lessonFaceToken = regexp.MustCompile(`^(?:[WYROGB][1-9]?)+$`)
 
 // Bound input before handing it to the general NxN parsers. In particular, a
 // numeric CFEN run may otherwise expand to an arbitrarily large allocation.
 func parseLessonMoves(text string) ([]cube.Move, error) {
+	return parseSolveMoves(text, 3)
+}
+
+func parseSolveMoves(text string, size int) ([]cube.Move, error) {
 	if len(text) > 8192 {
 		return nil, fmt.Errorf("move input is too long (maximum 8192 characters)")
 	}
 	for _, token := range strings.Fields(text) {
-		if !lessonMoveToken.MatchString(token) {
-			return nil, fmt.Errorf("invalid 3x3 move %q; use R U F L D B, slice M E S, wide Rw, or rotations x y z, with ' or 2", token)
+		if !nxnMoveToken.MatchString(token) {
+			return nil, fmt.Errorf("invalid %dx%d move %q; use R U F L D B, numbered 2R (layers 1-%d), slice M E S on odd cubes, wide Rw or 2Rw, or rotations x y z, with ' or 2", size, size, token, size)
 		}
 	}
-	return cube.ParseMoves(text)
+	moves, err := cube.ParseMoves(text)
+	if err != nil {
+		return nil, err
+	}
+	if err := cube.ValidateMoves(moves, size); err != nil {
+		return nil, err
+	}
+	return moves, nil
 }
 
 func parseLessonState(text string) (*cube.Cube, error) {

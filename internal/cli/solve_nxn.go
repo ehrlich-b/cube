@@ -66,15 +66,7 @@ func fullSolveInput(cmd *cobra.Command, args []string) (*cube.Cube, error) {
 		}
 	}
 	if len(args) > 0 {
-		if len(args[0]) > 8192 {
-			return nil, fmt.Errorf("move input is too long (maximum 8192 characters)")
-		}
-		for _, token := range strings.Fields(args[0]) {
-			if !nxnMoveToken.MatchString(token) {
-				return nil, fmt.Errorf("invalid NxN move %q", token)
-			}
-		}
-		moves, err := cube.ParseMoves(args[0])
+		moves, err := parseSolveMoves(args[0], n)
 		if err != nil {
 			return nil, err
 		}
