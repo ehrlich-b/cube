@@ -640,11 +640,22 @@ Full WCA (World Cube Association) notation:
 |------|--------|-------------|------------|
 | Basic | `R`, `U'`, `F2` | Face moves (F/B/R/L/U/D) | Any |
 | Slice | `M`, `E'`, `S2` | Middle-layer moves | Odd only (3x3, 5x5, …) |
-| Wide | `Rw`, `Fw'`, `Uw2` | Multiple outer layers | 3x3+ |
-| Layer | `2R`, `3L'`, `4U2` | Specific inner layers | 4x4+ |
+| Wide | `Rw`, `Fw'`, `Uw2`, `3Rw` | Outer layers (default depth 2) | 2x2+ (depth ≤ dimension) |
+| Layer | `2R`, `3L'`, `4U2` | One layer, counted from the named face | 2x2+ (layer number ≤ dimension) |
 | Rotation | `x`, `y'`, `z2` | Whole-cube rotations | Any |
 
 Modifiers: `'` (counter-clockwise), `2` (double turn).
+
+Wide turns may span the whole cube, and numbered turns may select the far outer layer:
+
+```bash
+cube twist Rw -d 2 --cfen
+cube twist 2R -d 2 --cfen
+cube twist 2R -d 3 --cfen
+cube twist 3Rw -d 3 --cfen
+cube twist "3L'" -d 3 --cfen
+cube twist 4U2 -d 4 --cfen
+```
 
 ## Cube Orientation (canonical)
 
