@@ -587,6 +587,40 @@ async function measurePhoneFrames(page) {
   }
 }
 
+async function reducedSixRegression(page, baseURL) {
+  const cfen = (await readFile(path.join(root, "test/fixtures/reduced-six.cfen"), "utf8")).trim();
+  const faces = ["U", "R", "F", "D", "L", "B"];
+  const stickers = cfen.slice(3).split("/").flatMap((face, f) =>
+    [...face].map((color, i) => `${faces[f]}:${i}:${color}`)).sort();
+  const attempts = 6;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    // Navigation clears the WASM engine and lazy assets for a fresh worker.
+    await page.goto(baseURL);
+    await idle(page);
+    await page.locator("#size").selectOption("6");
+    await idle(page);
+    const home = await page.locator("#cfen").inputValue();
+    await page.locator("#cfen").fill(cfen);
+    await page.locator("#import").click();
+    await idle(page);
+    assert.equal(await page.locator("#cube").getAttribute("data-size"), "6");
+    assert.equal(await page.locator("#cube").getAttribute("data-solved"), "false");
+    assert.deepEqual(await page.locator("#cube .sticker").evaluateAll(nodes =>
+      nodes.map(node => `${node.dataset.face}:${node.dataset.index}:${node.dataset.color}`).sort()), stickers);
+    await page.locator("#solve").click();
+    await idle(page);
+    assert.match(await page.locator("#notice").textContent(), /^Solution ready/);
+    assert.match(await page.locator("#sequence-title").textContent(), /reduction$/);
+    const count = Number(await page.locator("#scrubber").getAttribute("max"));
+    assert.ok(count > 0, "reduced 6x6 returns a nonempty solution");
+    await page.locator("#scrubber").fill(String(count));
+    await idle(page);
+    assert.equal(await page.locator("#cube").getAttribute("data-solved"), "true");
+    assert.equal(await page.locator("#cfen").inputValue(), home, "full replay restores every canonical face");
+  }
+  console.log(`PASS browser: reduced 6x6 CFEN import and full solve replay (${attempts}/${attempts} fresh attempts)`);
+}
+
 async function nxnRegressions(page) {
   const metrics = [];
   for (const size of [2, 3, 4, 5, 6, 7]) {
@@ -865,6 +899,9 @@ try {
     console.log("PASS browser: 7x7 phone frame work budget");
   } else if (process.argv.includes("--interactions-only")) {
     await playgroundRegressions(page, `http://127.0.0.1:${port}/web/`);
+    assert.deepEqual(errors, []);
+  } else if (process.argv.includes("--reduced-six-only")) {
+    await reducedSixRegression(page, `http://127.0.0.1:${port}/web/`);
     assert.deepEqual(errors, []);
   } else {
   const solved = await page.locator("#cfen").inputValue();
@@ -1233,6 +1270,7 @@ try {
   console.log("PASS browser: 390px phone layout, native touch turn/cancellation and no browser errors");
   await page.setViewportSize({ width: 1280, height: 800 });
   await nxnRegressions(page);
+  await reducedSixRegression(page, `http://127.0.0.1:${port}/web/`);
   assert.deepEqual(errors, []);
   console.log(`Screenshots: ${path.relative(root, screens)}/{cube,drag,search,cfop,lesson-restored}-{1280x800,390x844}.png, touch-390x844.png, 7x7-{mid-turn,solved}-{1280x800,390x844}.png`);
   }

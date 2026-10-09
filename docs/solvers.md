@@ -210,7 +210,12 @@ for stage lengths and measured timings.
 
 CFOP color neutrality, extended cross and F2L look-ahead remain future work.
 Full CLI solving supports 2×2 through 7×7: the 2×2 follows a 3×3 corners path,
-and 4–7 solve centers and pair wings before calling the public Kociemba solver.
+and 4–7 solve centers and pair wings before running the Kociemba search.
+The final 3×3 stage treats its time limit as an optimization budget: if no
+solution has been found at expiry, it continues until a verified solution
+within `max(20, TargetLength)` face turns is available. A slow host cannot turn
+budget expiry into a reduction failure; the search order and length bound stay
+unchanged. The browser shows elapsed progress and allows cancellation.
 Native 2×2 solves cache those exact coordinate tables with stored gzip blocks,
 avoiding the repeated compact-asset inflation that dominated cold profiles.
 The optional 5.54 MB cache preserves table values and search order; missing or

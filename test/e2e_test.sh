@@ -118,6 +118,8 @@ run_test "Solve 2x2 cube" "$CUBE_BIN solve \"R U R' U'\" --dimension 2 --cfen" "
 run_test "Solve 4x4 cube" "$CUBE_BIN solve \"Rw Uw Fw\" --dimension 4 --cfen" "YB|Y16/R16/B16/W16/O16/G16"
 run_test "Solve 5x5 cube" "$CUBE_BIN solve \"2R 3L\" --dimension 5 --cfen" "YB|Y25/R25/B25/W25/O25/G25"
 run_test "Solve 6x6 cube" "$CUBE_BIN solve \"2R 3U Fw\" --dimension 6 --cfen" "YB|Y36/R36/B36/W36/O36/G36"
+reduced_six_cfen=$(cat test/fixtures/reduced-six.cfen)
+run_test "Reduced 6x6 survives tiny optimization budget" "$CUBE_BIN solve --dimension 6 --start \"$reduced_six_cfen\" --time-limit 1ns --target-length 1 --cfen" "YB|Y36/R36/B36/W36/O36/G36"
 run_test "Solve 7x7 fixed-center orientation" "$CUBE_BIN solve \"M E S x Rw\" --dimension 7 --cfen" "YB|Y49/R49/B49/W49/O49/G49"
 run_test "Solve 4x4 OLL parity" "$CUBE_BIN solve \"2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2\" --dimension 4 --cfen" "YB|Y16/R16/B16/W16/O16/G16"
 run_test "Solve 4x4 PLL parity" "$CUBE_BIN solve \"2R2 U2 2R2 Uw2 2R2 Uw2\" --dimension 4 --cfen" "YB|Y16/R16/B16/W16/O16/G16"

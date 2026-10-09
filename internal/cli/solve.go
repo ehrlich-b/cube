@@ -21,9 +21,11 @@ Dimension 2 uses the 3x3 corners path; these solutions are not optimal.
 Select --method beginner for the complete beginner layer-by-layer method.
 Select --method cfop for verified Cross, F2L 1-4, OLL and PLL stages with case names.
 Default 3x3 Kociemba keeps searching until it finds at most 20 face turns.
-With explicit search flags, --target-length is a stopping goal and --time-limit
+With explicit 3x3 search flags, --target-length is a stopping goal and --time-limit
 is a hard search deadline. It errors if no solution within max(20, target) is
 found before expiry. One-time table setup is separate.
+Reduction uses --time-limit as an optimization budget for its final 3x3 stage:
+it keeps searching past expiry until it can return a verified solution.
 Use cube learn with the same input for checkpoints and instructions.
 Use --goal first-layer to stop after the white cross and corners.
 With --start, the optional scramble is applied after the saved CFEN state.
@@ -134,7 +136,7 @@ Use --headless for space-separated solution moves, or --cfen for final state.`,
 	cmd.Flags().StringP("algorithm", "a", "kociemba", "Solver: kociemba, beginner or cfop")
 	cmd.Flags().String("method", "kociemba", "Solving method (alias for --algorithm): kociemba, beginner or cfop")
 	cmd.Flags().Bool("optimal", false, "Prove a shortest 3x3 solution with IDA* (errors if the time limit expires)")
-	cmd.Flags().Duration("time-limit", time.Second, "Explicit Kociemba search deadline (default solve waits for <=20); --optimal includes table setup")
+	cmd.Flags().Duration("time-limit", time.Second, "Explicit 3x3 Kociemba deadline; reduction optimization budget; --optimal includes setup")
 	cmd.Flags().Int("target-length", 20, "Kociemba face-turn stopping goal (1-30); timed results stay within max(20, target)")
 	cmd.Flags().IntP("dimension", "d", 3, "Cube dimension (full solving supports 2-7)")
 	cmd.Flags().BoolP("color", "c", false, "Use colored output (Unicode blocks by default)")

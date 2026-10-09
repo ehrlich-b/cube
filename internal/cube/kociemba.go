@@ -281,9 +281,10 @@ func SolveKociemba(c *Cube, options KociembaOptions) (*SolverResult, error) {
 // other callers. Nodes count DFS cursor operations, including pruning/backtrack
 // work, rather than depending on elapsed time or processor speed.
 type kociembaSearch struct {
-	now       func() time.Time
-	softLimit bool
-	nodes     uint64
+	now             func() time.Time
+	softLimit       bool
+	requireSolution bool
+	nodes           uint64
 }
 
 func solveKociemba(c *Cube, options KociembaOptions, search *kociembaSearch) (*SolverResult, error) {
@@ -323,9 +324,13 @@ func solveKociemba(c *Cube, options KociembaOptions, search *kociembaSearch) (*S
 		now = time.Now
 	}
 	deadline := now().Add(options.TimeLimit)
-	expired := func() bool { return !search.softLimit && !now().Before(deadline) }
-	bound := max(20, options.TargetLength)
 	var best []Move
+	// Reduction must finish its last stage even if the optimization budget
+	// expires before the first solution, as can happen on slower WASM hosts.
+	expired := func() bool {
+		return !search.softLimit && (!search.requireSolution || best != nil) && !now().Before(deadline)
+	}
+	bound := max(20, options.TargetLength)
 	stage := 0
 searchStages:
 	for stage <= 13+max(20, options.TargetLength) {

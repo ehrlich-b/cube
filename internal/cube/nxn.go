@@ -17,9 +17,10 @@ func (s *ReductionSolver) Solve(c *Cube) (*SolverResult, error) {
 }
 
 // SolveNxN places centers, pairs each wing orbit to a legal reduced edge
-// state, and finishes through the public 3x3 solver. Options apply to that
-// final search, not the constructive reduction. Each printed turn or rotation
-// counts once, including wide turns.
+// state, and finishes through the 3x3 Kociemba search. Options apply to that
+// final search, not the constructive reduction. The time limit stops further
+// optimization only after a solution within max(20, TargetLength) is found.
+// Each printed turn or rotation counts once, including wide turns.
 func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 	started := time.Now()
 	if err := validateNxNShape(c); err != nil {
@@ -116,7 +117,7 @@ func SolveNxN(c *Cube, options KociembaOptions) (*SolverResult, error) {
 	if c.Size == 2 && !reduced.IsSolved() {
 		nxnTwoByTwoTables()
 	}
-	finish, err := SolveKociemba(reduced, options)
+	finish, err := solveKociemba(reduced, options, &kociembaSearch{requireSolution: true})
 	if err != nil {
 		return nil, fmt.Errorf("reduced 3x3 solve: %w", err)
 	}
