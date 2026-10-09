@@ -24,6 +24,8 @@ func OptimizeMoves(moves []Move) []Move {
 
 			sameRotation := currentMove.Rotation != NoRotation &&
 				lastMove.Rotation == currentMove.Rotation
+			sameSlice := currentMove.Slice != NoSlice &&
+				lastMove.Slice == currentMove.Slice
 			sameFaceTurn := lastMove.Face == currentMove.Face &&
 				lastMove.Rotation == NoRotation &&
 				currentMove.Rotation == NoRotation &&
@@ -32,7 +34,7 @@ func OptimizeMoves(moves []Move) []Move {
 				lastMove.Layer == currentMove.Layer &&
 				lastMove.Slice == NoSlice && currentMove.Slice == NoSlice
 
-			if sameRotation || sameFaceTurn {
+			if sameRotation || sameSlice || sameFaceTurn {
 				combined := combineAdjacentMoves(*lastMove, currentMove)
 				if combined == nil {
 					// Moves cancel out - remove the last move

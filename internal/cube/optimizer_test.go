@@ -88,6 +88,38 @@ func TestOptimizeRotationPairs(t *testing.T) {
 	}
 }
 
+func TestOptimizeSliceAndWidePairs(t *testing.T) {
+	for _, turn := range []string{"M", "E", "S", "Rw", "Lw", "Uw", "Dw", "Fw", "Bw", "3Rw", "2R"} {
+		suffixes := []string{"", "'", "2"}
+		expected := [3][3]string{
+			{turn + "2", "", turn + "'"},
+			{"", turn + "2", turn},
+			{turn + "'", turn, ""},
+		}
+		for i, first := range suffixes {
+			for j, second := range suffixes {
+				input := turn + first + " " + turn + second
+				t.Run(input, func(t *testing.T) {
+					result, err := OptimizeScramble(input)
+					if err != nil || result != expected[i][j] {
+						t.Fatalf("OptimizeScramble(%q) = %q, %v; want %q", input, result, err, expected[i][j])
+					}
+					for _, size := range []int{3, 5} {
+						assertOptimizationPreservesState(t, size, input)
+					}
+				})
+			}
+		}
+	}
+	for _, input := range []string{"M E", "M S'", "M F", "M x", "M Rw", "Rw 3Rw'"} {
+		result, err := OptimizeScramble(input)
+		if err != nil || result != input {
+			t.Fatalf("different turns combined: %q -> %q, %v", input, result, err)
+		}
+		assertOptimizationPreservesState(t, 5, input)
+	}
+}
+
 func assertOptimizationPreservesState(t *testing.T, size int, text string) {
 	t.Helper()
 	moves, err := ParseMoves(text)

@@ -665,6 +665,10 @@ echo -e "\n${YELLOW}Phase 4 Power User Tools:${NC}"
 run_test "Move optimization - basic" "$CUBE_BIN optimize \"R R\"" "R2.*1 moves"
 run_test "Move optimization - canceling" "$CUBE_BIN optimize \"R R'\"" "empty.*all moves cancel"
 run_test "Move optimization - complex" "$CUBE_BIN optimize \"R R R\"" "R'.*1 moves"
+for turn in M E S Rw 3Rw; do
+    run_test "Move optimization - $turn inverse cancellation" "$CUBE_BIN optimize \"$turn $turn'\"" "empty.*all moves cancel"
+    run_test "Move optimization - $turn half-turn cancellation" "$CUBE_BIN optimize \"${turn}2 ${turn}2\"" "empty.*all moves cancel"
+done
 
 run_test "Algorithm discovery - simple solve" "$CUBE_BIN find pattern solved --max-moves 3 --from \"R\"" "R'"
 run_test "Algorithm discovery - sequence solve" "$CUBE_BIN find sequence \"R U\" --max-moves 4" "U' R'"
