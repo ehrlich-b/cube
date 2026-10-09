@@ -9,9 +9,15 @@ import (
 )
 
 func main() {
+	for _, arg := range os.Args[1:] {
+		if arg == "-h" || arg == "--help" {
+			printUsage()
+			return
+		}
+	}
+
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: verify-algorithm <algorithm-name> [--verbose]")
-		fmt.Println("       verify-algorithm --list")
+		printUsage()
 		os.Exit(1)
 	}
 
@@ -51,6 +57,12 @@ func main() {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func printUsage() {
+	fmt.Println("Usage: verify-algorithm <algorithm-name> [--verbose]")
+	fmt.Println("       verify-algorithm --list")
+	fmt.Println("       verify-algorithm -h | --help")
 }
 
 func listAlgorithms() {

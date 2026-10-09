@@ -15,6 +15,10 @@ func main() {
 	// Simple argument parsing
 	for i, arg := range os.Args[1:] {
 		switch arg {
+		case "-h", "--help":
+			fmt.Println("Usage: verify-database [--category <category>] [--verbose | -v]")
+			fmt.Println("       verify-database -h | --help")
+			return
 		case "--verbose", "-v":
 			verbose = true
 		case "--category":

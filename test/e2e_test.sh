@@ -716,6 +716,10 @@ echo -e "\n${YELLOW}Database Verification Tests:${NC}"
 
 # Test verify-algorithm tool exists and works
 if [ -f "./dist/tools/verify-algorithm" ]; then
+    for help_flag in -h --help; do
+        run_test "verify-algorithm help ($help_flag)" "./dist/tools/verify-algorithm $help_flag" "^Usage: verify-algorithm "
+        run_test "verify-algorithm help after name ($help_flag)" "./dist/tools/verify-algorithm 'NonExistent' $help_flag" "^Usage: verify-algorithm "
+    done
     run_test "verify-algorithm tool listing" "./dist/tools/verify-algorithm --list" "Sune.*HAS PATTERN"
     run_test "verify-algorithm single test" "./dist/tools/verify-algorithm 'Sune'" "✅ PASS"
     run_test "verify-algorithm verbose mode" "./dist/tools/verify-algorithm 'T-Perm' --verbose" "✅ PASS"
@@ -727,6 +731,10 @@ fi
 
 # Test verify-database tool exists and works  
 if [ -f "./dist/tools/verify-database" ]; then
+    for help_flag in -h --help; do
+        run_test "verify-database help ($help_flag)" "./dist/tools/verify-database $help_flag" "^Usage: verify-database "
+        run_test "verify-database help after category ($help_flag)" "./dist/tools/verify-database --category OLL $help_flag" "^Usage: verify-database "
+    done
     run_test "verify-database full verification" "./dist/tools/verify-database" "All algorithms verified successfully"
     run_test "verify-database category filter" "./dist/tools/verify-database --category OLL" "algorithms tested"
     run_test "verify-database verbose mode" "./dist/tools/verify-database --verbose" "✅ PASS"
