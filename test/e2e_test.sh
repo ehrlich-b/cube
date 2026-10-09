@@ -666,6 +666,7 @@ run_test "Move optimization - complex" "$CUBE_BIN optimize \"R R R\"" "R'.*1 mov
 
 run_test "Algorithm discovery - simple solve" "$CUBE_BIN find pattern solved --max-moves 3 --from \"R\"" "R'"
 run_test "Algorithm discovery - sequence solve" "$CUBE_BIN find sequence \"R U\" --max-moves 4" "U' R'"
+run_test "Algorithm discovery - numbered sequence steps" "$CUBE_BIN find sequence \"R U\" -m 2 --steps" "   2. R'"
 run_test "Algorithm discovery - cross pattern" "$CUBE_BIN find pattern cross --max-moves 4 --from \"F\"" "Found.*sequence"
 search_start=$($CUBE_BIN generate-cfen "R U F2 L' B")
 run_test "Algorithm discovery - concrete CFEN target" "$CUBE_BIN find --target 'YB|Y9/R9/B9/W9/O9/G9' --start '$search_start' --max-moves 5" "Found.*sequence"

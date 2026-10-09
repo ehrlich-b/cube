@@ -301,6 +301,12 @@ func runSequenceSearchWithOptions(scramble string, maxMoves int, showSteps bool,
 			fmt.Printf(", %d optimized", len(optimized))
 		}
 		fmt.Printf(")\n")
+		if showSteps {
+			fmt.Printf("   Steps:\n")
+			for j, move := range result.moves {
+				fmt.Printf("   %d. %s\n", j+1, move.String())
+			}
+		}
 	}
 
 	return nil
