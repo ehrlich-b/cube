@@ -227,8 +227,8 @@ checks every sticker against the solved center frame. Embedded setup trees and
 commutators are compared with full regeneration in the unit tests. See
 [NxN examples and measurements](../examples/solving.md#solve-other-sizes).
 Beginner, CFOP, optimal search and lessons still support 3×3 only.
-`solving_db.go` remains an unwired historical experiment. All 131 database
-entries carry inverse-to-solved verification patterns; 15 raw rows are quarantined.
+`solving_db.go` remains an unwired historical experiment. All 108 database
+entries carry inverse-to-solved verification patterns; 44 raw rows are quarantined.
 Shorter big-cube solutions, dimensions above 7, stronger deep optimal search and human usability work remain
 future milestones.
 

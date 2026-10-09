@@ -41,6 +41,9 @@ func TestDocumentedDatabaseCountsMatchImportReport(t *testing.T) {
 			`Algorithm DB: \*\*(\d+) unique entries`:                         {total},
 			`(\d+)/(\d+) CSV rows accepted, (\d+) merged, (\d+) quarantined`: {report.Imported, report.Rows, report.Merged, report.Quarantined},
 		}},
+		{"docs/solvers.md", map[string][]int{
+			`All (\d+) database\s+entries carry inverse-to-solved verification patterns; (\d+) raw rows are quarantined`: {total, report.Quarantined},
+		}},
 	} {
 		data, err := os.ReadFile(filepath.Join(root, document.name))
 		if err != nil {
