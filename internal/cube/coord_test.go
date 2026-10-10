@@ -256,3 +256,21 @@ func TestToCubieStateNonThree(t *testing.T) {
 		}
 	}
 }
+
+// TestCubieIsSolvedDetectsEachComponent checks that IsSolved rejects a solved
+// state once any one of the four arrays is perturbed.
+func TestCubieIsSolvedDetectsEachComponent(t *testing.T) {
+	cases := map[string]func(*CubieState){
+		"corner permutation": func(c *CubieState) { c.CP[0], c.CP[1] = c.CP[1], c.CP[0] },
+		"corner orientation": func(c *CubieState) { c.CO[3] = (c.CO[3] + 1) % 3 },
+		"edge permutation":   func(c *CubieState) { c.EP[0], c.EP[1] = c.EP[1], c.EP[0] },
+		"edge orientation":   func(c *CubieState) { c.EO[5] ^= 1 },
+	}
+	for name, mutate := range cases {
+		c := SolvedCubieState()
+		mutate(&c)
+		if c.IsSolved() {
+			t.Errorf("IsSolved() = true after perturbing the %s", name)
+		}
+	}
+}
