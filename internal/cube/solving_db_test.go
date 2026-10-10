@@ -432,8 +432,6 @@ func TestPinMalformedPatternPanics(t *testing.T) {
 		pat.Matches(NewCube(3))
 	}()
 	if recovered == nil {
-		t.Logf("PIN: malformed pattern did NOT panic — Matches silently tolerated an inconsistent face")
-	} else {
-		t.Logf("PIN CONFIRMED: malformed pattern panicked (%v); a robust size guard would return false", recovered)
+		t.Error("Matches did not panic on a malformed pattern; if a size guard was added, flip this pin to expect false")
 	}
 }
