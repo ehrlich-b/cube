@@ -213,7 +213,12 @@ func breadthFirstSearch(startCube *cube.Cube, isTarget func(*cube.Cube) bool, ma
 			}
 			visited[cubeStr] = true
 
-			newMoves := append(current.moves, move)
+			// Copy before append: current.moves may have spare capacity from an
+			// earlier append, so a bare append would write into a backing array
+			// shared by sibling states and corrupt their recorded solutions.
+			newMoves := make([]cube.Move, len(current.moves), len(current.moves)+1)
+			copy(newMoves, current.moves)
+			newMoves = append(newMoves, move)
 
 			if isTarget(newCube) {
 				// Found a solution
